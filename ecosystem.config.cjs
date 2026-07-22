@@ -1,0 +1,41 @@
+module.exports = {
+  apps: [
+    {
+      name: 'boke-backend',
+      cwd: './backend',
+      script: 'dist/app.js',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '500M',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3001,
+        BACKEND_HOST: '127.0.0.1',
+      },
+      error_file: '../logs/backend-error.log',
+      out_file: '../logs/backend-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+    },
+    {
+      name: 'boke-frontend',
+      cwd: './frontend-astro',
+      script: 'dist/server/entry.mjs',
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '500M',
+      env: {
+        NODE_ENV: 'production',
+        HOST: '0.0.0.0',
+        PORT: 3000,
+        API_BASE_INTERNAL: 'http://127.0.0.1:3001',
+      },
+      error_file: '../logs/frontend-error.log',
+      out_file: '../logs/frontend-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true,
+    },
+  ],
+}

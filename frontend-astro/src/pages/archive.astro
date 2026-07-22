@@ -1,0 +1,67 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import BaseCard from '@components/BaseCard.astro'
+import { formatDate, getArticles } from '@/lib/api'
+
+const category = Astro.url.searchParams.get('category') || ''
+const { articles } = await getArticles({ page: 1, pageSize: 100, ...(category ? { category } : {}) })
+const grouped = articles.reduce<Record<string, typeof articles>>((acc, post) => {
+  const year = new Date(post.published_at || post.created_at).getFullYear().toString()
+  acc[year] ||= []
+  acc[year].push(post)
+  return acc
+}, {})
+const yearEntries = Object.entries(grouped).sort(([a], [b]) => Number(b) - Number(a))
+const totalYears = yearEntries.length
+---
+
+<BaseLayout
+  title="归档"
+  subtitle={category ? `分类：${category}` : '按时间回看所有文章'}
+  sidebarProps={{
+    statItems: [
+      { label: '文章', value: articles.length },
+      { label: '年份', value: totalYears },
+      { label: '当前', value: category || '全部' },
+    ],
+    sidebarSections: [
+      {
+        title: '归档视图',
+        marker: '▣',
+        tone: 'primary',
+        items: yearEntries.map(([year, posts]) => ({
+          label: year,
+          href: `#archive-year-${year}`,
+          value: posts.length,
+        })),
+      },
+    ],
+  }}
+>
+  <BaseCard>
+    {category && (
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/10 p-4">
+        <span class="font-bold text-primary">当前分类：{category}</span>
+        <a class="btn btn-sm btn-ghost rounded-xl" href="/archive">查看全部</a>
+      </div>
+    )}
+    <div class="space-y-8">
+      {yearEntries.map(([year, posts]) => (
+        <section id={`archive-year-${year}`} class="scroll-mt-28">
+          <a class="mb-4 inline-flex text-2xl font-black text-primary transition hover:text-secondary" href={`#archive-year-${year}`}>{year}</a>
+          <div class="space-y-3">
+            {posts.map((post) => (
+              <a href={`/article/${post.slug}`} class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-base-100/60 p-4 transition hover:bg-primary/10">
+                <span class="font-bold">{post.title}</span>
+                <span class="text-sm text-base-content/50">{formatDate(post.published_at || post.created_at)}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ))}
+      {articles.length === 0 && (
+        <p class="rounded-2xl bg-base-100/60 p-6 text-center text-base-content/50">还没有符合条件的文章。</p>
+      )}
+    </div>
+  </BaseCard>
+</BaseLayout>

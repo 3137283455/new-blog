@@ -1,0 +1,207 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { getAlbums, formatDate } from '../lib/api'
+import { resolveUploadUrl, uploadBase } from '../lib/media'
+
+const albums = await getAlbums()
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+const resolveMedia = (src?: string) => resolveUploadUrl(src || '')
+const photoCount = albums.reduce((sum, album) => sum + (album.photos?.length || 0), 0)
+const locationCount = new Set(albums.map((album) => album.location).filter(Boolean)).size
+const rotations = [-10, 7, -4, 10, -7, 4]
+const locationItems = Array.from(new Set(albums.map((album) => album.location).filter(Boolean)))
+  .slice(0, 12)
+  .map((location) => ({
+    label: location as string,
+    value: albums.filter((album) => album.location === location).length,
+  }))
+const yearItems = Array.from(new Set(albums.map((album) => album.event_date ? new Date(album.event_date).getFullYear().toString() : '').filter(Boolean)))
+  .slice(0, 12)
+  .map((year) => ({
+    label: year,
+    value: albums.filter((album) => album.event_date && new Date(album.event_date).getFullYear().toString() === year).length,
+  }))
+---
+
+<BaseLayout
+  title="相册"
+  subtitle="记录生活里的画面和回忆"
+  sidebarProps={{
+    statItems: [
+      { label: '相册', value: albums.length },
+      { label: '照片', value: photoCount },
+      { label: '地点', value: locationCount },
+    ],
+    sidebarSections: [
+      { title: '拍摄地点', marker: '⌕', tone: 'primary', items: locationItems },
+      { title: '时间归档', marker: '●', tone: 'secondary', items: yearItems },
+    ],
+  }}
+>
+  <section class="feature-toolbar ryu-card" data-api-base={apiBase} data-upload-base={uploadBase}>
+    <input id="album-filter" class="input input-bordered rounded-xl" type="search" placeholder="搜索相册、描述、地点、日期..." />
+  </section>
+
+  <section id="album-grid" class="album-grid">
+    {albums.map((album) => {
+      const previewPhotos = album.photos?.slice(0, 6) || []
+      const fallbackCover = album.cover ? [{ image: album.cover, title: album.title }] : []
+      const photos = previewPhotos.length ? previewPhotos : fallbackCover
+      return (
+        <a
+          class="album-card ryu-card"
+          href={`/albums/${album.id}`}
+          data-search={`${album.title} ${album.description || ''} ${album.location || ''} ${album.event_date || ''}`.toLowerCase()}
+        >
+          <div class="album-body">
+            <div class="album-title-row">
+              <h2>{album.icon || ''} {album.title}</h2>
+              <span>{album.photos?.length || 0} 张</span>
+            </div>
+            <p>{album.description || '暂无描述'}</p>
+            <div class="album-meta">
+              <span>{album.event_date ? formatDate(album.event_date) : '未标注日期'}</span>
+              <span>{album.location || '未标注地点'}</span>
+            </div>
+          </div>
+          <div class="album-polaroid-stage">
+            {photos.length > 0 ? (
+              photos.map((photo, index) => (
+                <span
+                  class="album-polaroid"
+                  style={`--i:${index};--rotate:${rotations[index] || 0}deg;--x:${(index - (photos.length - 1) / 2) * 2.05}rem;--y:${index % 2 === 0 ? 0.35 : 1.15}rem`}
+                >
+                  <img src={resolveMedia(photo.image)} alt={photo.title || album.title} loading="lazy" />
+                </span>
+              ))
+            ) : (
+              <span class="album-empty-thumb">暂无照片</span>
+            )}
+          </div>
+        </a>
+      )
+    })}
+  </section>
+
+  <div id="album-empty" class={`empty-feature ryu-card ${albums.length ? 'hidden' : ''}`}>
+    <strong>还没有相册</strong>
+    <span>去后台“内容中心”里的相册栏目创建相册并上传照片。</span>
+  </div>
+
+  <script>
+    type AlbumPhoto = { title?: string; image?: string }
+    type AlbumItem = {
+      id?: number
+      title?: string
+      description?: string
+      cover?: string
+      event_date?: string
+      location?: string
+      icon?: string
+      is_active?: number | boolean
+      photos?: AlbumPhoto[]
+    }
+
+    const toolbar = document.querySelector<HTMLElement>('.feature-toolbar')
+    const input = document.getElementById('album-filter') as HTMLInputElement | null
+    const grid = document.getElementById('album-grid')
+    const empty = document.getElementById('album-empty')
+    const apiBase = toolbar?.dataset.apiBase || '/api'
+    const uploadBase = toolbar?.dataset.uploadBase || ''
+    const rotations = [-10, 7, -4, 10, -7, 4]
+
+    function escapeHtml(value?: string) {
+      const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
+      return String(value || '').replace(/[&<>"']/g, (char) => map[char] || char)
+    }
+
+    function resolveMedia(src?: string) {
+      if (!src) return ''
+      if (src.startsWith('/uploads/')) return `${uploadBase}${src}`
+      return src
+    }
+
+    function formatDateValue(value?: string) {
+      if (!value) return '未标注日期'
+      return new Date(value).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+    }
+
+    function renderPhoto(photo: AlbumPhoto, album: AlbumItem, index: number, count: number) {
+      const rotate = rotations[index] || 0
+      const x = (index - (count - 1) / 2) * 2.05
+      const y = index % 2 === 0 ? 0.35 : 1.15
+      return `
+        <span class="album-polaroid" style="--i:${index};--rotate:${rotate}deg;--x:${x}rem;--y:${y}rem">
+          <img src="${escapeHtml(resolveMedia(photo.image))}" alt="${escapeHtml(photo.title || album.title || '相册照片')}" loading="lazy" />
+        </span>
+      `
+    }
+
+    function renderAlbum(album: AlbumItem) {
+      const title = album.title || '未命名相册'
+      const photos = album.photos?.slice(0, 6) || []
+      const fallbackCover = album.cover ? [{ image: album.cover, title }] : []
+      const previewPhotos = photos.length ? photos : fallbackCover
+      const search = `${title} ${album.description || ''} ${album.location || ''} ${album.event_date || ''}`.toLowerCase()
+      const photoStage = previewPhotos.length
+        ? previewPhotos.map((photo, index) => renderPhoto(photo, album, index, previewPhotos.length)).join('')
+        : '<span class="album-empty-thumb">暂无照片</span>'
+
+      return `
+        <a class="album-card ryu-card" href="/albums/${album.id}" data-search="${escapeHtml(search)}">
+          <div class="album-body">
+            <div class="album-title-row">
+              <h2>${escapeHtml(`${album.icon || ''} ${title}`.trim())}</h2>
+              <span>${album.photos?.length || 0} 张</span>
+            </div>
+            <p>${escapeHtml(album.description || '暂无描述')}</p>
+            <div class="album-meta">
+              <span>${escapeHtml(formatDateValue(album.event_date))}</span>
+              <span>${escapeHtml(album.location || '未标注地点')}</span>
+            </div>
+          </div>
+          <div class="album-polaroid-stage">${photoStage}</div>
+        </a>
+      `
+    }
+
+    function getCards() {
+      return Array.from(document.querySelectorAll<HTMLElement>('.album-card'))
+    }
+
+    function filterAlbums() {
+      const keyword = input?.value.trim().toLowerCase() || ''
+      let visibleCount = 0
+      getCards().forEach((card) => {
+        const visible = !keyword || (card.dataset.search || '').includes(keyword)
+        card.style.display = visible ? '' : 'none'
+        if (visible) visibleCount += 1
+      })
+      empty?.classList.toggle('hidden', visibleCount > 0)
+    }
+
+    function showEmptyMessage(title: string, message: string) {
+      if (!empty) return
+      empty.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span>`
+      empty.classList.remove('hidden')
+    }
+
+    async function refreshAlbums() {
+      try {
+        const response = await fetch(`${apiBase}/albums`, { cache: 'no-store' })
+        if (!response.ok) throw new Error('相册接口读取失败')
+        if (!grid) return
+        const json = await response.json()
+        const albums = ((json.data || []) as AlbumItem[]).filter((album) => album && album.title && album.is_active !== 0 && album.is_active !== false)
+        grid.innerHTML = albums.map(renderAlbum).join('')
+      } catch {
+        if (!getCards().length) showEmptyMessage('相册数据读取失败', '请确认后端 API 已启动，并且后台“内容中心 / 相册”里相册已启用。')
+      } finally {
+        filterAlbums()
+      }
+    }
+
+    input?.addEventListener('input', filterAlbums)
+    refreshAlbums()
+  </script>
+</BaseLayout>

@@ -1,0 +1,20 @@
+---
+import { getMusicTracks, getPublicSettings } from '../lib/api'
+
+const tracks = await getMusicTracks()
+const settings = await getPublicSettings()
+const fallbackTracks = Array.isArray(settings.music_playlist) ? settings.music_playlist : []
+const target = tracks.length || fallbackTracks.length ? '/music/0' : '/'
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content={`0;url=${target}`} />
+    <title>音乐</title>
+  </head>
+  <body>
+    <a href={target}>进入音乐页</a>
+  </body>
+</html>

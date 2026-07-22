@@ -1,0 +1,3563 @@
+---
+import '../styles/global.scss'
+
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+---
+
+<!doctype html>
+<html lang="zh-CN" data-theme="boke-green" data-theme-type="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="博客后台管理系统" />
+    <title>后台管理 - 个人博客</title>
+    <script is:inline>
+      const themeTypes = { 'boke-night': 'dark', 'boke-punk': 'dark', 'boke-green': 'light' };
+      const storedTheme = localStorage.getItem('theme') || 'boke-green';
+      document.documentElement.setAttribute('data-theme', storedTheme);
+      document.documentElement.setAttribute('data-theme-type', themeTypes[storedTheme] || 'light');
+    </script>
+  </head>
+  <body class="admin-body min-h-screen text-base-content">
+    <div class="site-bg-grid"></div>
+    <section class="admin-shell" data-api-base={apiBase}>
+    <aside class="admin-sidebar">
+      <div>
+        <p class="text-xs font-black uppercase text-primary">Control Panel</p>
+        <h1 class="mt-2 text-3xl font-black leading-tight">后台管理</h1>
+        <p class="mt-2 text-sm text-base-content/55">由 Express API 与 SQLite 提供数据能力。</p>
+      </div>
+      <nav class="mt-8 grid gap-2">
+        <button class="admin-nav is-active" data-panel="dashboard">概览</button>
+        <button class="admin-nav" data-panel="articles">内容中心</button>
+        <button class="admin-nav" data-panel="media">媒体库</button>
+        <button class="admin-nav" data-panel="fonts">字体库</button>
+        <button class="admin-nav" data-panel="appearance">主题外观</button>
+        <button class="admin-nav" data-panel="backup">备份导出</button>
+        <button class="admin-nav" data-panel="settings">设置</button>
+      </nav>
+      <div class="mt-auto rounded-2xl bg-base-100/65 p-4 text-sm text-base-content/60">
+        <p class="font-bold text-base-content">接口地址</p>
+        <code id="api-base-label" class="mt-2 block break-all text-xs"></code>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <div class="admin-topbar">
+        <div>
+          <p class="text-sm text-base-content/50">当前状态</p>
+          <h2 id="admin-status" class="text-xl font-black">正在连接后端...</h2>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <a class="ryu-btn-ghost btn-sm" href="/">返回前台</a>
+          <button id="refresh-admin" class="ryu-btn btn-sm">刷新数据</button>
+          <button id="logout-admin" class="ryu-btn btn-sm hidden">退出登录</button>
+        </div>
+      </div>
+      <p id="admin-notice" class="admin-notice" role="status" aria-live="polite"></p>
+
+      <section id="login-panel" class="admin-panel">
+        <div class="mx-auto max-w-md">
+          <div class="ryu-card p-6">
+            <h2 class="text-2xl font-black">登录后台</h2>
+            <p class="mt-2 text-sm text-base-content/55">默认种子账号为 admin / admin123，可在后端种子数据中修改。</p>
+            <form id="login-form" class="mt-6 grid gap-4">
+              <label class="form-control">
+                <span class="label-text">用户名</span>
+                <input class="input input-bordered rounded-xl" name="username" autocomplete="username" placeholder="admin" required />
+              </label>
+              <label class="form-control">
+                <span class="label-text">密码</span>
+                <input class="input input-bordered rounded-xl" name="password" type="password" autocomplete="current-password" placeholder="admin123" required />
+              </label>
+              <button class="ryu-btn-primary" type="submit">登录并连接 API</button>
+              <p id="login-message" class="min-h-6 text-sm text-error"></p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="dashboard-panel" class="admin-panel hidden">
+        <div class="admin-stats-grid">
+          {[
+            ['已发布', 'totalPosts'],
+            ['草稿', 'draftPosts'],
+            ['评论', 'totalComments'],
+            ['阅读', 'totalViews'],
+            ['分类', 'totalCategories'],
+            ['媒体', 'totalMedia'],
+            ['媒体回收站', 'trashedMedia'],
+          ].map(([label, key]) => (
+            <article class="ryu-card p-5">
+              <p class="text-sm text-base-content/50">{label}</p>
+              <strong class="mt-2 block text-3xl" data-stat={key}>-</strong>
+            </article>
+          ))}
+        </div>
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+          <div class="ryu-card p-5">
+            <h3 class="font-black">最近发布</h3>
+            <div id="recent-posts" class="mt-4 grid gap-3 text-sm"></div>
+          </div>
+          <div class="ryu-card p-5">
+            <h3 class="font-black">系统提示</h3>
+            <div id="admin-alerts" class="mt-4 grid gap-3 text-sm"></div>
+          </div>
+        </div>
+        <div class="admin-dashboard-grid mt-4">
+          <div class="ryu-card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-black">访问趋势</h3>
+              <span class="text-xs text-base-content/45">近 30 天</span>
+            </div>
+            <div id="visit-chart" class="admin-bar-chart mt-4"></div>
+          </div>
+          <div class="ryu-card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-black">发布趋势</h3>
+              <span class="text-xs text-base-content/45">近 30 天</span>
+            </div>
+            <div id="publish-chart" class="admin-bar-chart mt-4"></div>
+          </div>
+          <div class="ryu-card p-5">
+            <h3 class="font-black">分类分布</h3>
+            <div id="category-chart" class="admin-rank-chart mt-4"></div>
+          </div>
+          <div class="ryu-card p-5">
+            <h3 class="font-black">热门文章</h3>
+            <div id="popular-posts" class="mt-4 grid gap-3 text-sm"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="articles-panel" class="admin-panel hidden">
+        <div class="ryu-card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-black">文章管理</h2>
+              <p class="text-sm text-base-content/50">读取与写入后端 SQLite 文章表。</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <select id="status-filter" class="select select-bordered select-sm rounded-xl">
+                <option value="">全部状态</option>
+                <option value="published">已发布</option>
+                <option value="draft">草稿</option>
+              </select>
+              <label class="label cursor-pointer justify-start gap-2 rounded-xl bg-base-100/60 px-3 py-1">
+                <input id="trash-filter" class="checkbox checkbox-sm" type="checkbox" />
+                回收站
+              </label>
+              <button id="batch-delete" class="ryu-btn btn-sm">批量删除</button>
+              <a id="new-article" class="ryu-btn-primary btn-sm" href="/admin/write">新建文章</a>
+            </div>
+          </div>
+          <div class="mt-5 overflow-x-auto">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th><input id="select-all-articles" class="checkbox checkbox-sm" type="checkbox" /></th>
+                  <th>标题</th>
+                  <th>状态</th>
+                  <th>分类</th>
+                  <th>阅读</th>
+                  <th>更新时间</th>
+                  <th class="text-right">操作</th>
+                </tr>
+              </thead>
+              <tbody id="articles-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="editor-panel" class="admin-panel hidden">
+        <form id="article-form" class="ryu-card grid gap-5 p-5">
+          <input type="hidden" name="id" />
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="editor-title" class="text-2xl font-black">新建文章</h2>
+              <p class="text-sm text-base-content/50">Markdown 内容会由后端渲染为 HTML 并写入数据库。</p>
+            </div>
+            <div class="flex gap-2">
+              <button class="ryu-btn btn-sm" type="button" id="reset-editor">清空</button>
+              <button class="ryu-btn-primary btn-sm" type="submit">保存文章</button>
+            </div>
+          </div>
+          <label class="form-control">
+            <span class="label-text">标题</span>
+            <input class="input input-bordered rounded-xl" name="title" required />
+          </label>
+          <div class="grid gap-4 lg:grid-cols-3">
+            <label class="form-control">
+              <span class="label-text">状态</span>
+              <select class="select select-bordered rounded-xl" name="status">
+                <option value="draft">草稿</option>
+                <option value="published">发布</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text">可见性</span>
+              <select class="select select-bordered rounded-xl" name="visibility">
+                <option value="public">公开</option>
+                <option value="private">私密</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text">分类</span>
+              <select id="category-select" class="select select-bordered rounded-xl" name="category_id">
+                <option value="">无分类</option>
+              </select>
+            </label>
+          </div>
+          <label class="form-control">
+            <span class="label-text">标签</span>
+            <select id="tag-select" class="select select-bordered min-h-28 rounded-xl" name="tag_ids" multiple></select>
+          </label>
+          <div class="ryu-card grid gap-4 p-4">
+            <div>
+              <h3 class="text-lg font-black">文章字体</h3>
+              <p class="text-sm text-base-content/50">从独立字体库选择标题和正文；字体导入请到侧边栏「字体库」。</p>
+            </div>
+            <div class="grid gap-3 lg:grid-cols-2">
+              <label class="form-control">
+                <span class="label-text">标题字体</span>
+                <select id="title-font-select" class="select select-bordered rounded-xl" name="title_font_key"></select>
+              </label>
+              <label class="form-control">
+                <span class="label-text">正文字体</span>
+                <select id="body-font-select" class="select select-bordered rounded-xl" name="body_font_key"></select>
+              </label>
+            </div>
+          </div>
+          <div class="grid gap-4 lg:grid-cols-2">
+            <label class="form-control">
+              <span class="label-text">摘要</span>
+              <textarea class="textarea textarea-bordered min-h-28 rounded-xl" name="excerpt"></textarea>
+            </label>
+            <label class="form-control">
+              <span class="label-text">封面图地址</span>
+              <div class="join w-full">
+                <input class="input join-item input-bordered w-full rounded-l-xl" name="cover_image" placeholder="/image1.webp 或 /uploads/..." />
+                <button class="btn join-item" type="button" data-pick-media data-target-form="article-form" data-target-field="cover_image" data-media-type="image">选择</button>
+                <label class="btn join-item rounded-r-xl">
+                  上传
+                  <input id="cover-upload" class="hidden" type="file" accept="image/*" />
+                </label>
+              </div>
+              <div id="cover-preview" class="mt-3 hidden overflow-hidden rounded-xl border border-base-content/10 bg-base-200"></div>
+              <div class="mt-3 flex gap-4">
+                <label class="label cursor-pointer justify-start gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="is_pinned" />置顶</label>
+                <label class="label cursor-pointer justify-start gap-2"><input class="checkbox checkbox-sm" type="checkbox" name="is_recommended" />推荐</label>
+              </div>
+            </label>
+          </div>
+          <label class="form-control">
+            <span class="label-text">正文 Markdown</span>
+            <div class="my-2 flex flex-wrap gap-2" id="markdown-toolbar">
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="heading">标题</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="bold">加粗</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="quote">引用</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="code">代码块</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="table">表格</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="image">图片</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="math">公式</button>
+              <button class="btn btn-xs rounded-lg" type="button" data-md-insert="footnote">脚注</button>
+            </div>
+            <textarea class="textarea textarea-bordered min-h-[22rem] rounded-xl font-mono text-sm" name="content" required></textarea>
+          </label>
+          <p id="editor-message" class="min-h-6 text-sm"></p>
+        </form>
+      </section>
+
+      <section id="media-panel" class="admin-panel hidden">
+        <div class="ryu-card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-black">媒体资源</h2>
+              <p class="text-sm text-base-content/50">本地存储，支持图片、音频、视频和常用文件。</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <select id="media-type-filter" class="select select-bordered select-sm rounded-xl">
+                <option value="">全部文件</option>
+                <option value="image">图片</option>
+                <option value="audio">音频</option>
+                <option value="video">视频</option>
+                <option value="font">字体</option>
+              </select>
+              <button id="media-normal-mode" class="ryu-btn btn-sm" type="button">媒体库</button>
+              <button id="media-trash-mode" class="ryu-btn btn-sm" type="button">回收站</button>
+              <label class="ryu-btn-primary btn-sm">
+                上传文件
+                <input id="media-upload" class="hidden" type="file" multiple />
+              </label>
+              <button id="cleanup-media" class="ryu-btn btn-sm">清理冗余</button>
+              <button id="empty-media-trash" class="ryu-btn btn-sm hidden" type="button">清空未引用</button>
+            </div>
+          </div>
+          <div id="media-message" class="mt-3 min-h-6 text-sm"></div>
+          <div id="media-grid" class="admin-media-grid mt-5"></div>
+        </div>
+      </section>
+
+      <section id="fonts-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+          <form id="font-library-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">字体库</h2>
+              <p class="text-sm text-base-content/50">统一上传和维护字体文件，写作页和文章编辑只负责选择字体。</p>
+            </div>
+            <label class="form-control">
+              <span class="label-text">字体名称</span>
+              <input class="input input-bordered rounded-xl" id="font-name-input" placeholder="例如：霞鹜文楷 / 思源宋体" />
+            </label>
+            <label class="form-control">
+              <span class="label-text">字体文件</span>
+              <div class="join w-full">
+                <input class="input join-item input-bordered w-full rounded-l-xl" id="font-url-input" placeholder="/uploads/... 或 https://..." />
+                <label class="btn join-item rounded-r-xl">上传<input id="font-file-upload" class="hidden" type="file" accept=".woff,.woff2,.ttf,.otf,.eot,font/*" /></label>
+              </div>
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <button id="add-font-library" class="ryu-btn-primary" type="button">加入字体库</button>
+              <button id="save-font-library" class="ryu-btn" type="button">保存字体库</button>
+            </div>
+            <p id="font-library-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xl font-black">已导入字体</h3>
+                <p class="text-sm text-base-content/50">可在媒体库筛选“字体”，把已上传字体加入这里；删除后记得保存字体库。</p>
+              </div>
+            </div>
+            <div id="font-library-list" class="mt-5 grid gap-3 text-sm"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="backup-panel" class="admin-panel hidden">
+        <div class="ryu-card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-black">备份与恢复</h2>
+              <p class="text-sm text-base-content/50">导出或恢复 SQLite 数据库和文章数据。媒体文件仍保存在 uploads 目录。</p>
+            </div>
+            <button id="refresh-backup-manifest" class="ryu-btn btn-sm" type="button">刷新清单</button>
+          </div>
+          <div class="mt-5 grid gap-4 md:grid-cols-3">
+            <button class="ryu-btn-primary min-h-24 flex-col" type="button" data-download-backup="database">
+              <strong>数据库备份</strong>
+              <span class="text-xs opacity-75">下载 .db 文件</span>
+            </button>
+            <button class="ryu-btn min-h-24 flex-col" type="button" data-download-backup="articles">
+              <strong>文章导出</strong>
+              <span class="text-xs opacity-75">Markdown JSON</span>
+            </button>
+            <button class="ryu-btn min-h-24 flex-col" type="button" data-download-backup="manifest">
+              <strong>备份清单</strong>
+              <span class="text-xs opacity-75">设置和数量</span>
+            </button>
+          </div>
+          <div class="mt-6 border-t border-base-content/10 pt-5">
+            <div>
+              <h3 class="text-lg font-black">导入恢复</h3>
+              <p class="text-sm text-base-content/50">数据库恢复会替换业务数据并自动保留恢复前快照；文章导入按 slug 新建或更新。</p>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
+              <label class="flex min-h-24 cursor-pointer items-center justify-between gap-4 rounded-2xl border border-error/20 bg-error/5 p-4 transition hover:border-error/40">
+                <span>
+                  <strong class="block">恢复数据库</strong>
+                  <span class="text-xs text-base-content/55">选择 .db / .sqlite 文件</span>
+                </span>
+                <span class="ryu-btn btn-sm">选择文件</span>
+                <input id="database-import-input" class="hidden" type="file" accept=".db,.sqlite,.sqlite3,application/x-sqlite3" />
+              </label>
+              <label class="flex min-h-24 cursor-pointer items-center justify-between gap-4 rounded-2xl border border-base-content/10 bg-base-200/45 p-4 transition hover:border-primary/35">
+                <span>
+                  <strong class="block">导入文章</strong>
+                  <span class="text-xs text-base-content/55">选择文章导出的 JSON 文件</span>
+                </span>
+                <span class="ryu-btn btn-sm">选择文件</span>
+                <input id="articles-import-input" class="hidden" type="file" accept=".json,application/json" />
+              </label>
+            </div>
+            <p class="mt-3 text-xs text-warning">恢复数据库不会自动补回已从磁盘永久删除的媒体文件，请同时保留 uploads 目录。</p>
+          </div>
+          <p id="backup-message" class="mt-4 min-h-6 text-sm"></p>
+          <pre id="backup-manifest" class="mt-4 max-h-96 overflow-auto rounded-2xl bg-base-200/70 p-4 text-xs"></pre>
+        </div>
+      </section>
+
+      <section id="music-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+          <form id="music-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">音乐组件</h2>
+              <p class="text-sm text-base-content/50">上传音乐和封面，保存为全站播放列表。</p>
+            </div>
+            <label class="form-control">
+              <span class="label-text">歌曲名</span>
+              <input class="input input-bordered rounded-xl" name="title" required />
+            </label>
+            <label class="form-control">
+              <span class="label-text">歌手</span>
+              <input class="input input-bordered rounded-xl" name="artist" placeholder="未知歌手" />
+            </label>
+            <label class="form-control">
+              <span class="label-text">音乐地址</span>
+              <input class="input input-bordered rounded-xl mb-3" name="playlist" placeholder="合集 / 歌单名，默认歌单" />
+              <div class="join w-full">
+                <input class="input join-item input-bordered w-full rounded-l-xl" name="url" placeholder="/uploads/..." required />
+                <button class="btn join-item" type="button" data-pick-media data-target-form="music-form" data-target-field="url" data-media-type="audio">选择</button>
+                <label class="btn join-item rounded-r-xl">
+                  上传
+                  <input id="music-audio-upload" class="hidden" type="file" accept="audio/*" />
+                </label>
+              </div>
+            </label>
+            <label class="form-control">
+              <span class="label-text">封面地址</span>
+              <div class="join w-full">
+                <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="/uploads/..." />
+                <button class="btn join-item" type="button" data-pick-media data-target-form="music-form" data-target-field="cover" data-media-type="image">选择</button>
+                <label class="btn join-item rounded-r-xl">
+                  上传
+                  <input id="music-cover-upload" class="hidden" type="file" accept="image/*" />
+                </label>
+              </div>
+            </label>
+            <label class="form-control">
+              <span class="label-text">歌词</span>
+              <textarea class="textarea textarea-bordered min-h-36 rounded-xl" name="lyrics" placeholder="支持逐行歌词，也可以粘贴 LRC 文本"></textarea>
+            </label>
+            <button class="ryu-btn-primary" type="submit">添加到播放列表</button>
+            <p id="music-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-xl font-black">歌单管理</h3>
+              <button class="ryu-btn btn-sm" type="button" id="reset-music-playlist">新建歌单</button>
+            </div>
+            <form id="music-playlist-form" class="mt-4 grid gap-3">
+              <input type="hidden" name="id" />
+              <input class="input input-bordered rounded-xl" name="name" placeholder="歌单名称" required />
+              <input class="input input-bordered rounded-xl" name="description" placeholder="歌单描述" />
+              <div class="join w-full">
+                <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="歌单封面 /uploads/..." />
+                <button class="btn join-item" type="button" data-pick-media data-target-form="music-playlist-form" data-target-field="cover" data-media-type="image">选择</button>
+              </div>
+              <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+                <input class="input input-bordered rounded-xl" name="sort_order" type="number" placeholder="排序" />
+                <label class="label cursor-pointer justify-start gap-2 rounded-xl bg-base-100/60 px-3">
+                  <input class="checkbox checkbox-sm" name="is_active" type="checkbox" checked />
+                  启用
+                </label>
+              </div>
+              <button class="ryu-btn-primary" type="submit">保存歌单</button>
+              <p id="music-playlist-message" class="min-h-6 text-sm"></p>
+            </form>
+            <div id="music-playlist-list" class="mt-4 grid gap-2"></div>
+          </div>
+          <div class="ryu-card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="text-xl font-black">播放列表</h3>
+              <button id="save-music" class="ryu-btn-primary btn-sm">保存配置</button>
+            </div>
+            <div class="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
+              <select id="music-playlist-filter" class="select select-bordered rounded-xl">
+                <option value="">全部歌单</option>
+              </select>
+              <span id="music-summary" class="inline-flex items-center rounded-xl bg-base-200/70 px-3 text-sm text-base-content/60">0 首歌</span>
+            </div>
+            <div id="music-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="taxonomy-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <div class="ryu-card p-5">
+            <h2 class="text-xl font-black">分类</h2>
+            <form id="category-form" class="mt-4 flex gap-2">
+              <input class="input input-bordered rounded-xl" name="name" maxlength="40" placeholder="分类名称" required />
+              <button class="ryu-btn-primary" type="submit">添加</button>
+            </form>
+            <p id="category-message" class="mt-2 min-h-5 text-sm"></p>
+            <div id="category-list" class="mt-4 flex flex-wrap gap-2"></div>
+          </div>
+          <div class="ryu-card p-5">
+            <h2 class="text-xl font-black">标签</h2>
+            <form id="tag-form" class="mt-4 flex gap-2">
+              <input class="input input-bordered rounded-xl" name="name" maxlength="40" placeholder="标签名称" required />
+              <button class="ryu-btn-primary" type="submit">添加</button>
+            </form>
+            <p id="tag-message" class="mt-2 min-h-5 text-sm"></p>
+            <div id="tag-list" class="mt-4 flex flex-wrap gap-2"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="pages-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+          <form id="page-form" class="ryu-card grid gap-4 p-5">
+            <input type="hidden" name="id" />
+            <div>
+              <h2 id="page-editor-title" class="text-2xl font-black">新建独立页面</h2>
+              <p class="text-sm text-base-content/50">可创建关于我、留言板、项目展示、免责声明等页面。</p>
+            </div>
+            <label class="form-control">
+              <span class="label-text">标题</span>
+              <input class="input input-bordered rounded-xl" name="title" required />
+            </label>
+            <label class="form-control">
+              <span class="label-text">模板</span>
+              <select class="select select-bordered rounded-xl" name="template">
+                <option value="default">空白页面</option>
+                <option value="about">关于我</option>
+                <option value="guestbook">留言板</option>
+                <option value="projects">项目展示</option>
+                <option value="disclaimer">免责声明</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text">状态</span>
+              <select class="select select-bordered rounded-xl" name="status">
+                <option value="published">发布</option>
+                <option value="draft">草稿</option>
+              </select>
+            </label>
+            <label class="form-control">
+              <span class="label-text">Markdown 内容</span>
+              <textarea class="textarea textarea-bordered min-h-64 rounded-xl font-mono text-sm" name="content"></textarea>
+            </label>
+            <div class="flex gap-2">
+              <button class="ryu-btn-primary" type="submit">保存页面</button>
+              <button id="reset-page" class="ryu-btn" type="button">清空</button>
+            </div>
+            <p id="page-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="text-xl font-black">页面列表</h3>
+              <div class="flex gap-2">
+                <button id="pages-normal-mode" class="ryu-btn btn-sm" type="button">页面</button>
+                <button id="pages-trash-mode" class="ryu-btn btn-sm" type="button">回收站</button>
+              </div>
+            </div>
+            <div id="pages-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="comments-panel" class="admin-panel hidden">
+        <div class="ryu-card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-2xl font-black">评论管理</h2>
+              <p class="text-sm text-base-content/50">审核、标记垃圾评论或删除评论。</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="comment-status-filter" class="select select-bordered select-sm rounded-xl">
+                <option value="">全部评论</option>
+                <option value="pending">待审核</option>
+                <option value="approved">已通过</option>
+                <option value="spam">垃圾评论</option>
+              </select>
+              <button id="comment-select-all" class="ryu-btn btn-sm" type="button">全选</button>
+              <button class="ryu-btn btn-sm" type="button" data-comment-batch-status="approved">批量通过</button>
+              <button class="ryu-btn btn-sm" type="button" data-comment-batch-status="spam">批量垃圾</button>
+              <button id="comment-batch-delete" class="ryu-btn btn-sm btn-error" type="button">批量删除</button>
+            </div>
+          </div>
+          <div id="comments-list" class="mt-5 grid gap-3"></div>
+        </div>
+      </section>
+
+      <section id="appearance-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <form id="theme-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">安装主题</h2>
+              <p class="text-sm text-base-content/50">当前支持颜色主题一键安装、预览和切换。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="id" placeholder="主题 ID，如 ocean-soft" required />
+            <input class="input input-bordered rounded-xl" name="name" placeholder="主题名称" required />
+            <input class="input input-bordered rounded-xl" name="primary" type="color" value="#3b82f6" required />
+            <input class="input input-bordered rounded-xl" name="author" placeholder="作者" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="description" placeholder="主题描述"></textarea>
+            <button class="ryu-btn-primary" type="submit">安装主题</button>
+            <p id="theme-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <h3 class="text-xl font-black">主题列表</h3>
+            <div id="themes-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="plugins-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <form id="plugin-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">安装插件</h2>
+              <p class="text-sm text-base-content/50">支持自定义插件登记、启用和停用。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="id" placeholder="插件 ID，如 reading-progress" required />
+            <input class="input input-bordered rounded-xl" name="name" placeholder="插件名称" required />
+            <textarea class="textarea textarea-bordered rounded-xl" name="description" placeholder="插件描述"></textarea>
+            <button class="ryu-btn-primary" type="submit">安装插件</button>
+            <p id="plugin-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <h3 class="text-xl font-black">插件列表</h3>
+            <div id="plugins-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <form id="account-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">后台账号</h2>
+              <p class="text-sm text-base-content/50">修改后台登录账号的昵称、头像和密码。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="nickname" maxlength="60" placeholder="后台昵称" />
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="avatar" maxlength="500" placeholder="后台头像地址 /uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="account-form" data-target-field="avatar" data-media-type="image">选择</button>
+            </div>
+            <input class="input input-bordered rounded-xl" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="新密码，留空不修改" />
+            <button class="ryu-btn-primary" type="submit">保存后台账号</button>
+            <p id="account-message" class="min-h-6 text-sm"></p>
+          </form>
+          <form id="profile-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">前台资料卡</h2>
+              <p class="text-sm text-base-content/50">修改首页左侧资料卡的头像、标题和简介。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="profile_name" placeholder="资料卡标题，例如：个人博客" />
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="profile_avatar" placeholder="头像地址 /uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="profile-form" data-target-field="profile_avatar" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">
+                上传
+                <input id="avatar-upload" class="hidden" type="file" accept="image/*" />
+              </label>
+            </div>
+            <textarea class="textarea textarea-bordered rounded-xl" name="profile_bio" placeholder="资料卡简介"></textarea>
+            <button class="ryu-btn-primary" type="submit">保存资料卡</button>
+            <p id="profile-message" class="min-h-6 text-sm"></p>
+          </form>
+          <form id="site-settings-form" class="ryu-card grid gap-4 p-5 lg:col-span-2">
+            <div>
+              <h2 class="text-2xl font-black">站点设置</h2>
+              <p class="text-sm text-base-content/50">站点标题、描述、评论、字体和基础行为。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="site_title" placeholder="站点标题" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="site_description" placeholder="站点描述"></textarea>
+            <label class="form-control">
+              <span class="label-text">首页 Banner 轮播图</span>
+              <textarea class="textarea textarea-bordered min-h-32 rounded-xl" name="banner_images" placeholder="一行一个图片地址，例如 /home.webp 或 /uploads/..."></textarea>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <button class="ryu-btn btn-sm" type="button" data-pick-media data-target-form="site-settings-form" data-target-field="banner_images" data-media-type="image" data-append-media="true">选择已有图</button>
+                <label class="ryu-btn btn-sm">
+                  上传并追加
+                  <input id="banner-upload" class="hidden" type="file" accept="image/*" multiple />
+                </label>
+                <span class="text-xs text-base-content/45">留空时默认使用 /home.webp</span>
+              </div>
+            </label>
+            <input class="input input-bordered rounded-xl" name="posts_per_page" type="number" min="1" placeholder="每页文章数" />
+            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="enable_comments" type="checkbox" />启用评论</label>
+            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="comment_moderation" type="checkbox" />评论需要审核</label>
+            <button class="ryu-btn-primary" type="submit">保存站点设置</button>
+            <p id="settings-message" class="min-h-6 text-sm"></p>
+          </form>
+        </div>
+      </section>
+      <section id="navigation-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <form id="navigation-form" class="ryu-card grid gap-4 p-5">
+            <input type="hidden" name="id" />
+            <div>
+              <h2 class="text-2xl font-black">导航管理</h2>
+              <p class="text-sm text-base-content/50">管理前台「导航」页面的分类资源卡。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="title" maxlength="80" placeholder="标题" required />
+            <input class="input input-bordered rounded-xl" name="url" maxlength="500" placeholder="链接地址" required />
+            <input class="input input-bordered rounded-xl" name="category" maxlength="40" placeholder="分类，如 工具 / 设计 / 站点" />
+            <input class="input input-bordered rounded-xl" name="icon" maxlength="40" placeholder="图标字符，如 ◎ / ☆ / GitHub" />
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="avatar" maxlength="500" placeholder="图片地址 /uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="navigation-form" data-target-field="avatar" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="navigation-avatar-upload" class="hidden" type="file" accept="image/*" /></label>
+            </div>
+            <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="description" maxlength="300" placeholder="描述"></textarea>
+            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="is_active" type="checkbox" checked />前台显示</label>
+            <div class="flex gap-2">
+              <button class="ryu-btn-primary" type="submit">保存导航</button>
+              <button class="ryu-btn" type="button" data-reset-extra="navigation">清空</button>
+            </div>
+            <p id="navigation-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <h3 class="text-xl font-black">导航列表</h3>
+            <div id="navigation-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="bangumi-panel" class="admin-panel hidden">
+        <div class="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <form id="bangumi-form" class="ryu-card grid gap-4 p-5">
+            <input type="hidden" name="id" />
+            <div>
+              <h2 class="text-2xl font-black">追番管理</h2>
+              <p class="text-sm text-base-content/50">管理前台「追番」页面的番剧海报、进度和评分。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="番剧标题" required />
+            <input class="input input-bordered rounded-xl" name="original_title" maxlength="100" placeholder="原名 / 别名" />
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" maxlength="500" placeholder="封面地址 /uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="bangumi-form" data-target-field="cover" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="bangumi-cover-upload" class="hidden" type="file" accept="image/*" /></label>
+            </div>
+            <input class="input input-bordered rounded-xl" name="url" maxlength="500" placeholder="详情链接" />
+            <div class="grid gap-3 md:grid-cols-3">
+              <select class="select select-bordered rounded-xl" name="status">
+                <option value="watching">追番中</option>
+                <option value="done">已看完</option>
+                <option value="plan">想看</option>
+                <option value="paused">搁置</option>
+              </select>
+              <input class="input input-bordered rounded-xl" name="progress" maxlength="60" placeholder="进度，如 8/12" />
+              <input class="input input-bordered rounded-xl" name="rating" type="number" min="0" max="10" step="0.1" placeholder="评分" />
+            </div>
+            <input class="input input-bordered rounded-xl" name="season" maxlength="60" placeholder="季度，如 2026 春" />
+            <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="summary" maxlength="500" placeholder="简介"></textarea>
+            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="is_active" type="checkbox" checked />前台显示</label>
+            <div class="flex gap-2">
+              <button class="ryu-btn-primary" type="submit">保存追番</button>
+              <button class="ryu-btn" type="button" data-reset-extra="bangumi">清空</button>
+            </div>
+            <p id="bangumi-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <h3 class="text-xl font-black">追番列表</h3>
+            <div id="bangumi-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="albums-panel" class="admin-panel hidden">
+        <div class="grid gap-4 xl:grid-cols-[0.8fr_0.8fr_1.2fr]">
+          <form id="album-form" class="ryu-card grid gap-4 p-5">
+            <input type="hidden" name="id" />
+            <div>
+              <h2 class="text-2xl font-black">相册管理</h2>
+              <p class="text-sm text-base-content/50">创建相册，管理封面、日期、地点。</p>
+            </div>
+            <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="相册标题" required />
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" maxlength="500" placeholder="封面地址 /uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="album-form" data-target-field="cover" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="album-cover-upload" class="hidden" type="file" accept="image/*" /></label>
+            </div>
+            <input class="input input-bordered rounded-xl" name="event_date" type="date" />
+            <input class="input input-bordered rounded-xl" name="location" maxlength="120" placeholder="地点" />
+            <input class="input input-bordered rounded-xl" name="icon" maxlength="40" placeholder="图标字符" />
+            <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="description" maxlength="500" placeholder="相册描述"></textarea>
+            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="is_active" type="checkbox" checked />前台显示</label>
+            <div class="flex gap-2">
+              <button class="ryu-btn-primary" type="submit">保存相册</button>
+              <button class="ryu-btn" type="button" data-reset-extra="album">清空</button>
+            </div>
+            <p id="album-message" class="min-h-6 text-sm"></p>
+          </form>
+          <form id="album-photo-form" class="ryu-card grid gap-4 p-5">
+            <div>
+              <h2 class="text-2xl font-black">添加照片</h2>
+              <p class="text-sm text-base-content/50">上传图片后挂到指定相册。</p>
+            </div>
+            <select class="select select-bordered rounded-xl" name="album_id" required></select>
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="image" maxlength="500" placeholder="图片地址 /uploads/..." required />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="album-photo-form" data-target-field="image" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="album-photo-upload" class="hidden" type="file" accept="image/*" /></label>
+            </div>
+            <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="照片标题" />
+            <select class="select select-bordered rounded-xl" name="variant">
+              <option value="1x1">方图</option>
+              <option value="4x3">横图 4:3</option>
+              <option value="3x4">竖图 3:4</option>
+              <option value="16x9">宽图 16:9</option>
+            </select>
+            <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="description" maxlength="500" placeholder="照片描述"></textarea>
+            <button class="ryu-btn-primary" type="submit">添加照片</button>
+            <p id="album-photo-message" class="min-h-6 text-sm"></p>
+          </form>
+          <div class="ryu-card p-5">
+            <h3 class="text-xl font-black">相册列表</h3>
+            <div id="albums-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+    </section>
+
+    <dialog id="media-picker-dialog" class="admin-media-picker">
+      <div class="admin-media-picker-panel">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="text-xl font-black">选择媒体资源</h3>
+            <p id="media-picker-hint" class="text-sm text-base-content/50">从媒体库选择已上传文件。</p>
+          </div>
+          <button id="close-media-picker" class="btn btn-sm rounded-xl" type="button">关闭</button>
+        </div>
+        <div class="mt-4 grid gap-3 md:grid-cols-[1fr_10rem]">
+          <input id="media-picker-search" class="input input-bordered rounded-xl" type="search" placeholder="搜索文件名、路径、类型..." />
+          <select id="media-picker-type" class="select select-bordered rounded-xl">
+            <option value="">全部类型</option>
+            <option value="image">图片</option>
+            <option value="audio">音频</option>
+            <option value="video">视频</option>
+          </select>
+        </div>
+        <div id="media-picker-grid" class="admin-media-picker-grid mt-4"></div>
+      </div>
+    </dialog>
+
+    <script is:inline>
+    const root = document.querySelector('.admin-shell');
+    const API_BASE = root?.dataset.apiBase || '/api';
+    const tokenKey = 'boke_admin_token';
+    const state = {
+      token: localStorage.getItem(tokenKey) || '',
+      articles: [],
+      categories: [],
+      tags: [],
+      media: [],
+      mediaTrashMode: false,
+      music: [],
+      musicPlaylists: [],
+      comments: [],
+      pages: [],
+      pagesTrashMode: false,
+      themes: [],
+      plugins: [],
+      settings: {},
+      fontLibrary: [],
+      user: null,
+      stats: null,
+      charts: null,
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+    $('#api-base-label').textContent = API_BASE;
+
+    function setStatus(text) {
+      $('#admin-status').textContent = text;
+    }
+
+    function notify(message, error = false) {
+      const el = $('#admin-notice');
+      if (!el) return;
+      el.textContent = message || '';
+      el.classList.toggle('is-visible', !!message);
+      el.classList.toggle('is-error', !!error);
+    }
+    window.notifyAdmin = notify;
+
+    const contentPanels = ['articles', 'navigation', 'bangumi', 'albums', 'music'];
+    const settingsPanels = ['settings', 'taxonomy', 'comments', 'plugins'];
+    const navPanelMap = {
+      navigation: 'articles',
+      bangumi: 'articles',
+      albums: 'articles',
+      music: 'articles',
+      taxonomy: 'settings',
+      comments: 'settings',
+      plugins: 'settings',
+    };
+    const contentLabels = {
+      articles: '文章',
+      navigation: '导航',
+      bangumi: '追番',
+      albums: '相册',
+      music: '音乐',
+    };
+    const settingsLabels = {
+      settings: '站点设置',
+      taxonomy: '分类标签',
+      comments: '评论',
+      plugins: '插件',
+    };
+
+    function ensurePanelTabs() {
+      [
+        { panels: contentPanels, labels: contentLabels, className: 'content-tabs' },
+        { panels: settingsPanels, labels: settingsLabels, className: 'settings-tabs' },
+      ].forEach((group) => {
+        group.panels.forEach((panel) => {
+          const target = $(`#${panel}-panel`);
+          if (!target || target.querySelector(`.${group.className}`)) return;
+          const tabs = document.createElement('div');
+          tabs.className = `admin-subnav ${group.className}`;
+          tabs.innerHTML = group.panels.map((item) => (
+            `<button type="button" data-panel-tab="${item}">${group.labels[item]}</button>`
+          )).join('');
+          target.prepend(tabs);
+        });
+      });
+    }
+
+    function syncPanelTabs(panel) {
+      $$('[data-panel-tab]').forEach((button) => {
+        button.classList.toggle('is-active', button.dataset.panelTab === panel);
+      });
+    }
+
+    function switchPanel(panel) {
+      ensurePanelTabs();
+      $$('.admin-panel').forEach((el) => el.classList.add('hidden'));
+      $(`#${panel}-panel`)?.classList.remove('hidden');
+      const activeNav = navPanelMap[panel] || panel;
+      $$('.admin-nav').forEach((el) => el.classList.toggle('is-active', el.dataset.panel === activeNav));
+      syncPanelTabs(panel);
+    }
+
+    async function request(path, options = {}) {
+      const isFormData = options.body instanceof FormData;
+      const headers = {
+        ...(options.headers || {}),
+      };
+      if (!isFormData) headers['Content-Type'] = 'application/json';
+      if (state.token) headers.Authorization = `Bearer ${state.token}`;
+      let res;
+      try {
+        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      } catch {
+        throw new Error(`无法连接后端 API（${API_BASE}），请确认 Express 服务已启动`);
+      }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        const err = new Error(json.message || `接口请求失败（HTTP ${res.status}）`);
+        err.status = res.status;
+        err.code = json.code || '';
+        throw err;
+      }
+      return json;
+    }
+
+    function friendlyLoginError(error) {
+      const status = Number(error?.status || 0);
+      const message = String(error?.message || '');
+      if (/无法连接后端 API/.test(message) || /Failed to fetch|NetworkError/i.test(message)) {
+        return `无法连接后端 API：${API_BASE}。请确认后端 3001 已启动。`;
+      }
+      if (status === 404) return `登录接口不存在：${API_BASE}/auth/login。请检查 API 地址。`;
+      if (status === 401 || /用户名或密码错误|AUTH/i.test(message)) return '用户名或密码错误，请确认当前后台账号。';
+      if (status === 403) return '当前账号没有后台权限。';
+      if (status >= 500) return `后端登录接口异常：${message}`;
+      return message || '登录失败，请稍后重试。';
+    }
+
+    async function uploadFile(file) {
+      const body = new FormData();
+      body.append('file', file);
+      const json = await request('/admin/media/upload', {
+        method: 'POST',
+        body,
+      });
+      return {
+        ...json.data,
+        url: json.data?.url || `/uploads/${json.data?.path}`,
+      };
+    }
+
+    async function login(username, password) {
+      const json = await request('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+      state.token = json.data.token;
+      localStorage.setItem(tokenKey, state.token);
+      $('#logout-admin').classList.remove('hidden');
+      return json.data.user;
+    }
+
+    async function loadTaxonomy() {
+      const [catRes, tagRes] = await Promise.all([
+        request('/categories'),
+        request('/tags'),
+      ]);
+      state.categories = catRes.data || [];
+      state.tags = tagRes.data || [];
+      renderTaxonomy();
+    }
+
+    async function loadDashboard() {
+      const [statsResult, chartsResult] = await Promise.allSettled([
+        request('/admin/dashboard/stats'),
+        request('/admin/dashboard/charts'),
+      ]);
+      if (statsResult.status === 'fulfilled') {
+        state.stats = statsResult.value.data || {};
+      }
+      if (chartsResult.status === 'fulfilled') {
+        state.charts = chartsResult.value.data || {};
+      }
+      renderDashboard();
+    }
+
+    async function loadArticles() {
+      const status = $('#status-filter').value;
+      const trashed = $('#trash-filter')?.checked;
+      const qs = new URLSearchParams({ page: '1', pageSize: '30' });
+      if (status) qs.set('status', status);
+      if (trashed) qs.set('trashed', 'true');
+      const json = await request(`/admin/articles?${qs.toString()}`);
+      state.articles = json.data || [];
+      renderArticles();
+    }
+
+    async function loadMedia() {
+      const type = $('#media-type-filter')?.value || '';
+      const qs = new URLSearchParams({ page: '1', pageSize: '80' });
+      if (type) qs.set('type', type);
+      if (state.mediaTrashMode) qs.set('trashed', 'true');
+      const json = await request(`/admin/media?${qs.toString()}`);
+      state.media = json.data || [];
+      renderMedia();
+    }
+
+    async function loadSettings() {
+      const json = await request('/admin/settings');
+      const rows = json.data || [];
+      const musicRow = rows.find((item) => item.key === 'music_playlist');
+      state.music = parseSetting(musicRow) || [];
+      state.settings = Object.fromEntries(rows.map((item) => [item.key, parseSetting(item)]));
+      state.fontLibrary = Array.isArray(state.settings.font_library) ? state.settings.font_library : [];
+      try {
+        const musicJson = await request('/admin/music');
+        if (Array.isArray(musicJson.data) && musicJson.data.length) {
+          state.music = musicJson.data;
+        }
+        const playlistJson = await request('/admin/music/playlists');
+        state.musicPlaylists = playlistJson.data || [];
+      } catch (error) {
+        console.warn(error);
+      }
+      renderMusic();
+      renderMusicPlaylists();
+      renderFontLibrary();
+      renderSettings();
+      renderProfile();
+    }
+
+    async function loadMe() {
+      const json = await request('/auth/me');
+      state.user = json.data;
+      renderAccount();
+    }
+
+    async function loadPages() {
+      const qs = new URLSearchParams();
+      if (state.pagesTrashMode) qs.set('trashed', 'true');
+      const json = await request(`/admin/pages${qs.toString() ? `?${qs.toString()}` : ''}`);
+      state.pages = json.data || [];
+      renderPages();
+    }
+
+    async function loadComments() {
+      const status = $('#comment-status-filter')?.value || '';
+      const qs = new URLSearchParams({ page: '1', pageSize: '50' });
+      if (status) qs.set('status', status);
+      const json = await request(`/admin/comments?${qs.toString()}`);
+      state.comments = json.data || [];
+      renderComments();
+    }
+
+    async function loadThemes() {
+      const json = await request('/admin/themes');
+      state.themes = json.data || [];
+      renderThemes();
+    }
+
+    async function loadPlugins() {
+      const json = await request('/admin/plugins');
+      state.plugins = json.data || [];
+      renderPlugins();
+    }
+
+    async function loadAll() {
+      if (!state.token) {
+        setStatus('请先登录后台');
+        switchPanel('login');
+        return;
+      }
+      try {
+        setStatus('正在读取 Express API...');
+        await loadMe();
+        $('#logout-admin').classList.remove('hidden');
+      } catch (error) {
+        localStorage.removeItem(tokenKey);
+        state.token = '';
+        $('#logout-admin').classList.add('hidden');
+        setStatus('连接失败，请重新登录');
+        $('#login-message').textContent = error.message;
+        switchPanel('login');
+        return;
+      }
+
+      const modules = [
+        { label: '分类标签', load: loadTaxonomy },
+        { label: '仪表盘', load: loadDashboard },
+        { label: '文章', load: loadArticles },
+        { label: '媒体库', load: loadMedia },
+        { label: '设置', load: loadSettings },
+        { label: '独立页面', load: loadPages },
+        { label: '评论', load: loadComments },
+        { label: '主题', load: loadThemes },
+        { label: '插件', load: loadPlugins },
+      ];
+      const results = await Promise.allSettled(modules.map((module) => module.load()));
+      const failed = results
+        .map((result, index) => result.status === 'rejected' ? modules[index].label : '')
+        .filter(Boolean);
+      if (failed.length) {
+        setStatus(`已连接后端 API，部分模块加载失败：${failed.join('、')}`);
+        notify(`部分模块加载失败：${failed.join('、')}`, true);
+      } else {
+        setStatus('已连接后端 API');
+      }
+      switchPanel('dashboard');
+    }
+
+    function renderDashboard() {
+      const stats = state.stats || {};
+      const charts = state.charts || {};
+      $$('[data-stat]').forEach((el) => {
+        el.textContent = Number(stats[el.dataset.stat] || 0).toLocaleString('zh-CN');
+      });
+      $('#recent-posts').innerHTML = (stats.recentPosts || []).map((post) => `
+        <div class="flex items-center justify-between rounded-xl bg-base-100/60 p-3">
+          <span class="font-semibold">${escapeHtml(post.title)}</span>
+          <span class="text-base-content/45">${post.view_count || 0} 阅读</span>
+        </div>
+      `).join('') || '<p class="text-base-content/45">暂无发布文章</p>';
+      $('#admin-alerts').innerHTML = (stats.anomalies || []).map((item) => `
+        <div class="admin-alert is-${escapeHtml(item.level || 'info')}">${escapeHtml(item.message)}</div>
+      `).join('') || '<p class="text-base-content/45">系统运行正常</p>';
+      $('#popular-posts').innerHTML = (stats.popularPosts || []).map((post, index) => `
+        <a class="admin-rank-row" href="/article/${encodeURIComponent(post.slug || '')}" target="_blank" rel="noreferrer">
+          <span class="admin-rank-index">${index + 1}</span>
+          <span class="min-w-0 flex-1 truncate font-semibold">${escapeHtml(post.title)}</span>
+          <span class="text-base-content/45">${Number(post.view_count || 0).toLocaleString('zh-CN')} 阅读</span>
+        </a>
+      `).join('') || '<p class="text-base-content/45">暂无热门文章</p>';
+      renderBarChart('#visit-chart', charts.visitTrend || [], 'count');
+      renderBarChart('#publish-chart', charts.publishingTrend || [], 'count');
+      renderRankChart('#category-chart', charts.categoryDistribution || []);
+    }
+
+    function renderBarChart(selector, rows, valueKey = 'count') {
+      const el = $(selector);
+      if (!el) return;
+      const data = Array.isArray(rows) ? rows.slice(-30) : [];
+      const max = Math.max(1, ...data.map((item) => Number(item[valueKey] || 0)));
+      el.innerHTML = data.length ? data.map((item) => {
+        const value = Number(item[valueKey] || 0);
+        const height = Math.max(6, Math.round((value / max) * 100));
+        return `
+          <span class="admin-bar" title="${escapeHtml(item.date || '')}：${value}">
+            <i style="height:${height}%"></i>
+          </span>
+        `;
+      }).join('') : '<p class="text-sm text-base-content/45">暂无趋势数据</p>';
+    }
+
+    function renderRankChart(selector, rows) {
+      const el = $(selector);
+      if (!el) return;
+      const data = (Array.isArray(rows) ? rows : []).filter((item) => item.name).slice(0, 8);
+      const max = Math.max(1, ...data.map((item) => Number(item.count || 0)));
+      el.innerHTML = data.length ? data.map((item) => {
+        const value = Number(item.count || 0);
+        const width = Math.max(5, Math.round((value / max) * 100));
+        return `
+          <div class="admin-rank-meter">
+            <div class="flex items-center justify-between gap-3 text-sm">
+              <span class="truncate font-semibold">${escapeHtml(item.name)}</span>
+              <span class="text-base-content/45">${value}</span>
+            </div>
+            <span><i style="width:${width}%"></i></span>
+          </div>
+        `;
+      }).join('') : '<p class="text-sm text-base-content/45">暂无分类数据</p>';
+    }
+
+    function renderArticles() {
+      const trashed = $('#trash-filter')?.checked;
+      const batchButton = $('#batch-delete');
+      if (batchButton) {
+        batchButton.textContent = trashed ? '批量永久删除' : '批量删除';
+        batchButton.classList.toggle('btn-error', !!trashed);
+      }
+      $('#articles-table').innerHTML = state.articles.map((post) => `
+        <tr>
+          <td><input class="checkbox checkbox-sm article-check" type="checkbox" value="${post.id}" /></td>
+          <td>
+            <div class="font-black">${escapeHtml(post.title)}</div>
+            <div class="text-xs text-base-content/45">${escapeHtml(post.slug || '')}</div>
+          </td>
+          <td><span class="badge ${post.status === 'published' ? 'badge-primary' : 'badge-ghost'}">${post.status === 'published' ? '已发布' : '草稿'}</span></td>
+          <td>${escapeHtml(post.category_name || '未分类')}</td>
+          <td>${post.view_count || 0}</td>
+          <td>${formatDate(post.updated_at || post.created_at)}</td>
+          <td>
+            <div class="flex justify-end gap-2">
+              ${trashed ? `
+                <button class="btn btn-xs rounded-lg" data-restore="${post.id}">恢复</button>
+                <button class="btn btn-xs btn-error rounded-lg" data-force-delete="${post.id}">永久删除</button>
+              ` : `
+                <a class="btn btn-xs rounded-lg" href="/admin/write?id=${post.id}">编辑</a>
+                <button class="btn btn-xs btn-error rounded-lg" data-delete="${post.id}">删除</button>
+              `}
+            </div>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="7" class="text-center text-base-content/45">暂无文章</td></tr>';
+    }
+
+    function renderTaxonomy() {
+      $('#category-select').innerHTML = '<option value="">无分类</option>' + state.categories.map((cat) => (
+        `<option value="${cat.id}">${escapeHtml(cat.name)}</option>`
+      )).join('');
+      $('#tag-select').innerHTML = state.tags.map((tag) => (
+        `<option value="${tag.id}">${escapeHtml(tag.name)}</option>`
+      )).join('');
+      $('#category-list').innerHTML = state.categories.map((cat) => `
+        <div class="flex items-center gap-2 rounded-xl bg-base-100/65 p-2">
+          <span class="font-bold">${escapeHtml(cat.name)}</span>
+          <button class="btn btn-xs rounded-lg" data-edit-category="${cat.id}">编辑</button>
+          <button class="btn btn-xs btn-error rounded-lg" data-delete-category="${cat.id}">删除</button>
+        </div>
+      `).join('') || '<p class="text-sm text-base-content/45">暂无分类</p>';
+      $('#tag-list').innerHTML = state.tags.map((tag) => `
+        <div class="flex items-center gap-2 rounded-xl bg-base-100/65 p-2">
+          <span class="font-bold">${escapeHtml(tag.name)}</span>
+          <button class="btn btn-xs rounded-lg" data-edit-tag="${tag.id}">编辑</button>
+          <button class="btn btn-xs btn-error rounded-lg" data-delete-tag="${tag.id}">删除</button>
+        </div>
+      `).join('') || '<p class="text-sm text-base-content/45">暂无标签</p>';
+    }
+
+    function renderMedia() {
+      const grid = $('#media-grid');
+      if (!grid) return;
+      $('#media-normal-mode')?.classList.toggle('btn-primary', !state.mediaTrashMode);
+      $('#media-trash-mode')?.classList.toggle('btn-primary', state.mediaTrashMode);
+      $('#cleanup-media')?.classList.toggle('hidden', state.mediaTrashMode);
+      $('#empty-media-trash')?.classList.toggle('hidden', !state.mediaTrashMode);
+      $('#media-upload')?.closest('label')?.classList.toggle('hidden', state.mediaTrashMode);
+      grid.innerHTML = state.media.map((file) => {
+        const url = file.url || `/uploads/${file.path}`;
+        const isImage = file.mime_type?.startsWith('image/');
+        const isAudio = file.mime_type?.startsWith('audio/');
+        const isFont = isFontMedia(file);
+        const references = Array.isArray(file.references) ? file.references : [];
+        const detailGroups = Array.isArray(file.reference_details) ? file.reference_details : [];
+        const useBadge = file.in_use
+          ? `<span class="badge badge-success badge-sm">使用中</span>`
+          : `<span class="badge badge-ghost badge-sm">未引用</span>`;
+        const referenceText = references.length ? `引用：${references.join('、')}` : '清理冗余时会移入媒体回收站';
+        const detailText = detailGroups
+          .map((group) => `${group.type}：${(group.items || []).map((item) => item.label).join('、')}`)
+          .join('\n');
+        const addFontAction = isFont && !state.mediaTrashMode
+          ? `<button class="btn btn-xs rounded-lg" data-add-font-from-media="${file.id}">加入字体库</button>`
+          : '';
+        const actions = state.mediaTrashMode
+          ? `<button class="btn btn-xs rounded-lg" data-restore-media="${file.id}">恢复</button>
+             <button class="btn btn-xs btn-error rounded-lg" data-force-delete-media="${file.id}" ${file.in_use ? 'disabled title="仍被内容引用，不能永久删除"' : ''}>永久删除</button>`
+          : `<button class="btn btn-xs rounded-lg" data-copy-url="${url}">复制地址</button>
+             ${addFontAction}
+             <button class="btn btn-xs btn-error rounded-lg" data-delete-media="${file.id}">删除</button>`;
+        return `
+          <article class="admin-media-item">
+            <div class="admin-media-preview">
+              ${isImage ? `<img src="${url}" alt="${escapeHtml(file.original_name)}" loading="lazy" />` : ''}
+              ${isAudio ? `<audio src="${url}" controls preload="none"></audio>` : ''}
+              ${!isImage && !isAudio ? `<span class="text-3xl">${isFont ? '字体' : '文件'}</span>` : ''}
+            </div>
+            <div class="min-w-0 p-3">
+              <div class="flex items-center gap-2">
+                <p class="min-w-0 flex-1 truncate font-bold">${escapeHtml(file.original_name)}</p>
+                ${useBadge}
+              </div>
+              <p class="mt-1 text-xs text-base-content/45">${escapeHtml(file.mime_type || '')} · ${formatSize(file.size)}</p>
+              <p class="mt-1 truncate text-xs text-base-content/50" title="${escapeHtml(referenceText)}">${escapeHtml(referenceText)}</p>
+              ${detailText ? `<p class="mt-1 line-clamp-2 text-xs text-base-content/60 whitespace-pre-line" title="${escapeHtml(detailText)}">${escapeHtml(detailText)}</p>` : ''}
+              <div class="mt-3 flex gap-2">
+                ${actions}
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('') || `<p class="text-base-content/45">${state.mediaTrashMode ? '媒体回收站为空' : '暂无媒体文件'}</p>`;
+    }
+
+    function isFontMedia(file) {
+      const value = `${file?.mime_type || ''} ${file?.original_name || ''} ${file?.path || ''}`.toLowerCase();
+      return value.includes('font') || /\.(woff2?|ttf|otf|eot)(\?|$)/i.test(value);
+    }
+
+    function renderMusicPlaylists() {
+      const list = $('#music-playlist-list');
+      if (!list) return;
+      list.innerHTML = (state.musicPlaylists || []).map((playlist) => `
+        <div class="flex flex-wrap items-center gap-3 rounded-2xl bg-base-100/65 p-3">
+          <div class="h-12 w-12 overflow-hidden rounded-xl bg-base-200">
+            ${playlist.cover ? `<img class="h-full w-full object-cover" src="${escapeHtml(playlist.cover)}" alt="" />` : ''}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-black">${escapeHtml(playlist.name)}</p>
+            <p class="text-xs text-base-content/45">${Number(playlist.track_count || 0)} 首歌 · 排序 ${Number(playlist.sort_order || 0)} ${playlist.is_active ? '' : '· 已停用'}</p>
+            ${playlist.description ? `<p class="mt-1 line-clamp-1 text-sm text-base-content/60">${escapeHtml(playlist.description)}</p>` : ''}
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-xs rounded-lg" type="button" data-edit-music-playlist="${playlist.id}">编辑</button>
+            <button class="btn btn-xs btn-error rounded-lg" type="button" data-delete-music-playlist="${playlist.id}">删除</button>
+          </div>
+        </div>
+      `).join('') || '<p class="text-base-content/45">暂无歌单，保存歌曲时会自动创建默认歌单。</p>';
+    }
+
+    function musicPlaylistName(song) {
+      return song.playlist || song.collection || '默认歌单';
+    }
+
+    function renderMusic() {
+      const list = $('#music-list');
+      const filter = $('#music-playlist-filter');
+      const summary = $('#music-summary');
+      if (!list) return;
+      const playlists = Array.from(new Set(state.music.map(musicPlaylistName).filter(Boolean)));
+      const selected = filter?.value || '';
+      if (filter) {
+        const previous = filter.value;
+        filter.innerHTML = '<option value="">全部歌单</option>' + playlists.map((name) => (
+          `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+        )).join('');
+        filter.value = playlists.includes(previous) ? previous : selected;
+      }
+      const datalist = $('#music-playlist-options');
+      if (datalist) {
+        datalist.innerHTML = playlists.map((name) => `<option value="${escapeHtml(name)}"></option>`).join('');
+      }
+      const visibleSongs = state.music
+        .map((song, index) => ({ ...song, index }))
+        .filter((song) => !selected || musicPlaylistName(song) === selected);
+      if (summary) {
+        const playlistCount = state.musicPlaylists?.length || playlists.length;
+        summary.textContent = `${visibleSongs.length} 首歌 / ${playlistCount} 个歌单`;
+      }
+      const batchToolbar = visibleSongs.length ? `
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-content/10 bg-base-100/50 p-3">
+          <p class="text-sm text-base-content/55">勾选歌曲后可批量移除，保存配置后生效</p>
+          <button class="btn btn-sm btn-error rounded-xl" type="button" data-batch-remove-music>批量移除</button>
+        </div>
+      ` : '';
+      list.innerHTML = batchToolbar + visibleSongs.map((song) => `
+        <div class="flex flex-wrap items-center gap-3 rounded-2xl bg-base-100/65 p-3">
+          <input class="checkbox checkbox-sm checkbox-primary shrink-0" type="checkbox" value="${song.index}" data-music-select aria-label="选择 ${escapeHtml(song.title)}" />
+          <div class="h-14 w-14 overflow-hidden rounded-xl bg-base-200">
+            ${song.cover ? `<img class="h-full w-full object-cover" src="${escapeHtml(song.cover)}" alt="" />` : ''}
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-black">${escapeHtml(song.title)}</p>
+            <p class="truncate text-sm text-base-content/50">${escapeHtml(song.artist || '未知歌手')} · ${escapeHtml(musicPlaylistName(song))}</p>
+            <p class="mt-1 text-xs text-base-content/45">${song.lyrics ? '已填写歌词' : '未填写歌词'} · <a class="link" href="/music/${song.index}" target="_blank">详情页</a></p>
+            <audio class="mt-2 w-full" src="${escapeHtml(song.url)}" controls preload="none"></audio>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-xs rounded-lg" data-edit-song="${song.index}">编辑</button>
+            <button class="btn btn-xs rounded-lg" data-move-song="${song.index}" data-direction="up">上移</button>
+            <button class="btn btn-xs rounded-lg" data-move-song="${song.index}" data-direction="down">下移</button>
+            <button class="btn btn-xs btn-error rounded-lg" data-remove-song="${song.index}">移除</button>
+          </div>
+        </div>
+      `).join('') || '<p class="text-base-content/45">暂无音乐，请先上传或填写地址。</p>';
+    }
+
+    function batchRemoveMusic() {
+      const indexes = Array.from(document.querySelectorAll('[data-music-select]:checked'))
+        .map((input) => Number(input.value))
+        .filter(Number.isInteger)
+        .sort((a, b) => b - a);
+      if (!indexes.length) {
+        notify('请先勾选要移除的歌曲', true);
+        return;
+      }
+      if (!window.confirm(`确认从配置中移除 ${indexes.length} 首歌曲吗？保存配置后生效。`)) return;
+      indexes.forEach((index) => state.music.splice(index, 1));
+      renderMusic();
+      $('#music-message').textContent = `已移除 ${indexes.length} 首歌曲，记得保存配置`;
+    }
+
+    function renderProfile() {
+      const form = $('#profile-form');
+      if (!form) return;
+      form.elements.namedItem('profile_name').value = state.settings.profile_name || state.settings.site_title || '个人博客';
+      form.elements.namedItem('profile_avatar').value = state.settings.profile_avatar || '/profile.png';
+      form.elements.namedItem('profile_bio').value = state.settings.profile_bio || state.settings.site_description || '记录技术、生活和长期主义的小站。';
+    }
+
+    function renderAccount() {
+      const form = $('#account-form');
+      if (!form || !state.user) return;
+      form.elements.namedItem('nickname').value = state.user.nickname || state.user.username || '';
+      form.elements.namedItem('avatar').value = state.user.avatar || '';
+      form.elements.namedItem('password').value = '';
+      window.updateAdminFieldPreview?.('account-form', 'avatar');
+    }
+
+    function renderSettings() {
+      const form = $('#site-settings-form');
+      if (!form) return;
+      const fields = form.elements;
+      fields.namedItem('site_title').value = state.settings.site_title || '';
+      fields.namedItem('site_description').value = state.settings.site_description || '';
+      fields.namedItem('banner_images').value = Array.isArray(state.settings.banner_images)
+        ? state.settings.banner_images.join('\n')
+        : String(state.settings.banner_images || '');
+      fields.namedItem('posts_per_page').value = state.settings.posts_per_page || 10;
+      fields.namedItem('enable_comments').checked = state.settings.enable_comments !== false;
+      fields.namedItem('comment_moderation').checked = !!state.settings.comment_moderation;
+    }
+
+    function fontKey(font) {
+      if (!font?.family || !font?.url) return '';
+      return `${font.family}|||${font.url}`;
+    }
+
+    function parseFontSelection(value) {
+      const [family = '', url = ''] = String(value || '').split('|||');
+      return { family, url };
+    }
+
+    function cssString(value = '') {
+      return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ');
+    }
+
+    function cssUrl(value = '') {
+      return String(value).replace(/"/g, '%22').replace(/\n/g, '');
+    }
+
+    function ensureAdminFontStyle(fonts) {
+      let style = $('#admin-font-library-style');
+      if (!style) {
+        style = document.createElement('style');
+        style.id = 'admin-font-library-style';
+        document.head.appendChild(style);
+      }
+      style.textContent = (Array.isArray(fonts) ? fonts : [])
+        .map((font) => {
+          const family = font.family || font.name || '';
+          const url = font.url || '';
+          return family && url ? `@font-face{font-family:"${cssString(family)}";src:url("${cssUrl(url)}");font-display:swap;}` : '';
+        })
+        .filter(Boolean)
+        .join('\n');
+    }
+
+    function renderFontLibrary() {
+      const fonts = Array.isArray(state.fontLibrary) ? state.fontLibrary : [];
+      ensureAdminFontStyle(fonts);
+      const options = ['<option value="">默认字体</option>']
+        .concat(fonts.map((font) => `<option value="${escapeHtml(fontKey(font))}">${escapeHtml(font.family || font.name || '未命名字体')}</option>`))
+        .join('');
+      const titleSelect = $('#title-font-select');
+      const bodySelect = $('#body-font-select');
+      if (titleSelect) titleSelect.innerHTML = options;
+      if (bodySelect) bodySelect.innerHTML = options;
+
+      const list = $('#font-library-list');
+      if (!list) return;
+      list.innerHTML = fonts.map((font, index) => `
+        <article class="admin-font-card">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="truncate text-lg font-black" style="font-family: '${escapeHtml(font.family || font.name)}', sans-serif">${escapeHtml(font.family || font.name || '未命名字体')}</p>
+              <p class="mt-1 truncate text-xs text-base-content/45">${escapeHtml(font.url || '')}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="btn btn-xs rounded-xl" type="button" data-use-title-font="${index}">标题</button>
+              <button class="btn btn-xs rounded-xl" type="button" data-use-body-font="${index}">正文</button>
+              <button class="btn btn-xs rounded-xl" type="button" data-edit-font="${index}">编辑</button>
+              <button class="btn btn-error btn-xs rounded-xl" type="button" data-remove-font="${index}">删除</button>
+            </div>
+          </div>
+          <p class="admin-font-preview" style="font-family: '${escapeHtml(font.family || font.name)}', sans-serif">清风拂过文字，Markdown 也可以有自己的声音。</p>
+        </article>
+      `).join('') || '<span class="text-base-content/45">还没有导入字体，请先上传或填写字体地址。</span>';
+    }
+
+    async function saveFontLibrary() {
+      await request('/admin/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings: { font_library: state.fontLibrary } }),
+      });
+      state.settings.font_library = state.fontLibrary;
+      $('#font-library-message').textContent = '字体库已保存';
+    }
+
+    function addFontEntry(family, url, message = '字体已加入，记得保存字体库') {
+      if (!family || !url) {
+        $('#font-library-message').textContent = '请填写字体名称和字体文件地址';
+        return false;
+      }
+      const fonts = Array.isArray(state.fontLibrary) ? state.fontLibrary : [];
+      const next = fonts.filter((font) => font.family !== family && font.url !== url);
+      next.push({ family, url });
+      state.fontLibrary = next;
+      renderFontLibrary();
+      $('#font-library-message').textContent = message;
+      return true;
+    }
+
+    function addFontToLibrary() {
+      const family = $('#font-name-input')?.value.trim();
+      const url = $('#font-url-input')?.value.trim();
+      if (addFontEntry(family, url)) {
+        $('#font-name-input').value = '';
+        $('#font-url-input').value = '';
+      }
+    }
+
+    function addFontFromMedia(id) {
+      const file = state.media.find((item) => String(item.id) === String(id));
+      if (!file) return;
+      const url = file.url || `/uploads/${file.path}`;
+      const family = String(file.original_name || file.filename || '未命名字体').replace(/\.[^.]+$/, '');
+      addFontEntry(family, url, '已从媒体库加入字体库，记得保存字体库');
+    }
+
+    function editFontEntry(index) {
+      const font = state.fontLibrary[Number(index)];
+      if (!font) return;
+      $('#font-name-input').value = font.family || font.name || '';
+      $('#font-url-input').value = font.url || '';
+      state.fontLibrary.splice(Number(index), 1);
+      renderFontLibrary();
+      $('#font-library-message').textContent = '已载入到左侧表单，修改后点击“加入字体库”，最后保存字体库';
+    }
+
+    function useFontInArticleForm(index, target) {
+      const font = state.fontLibrary[Number(index)];
+      if (!font) return;
+      const select = target === 'title' ? $('#title-font-select') : $('#body-font-select');
+      if (!select) return;
+      select.value = fontKey(font);
+      $('#font-library-message').textContent = `已设为${target === 'title' ? '标题' : '正文'}字体，保存文章后生效`;
+      switchPanel('articles');
+    }
+
+    function renderPages() {
+      const list = $('#pages-list');
+      if (!list) return;
+      $('#pages-normal-mode')?.classList.toggle('btn-primary', !state.pagesTrashMode);
+      $('#pages-trash-mode')?.classList.toggle('btn-primary', state.pagesTrashMode);
+      list.innerHTML = state.pages.map((page) => `
+        <div class="rounded-2xl bg-base-100/65 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="font-black">${escapeHtml(page.title)}</p>
+              <p class="text-xs text-base-content/45">/page/${escapeHtml(page.slug)} · ${escapeHtml(page.template || 'default')} · ${escapeHtml(page.status || 'published')}${page.deleted_at ? ` · 删除于 ${escapeHtml(formatDate(page.deleted_at))}` : ''}</p>
+            </div>
+            <div class="flex gap-2">
+              ${state.pagesTrashMode ? `
+                <button class="btn btn-xs rounded-lg" data-restore-page="${page.id}">恢复</button>
+                <button class="btn btn-xs btn-error rounded-lg" data-force-delete-page="${page.id}">永久删除</button>
+              ` : `
+                <a class="btn btn-xs rounded-lg" href="/page/${escapeHtml(page.slug)}" target="_blank">查看</a>
+                <button class="btn btn-xs rounded-lg" data-edit-page="${page.id}">编辑</button>
+                <button class="btn btn-xs btn-error rounded-lg" data-delete-page="${page.id}">删除</button>
+              `}
+            </div>
+          </div>
+        </div>
+      `).join('') || `<p class="text-base-content/45">${state.pagesTrashMode ? '页面回收站为空' : '暂无自定义页面'}</p>`;
+    }
+
+    function renderComments() {
+      const list = $('#comments-list');
+      if (!list) return;
+      list.innerHTML = state.comments.map((comment) => `
+        <div class="rounded-2xl bg-base-100/65 p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <label class="mt-1 inline-flex items-center">
+              <input class="checkbox checkbox-sm" type="checkbox" data-comment-check="${comment.id}" aria-label="选择评论" />
+            </label>
+            <div class="min-w-0 flex-1">
+              <p class="font-black">${escapeHtml(comment.author_name)} <span class="badge badge-ghost">${escapeHtml(comment.status)}</span></p>
+              <p class="text-xs text-base-content/45">${escapeHtml(comment.article_title || '未知文章')} · ${formatDate(comment.created_at)}</p>
+              <p class="mt-2 text-sm">${escapeHtml(comment.content)}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="btn btn-xs rounded-lg" data-comment-status="${comment.id}" data-status="approved">通过</button>
+              <button class="btn btn-xs rounded-lg" data-comment-status="${comment.id}" data-status="spam">垃圾</button>
+              <button class="btn btn-xs btn-error rounded-lg" data-delete-comment="${comment.id}">删除</button>
+            </div>
+          </div>
+        </div>
+      `).join('') || '<p class="text-base-content/45">暂无评论</p>';
+    }
+
+    function renderThemes() {
+      const list = $('#themes-list');
+      if (!list) return;
+      list.innerHTML = state.themes.map((theme) => `
+        <div class="rounded-2xl bg-base-100/65 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="font-black">${escapeHtml(theme.name)} ${theme.is_active ? '<span class="badge badge-primary">当前</span>' : ''}</p>
+              <p class="text-xs text-base-content/45">${escapeHtml(theme.id)} · ${escapeHtml(theme.author || '')}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button class="btn btn-xs rounded-lg" data-preview-theme="${theme.id}">预览</button>
+              <button class="btn btn-xs rounded-lg" data-activate-theme="${theme.id}">启用</button>
+              ${theme.is_active ? '' : `<button class="btn btn-xs btn-error rounded-lg" data-delete-theme="${theme.id}">删除</button>`}
+            </div>
+          </div>
+        </div>
+      `).join('') || '<p class="text-base-content/45">暂无主题</p>';
+    }
+
+    function renderPlugins() {
+      const list = $('#plugins-list');
+      if (!list) return;
+      list.innerHTML = state.plugins.map((plugin) => `
+        <div class="rounded-2xl bg-base-100/65 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="font-black">${escapeHtml(plugin.name)} <span class="badge ${plugin.is_active ? 'badge-primary' : 'badge-ghost'}">${plugin.is_active ? '已启用' : '已停用'}</span></p>
+              <p class="text-xs text-base-content/45">${escapeHtml(plugin.id)} · ${escapeHtml(plugin.description || '')}</p>
+            </div>
+            <button class="btn btn-xs rounded-lg" data-toggle-plugin="${plugin.id}">${plugin.is_active ? '停用' : '启用'}</button>
+          </div>
+        </div>
+      `).join('') || '<p class="text-base-content/45">暂无插件</p>';
+    }
+
+    async function editArticle(id) {
+      const json = await request(`/admin/articles/${id}`);
+      const post = json.data;
+      const form = $('#article-form');
+      const fields = form.elements;
+      fields.namedItem('id').value = post.id;
+      fields.namedItem('title').value = post.title || '';
+      fields.namedItem('status').value = post.status || 'draft';
+      fields.namedItem('visibility').value = post.visibility || 'public';
+      fields.namedItem('category_id').value = post.category_id || '';
+      fields.namedItem('excerpt').value = post.excerpt || '';
+      fields.namedItem('cover_image').value = post.cover_image || '';
+      updateCoverPreview(post.cover_image || '');
+      fields.namedItem('content').value = post.content || '';
+      fields.namedItem('title_font_key').value = fontKey({ family: post.title_font_family, url: post.title_font_url });
+      fields.namedItem('body_font_key').value = fontKey({ family: post.body_font_family, url: post.body_font_url });
+      fields.namedItem('is_pinned').checked = !!post.is_pinned;
+      fields.namedItem('is_recommended').checked = !!post.is_recommended;
+      const tagIds = new Set((post.tags || []).map((tag) => String(tag.id)));
+      Array.from(fields.namedItem('tag_ids').options).forEach((option) => {
+        option.selected = tagIds.has(option.value);
+      });
+      $('#editor-title').textContent = '编辑文章';
+      $('#editor-message').textContent = '';
+      switchPanel('editor');
+    }
+
+    function resetEditor() {
+      $('#article-form').reset();
+      $('#article-form').elements.namedItem('id').value = '';
+      $('#editor-title').textContent = '新建文章';
+      $('#editor-message').textContent = '';
+      updateCoverPreview('');
+      $('#title-font-select').value = '';
+      $('#body-font-select').value = '';
+      Array.from($('#tag-select').options).forEach((option) => {
+        option.selected = false;
+      });
+    }
+
+    async function saveArticle(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const fields = form.elements;
+      const id = fields.namedItem('id').value;
+      const titleFont = parseFontSelection(fields.namedItem('title_font_key').value);
+      const bodyFont = parseFontSelection(fields.namedItem('body_font_key').value);
+      const payload = {
+        title: fields.namedItem('title').value.trim(),
+        content: fields.namedItem('content').value.trim(),
+        excerpt: fields.namedItem('excerpt').value.trim(),
+        cover_image: fields.namedItem('cover_image').value.trim(),
+        title_font_family: titleFont.family,
+        title_font_url: titleFont.url,
+        body_font_family: bodyFont.family,
+        body_font_url: bodyFont.url,
+        status: fields.namedItem('status').value,
+        visibility: fields.namedItem('visibility').value,
+        category_id: fields.namedItem('category_id').value ? Number(fields.namedItem('category_id').value) : null,
+        tag_ids: Array.from(fields.namedItem('tag_ids').selectedOptions).map((option) => Number(option.value)),
+        is_pinned: fields.namedItem('is_pinned').checked,
+        is_recommended: fields.namedItem('is_recommended').checked,
+      };
+      $('#editor-message').textContent = '正在保存...';
+      try {
+        await request(id ? `/admin/articles/${id}` : '/admin/articles', {
+          method: id ? 'PUT' : 'POST',
+          body: JSON.stringify(payload),
+        });
+        $('#editor-message').textContent = '保存成功';
+        await Promise.all([loadDashboard(), loadArticles()]);
+        switchPanel('articles');
+      } catch (error) {
+        $('#editor-message').textContent = error.message;
+      }
+    }
+
+    async function deleteArticle(id) {
+      if (!confirm('确认把这篇文章移入回收站？')) return;
+      try {
+        await request(`/admin/articles/${id}`, { method: 'DELETE' });
+        await Promise.all([loadDashboard(), loadArticles()]);
+        notify('文章已移入回收站');
+      } catch (error) {
+        notify(error.message || '删除文章失败', true);
+      }
+    }
+
+    async function batchDeleteArticles() {
+      const ids = $$('.article-check:checked').map((input) => Number(input.value));
+      const trashed = $('#trash-filter')?.checked;
+      if (!ids.length) {
+        notify(trashed ? '请先勾选要永久删除的文章' : '请先勾选要移动到回收站的文章', true);
+        return;
+      }
+      if (!confirm(trashed ? `确认永久删除 ${ids.length} 篇文章？此操作不可恢复。` : `确认把 ${ids.length} 篇文章移入回收站？`)) return;
+      try {
+        if (trashed) {
+          for (const id of ids) {
+            await request(`/admin/articles/${id}/force`, { method: 'DELETE' });
+          }
+        } else {
+          await request('/admin/articles/batch-delete', {
+            method: 'POST',
+            body: JSON.stringify({ ids }),
+          });
+        }
+        $('#select-all-articles').checked = false;
+        await Promise.all([loadDashboard(), loadArticles()]);
+        notify(trashed ? `已永久删除 ${ids.length} 篇文章` : `已将 ${ids.length} 篇文章移入回收站`);
+      } catch (error) {
+        notify(error.message || (trashed ? '批量永久删除失败' : '批量删除失败'), true);
+      }
+    }
+
+    async function restoreArticle(id) {
+      try {
+        await request(`/admin/articles/${id}/restore`, { method: 'PUT' });
+        await Promise.all([loadDashboard(), loadArticles()]);
+        notify('文章已恢复');
+      } catch (error) {
+        notify(error.message || '恢复文章失败', true);
+      }
+    }
+
+    async function forceDeleteArticle(id) {
+      if (!confirm('确认永久删除这篇文章？此操作不可恢复。')) return;
+      try {
+        await request(`/admin/articles/${id}/force`, { method: 'DELETE' });
+        await Promise.all([loadDashboard(), loadArticles()]);
+        notify('文章已永久删除');
+      } catch (error) {
+        notify(error.message || '永久删除文章失败', true);
+      }
+    }
+
+    async function createCategory(event) {
+      event.preventDefault();
+      const input = event.currentTarget.elements.namedItem('name');
+      const message = $('#category-message');
+      message.textContent = '';
+      try {
+        await request('/admin/categories', {
+          method: 'POST',
+          body: JSON.stringify({ name: input.value.trim() }),
+        });
+        input.value = '';
+        await loadTaxonomy();
+        message.textContent = '分类已添加';
+        notify('分类已添加');
+      } catch (error) {
+        message.textContent = error.message || '分类添加失败';
+        notify(error.message || '分类添加失败', true);
+      }
+    }
+
+    async function createTag(event) {
+      event.preventDefault();
+      const input = event.currentTarget.elements.namedItem('name');
+      const message = $('#tag-message');
+      message.textContent = '';
+      try {
+        await request('/admin/tags', {
+          method: 'POST',
+          body: JSON.stringify({ name: input.value.trim() }),
+        });
+        input.value = '';
+        await loadTaxonomy();
+        message.textContent = '标签已添加';
+        notify('标签已添加');
+      } catch (error) {
+        message.textContent = error.message || '标签添加失败';
+        notify(error.message || '标签添加失败', true);
+      }
+    }
+
+    async function uploadCover(file) {
+      $('#editor-message').textContent = '正在上传封面...';
+      try {
+        const media = await uploadFile(file);
+        $('#article-form').elements.namedItem('cover_image').value = media.url;
+        window.updateAdminFieldPreview?.('article-form', 'cover_image');
+        updateCoverPreview(media.url);
+        $('#editor-message').textContent = '封面上传成功';
+        await loadMedia();
+      } catch (error) {
+        $('#editor-message').textContent = error.message;
+      }
+    }
+
+    function updateCoverPreview(url) {
+      const preview = $('#cover-preview');
+      if (!preview) return;
+      if (!url) {
+        preview.classList.add('hidden');
+        preview.innerHTML = '';
+        return;
+      }
+      preview.classList.remove('hidden');
+      preview.innerHTML = `<img class="h-40 w-full object-cover" src="${escapeHtml(url)}" alt="封面预览" />`;
+    }
+
+    function insertMarkdown(kind) {
+      const textarea = $('#article-form')?.elements.namedItem('content');
+      if (!textarea) return;
+      const snippets = {
+        heading: { before: '\n## ', text: '小标题', after: '\n' },
+        bold: { before: '**', text: '重点文字', after: '**' },
+        quote: { before: '\n> ', text: '引用内容', after: '\n' },
+        code: { before: '\n```js\n', text: 'console.log(\"Hello\")', after: '\n```\n' },
+        table: { before: '\n| 列一 | 列二 |\n| --- | --- |\n| ', text: '内容', after: ' | 内容 |\n' },
+        image: { before: '\n![', text: '图片描述', after: '](/uploads/image.png)\n' },
+        math: { before: '\n$$\n', text: 'E = mc^2', after: '\n$$\n' },
+        footnote: { before: '', text: '需要说明的文字[^1]\n\n[^1]: 脚注内容', after: '' },
+      };
+      const item = snippets[kind];
+      if (!item) return;
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || start;
+      const selected = textarea.value.slice(start, end) || item.text;
+      textarea.setRangeText(`${item.before}${selected}${item.after}`, start, end, 'end');
+      textarea.focus();
+      $('#editor-message').textContent = '已插入 Markdown 片段';
+    }
+
+    async function uploadMediaFiles(files) {
+      if (!files.length) return;
+      $('#media-message').textContent = `正在上传 ${files.length} 个文件...`;
+      try {
+        for (const file of files) {
+          await uploadFile(file);
+        }
+        $('#media-message').textContent = '上传完成';
+        notify(`已上传 ${files.length} 个媒体文件`);
+        await loadMedia();
+        await loadDashboard();
+      } catch (error) {
+        $('#media-message').textContent = error.message;
+        notify(error.message || '上传媒体失败', true);
+      }
+      if ($('#media-upload')) $('#media-upload').value = '';
+    }
+
+    async function deleteMedia(id) {
+      if (!confirm('确认把这个媒体文件移入回收站？')) return;
+      try {
+        await request(`/admin/media/${id}`, { method: 'DELETE' });
+        await loadMedia();
+        await loadDashboard();
+        notify('媒体文件已移入回收站');
+      } catch (error) {
+        notify(error.message || '删除媒体失败', true);
+      }
+    }
+
+    async function restoreMedia(id) {
+      try {
+        await request(`/admin/media/${id}/restore`, { method: 'PUT' });
+        $('#media-message').textContent = '媒体文件已恢复';
+        await loadMedia();
+        await loadDashboard();
+        notify('媒体文件已恢复');
+      } catch (error) {
+        notify(error.message || '恢复媒体失败', true);
+      }
+    }
+
+    async function forceDeleteMedia(id) {
+      if (!confirm('确认永久删除这个媒体文件？删除后磁盘文件也会被移除，不能恢复。')) return;
+      try {
+        await request(`/admin/media/${id}/force`, { method: 'DELETE' });
+        $('#media-message').textContent = '媒体文件已永久删除';
+        await loadMedia();
+        await loadDashboard();
+        notify('媒体文件已永久删除');
+      } catch (error) {
+        notify(error.message || '永久删除媒体失败', true);
+      }
+    }
+
+    async function cleanupMedia() {
+      if (!confirm('确认清理冗余媒体文件？系统会保留正在引用的文件和 1 小时内新上传的文件，其余文件会先移入媒体回收站。')) return;
+      try {
+        const json = await request('/admin/media/cleanup', { method: 'POST', body: JSON.stringify({}) });
+        const data = json.data || {};
+        const moved = (data.movedFiles || []).slice(0, 5).join('、');
+        const kept = (data.keptFiles || []).slice(0, 3).map((item) => `${item.name}（${(item.references || []).join('、')}）`).join('、');
+        $('#media-message').innerHTML = `
+          <span>${escapeHtml(json.message || '清理完成')}</span>
+          ${moved ? `<br><span class="text-base-content/50">移入回收站：${escapeHtml(moved)}</span>` : ''}
+          ${kept ? `<br><span class="text-base-content/50">已保留：${escapeHtml(kept)}</span>` : ''}
+        `;
+        await loadMedia();
+        await loadDashboard();
+        notify(json.message || '冗余媒体已移入回收站');
+      } catch (error) {
+        notify(error.message || '清理媒体失败', true);
+      }
+    }
+
+    async function emptyMediaTrash() {
+      if (!state.mediaTrashMode) return;
+      const removable = state.media.filter((file) => !file.in_use);
+      const locked = state.media.length - removable.length;
+      if (!removable.length) {
+        $('#media-message').textContent = locked ? '回收站里的文件仍被引用，不能清空' : '媒体回收站为空';
+        return;
+      }
+      if (!confirm(`确认永久删除 ${removable.length} 个未引用的回收站文件？${locked ? `\n另有 ${locked} 个仍被引用的文件会保留。` : ''}`)) return;
+      let successCount = 0;
+      let failedCount = 0;
+      for (const file of removable) {
+        try {
+          await request(`/admin/media/${file.id}/force`, { method: 'DELETE' });
+          successCount++;
+        } catch {
+          failedCount++;
+        }
+      }
+      $('#media-message').textContent = `已永久删除 ${successCount} 个文件${failedCount ? `，${failedCount} 个删除失败或仍被引用` : ''}${locked ? `，保留 ${locked} 个使用中文件` : ''}`;
+      await loadMedia();
+      await loadDashboard();
+      notify('媒体回收站清理完成');
+    }
+
+    async function downloadAdminFile(path, filenameHint) {
+      $('#backup-message').textContent = '正在生成导出文件...';
+      const headers = {};
+      if (state.token) headers.Authorization = `Bearer ${state.token}`;
+      const res = await fetch(`${API_BASE}${path}`, { headers });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message || `导出失败（HTTP ${res.status}）`);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('content-disposition') || '';
+      const match = disposition.match(/filename="?([^"]+)"?/i);
+      const filename = match?.[1] || filenameHint;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      $('#backup-message').textContent = `已开始下载：${filename}`;
+    }
+
+    async function loadBackupManifest() {
+      const json = await request('/admin/backup/manifest');
+      $('#backup-manifest').textContent = JSON.stringify(json.data || {}, null, 2);
+      $('#backup-message').textContent = '备份清单已刷新';
+    }
+
+    async function handleBackupDownload(type) {
+      try {
+        if (type === 'database') {
+          await downloadAdminFile('/admin/backup/database', 'blog.db');
+        } else if (type === 'articles') {
+          await downloadAdminFile('/admin/backup/articles', 'articles.json');
+        } else if (type === 'manifest') {
+          await downloadAdminFile('/admin/backup/manifest', 'backup-manifest.json');
+          await loadBackupManifest();
+        }
+      } catch (error) {
+        $('#backup-message').textContent = error.message || '导出失败';
+        notify(error.message || '导出失败', true);
+      }
+    }
+
+    async function handleBackupImport(type, file) {
+      if (!file) return;
+      const isDatabase = type === 'database';
+      const warning = isDatabase
+        ? `确认使用“${file.name}”恢复数据库？\n\n当前业务数据会被备份文件替换，系统会先自动保存一份恢复前快照。媒体实体文件不会随数据库导入。`
+        : `确认导入“${file.name}”中的文章？\n\n相同 slug 的文章会更新，不存在的文章会新建。`;
+      if (!window.confirm(warning)) return;
+
+      const input = isDatabase ? $('#database-import-input') : $('#articles-import-input');
+      const endpoint = isDatabase ? '/admin/backup/database/import' : '/admin/backup/articles/import';
+      const formData = new FormData();
+      formData.append('file', file);
+      $('#backup-message').textContent = isDatabase ? '正在校验并恢复数据库，请勿关闭页面...' : '正在导入文章...';
+
+      try {
+        const headers = {};
+        if (state.token) headers.Authorization = `Bearer ${state.token}`;
+        const response = await fetch(`${API_BASE}${endpoint}`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json.success === false) {
+          throw new Error(json.message || `导入失败（HTTP ${response.status}）`);
+        }
+        $('#backup-message').textContent = json.message || '导入完成';
+        notify(json.message || '导入完成');
+        await loadAll();
+        await loadBackupManifest();
+      } catch (error) {
+        $('#backup-message').textContent = error.message || '导入失败';
+        notify(error.message || '导入失败', true);
+      } finally {
+        if (input) input.value = '';
+      }
+    }
+
+    async function addMusic(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      const song = {
+        title: fields.namedItem('title').value.trim(),
+        artist: fields.namedItem('artist').value.trim(),
+        playlist: fields.namedItem('playlist')?.value.trim() || '默认歌单',
+        url: fields.namedItem('url').value.trim(),
+        cover: fields.namedItem('cover').value.trim(),
+        lyrics: fields.namedItem('lyrics').value.trim(),
+      };
+      if (!song.title || !song.url) return;
+      const editingIndex = Number(event.currentTarget.dataset.editingIndex ?? -1);
+      const isEditing = Number.isInteger(editingIndex) && editingIndex >= 0;
+      if (isEditing) {
+        state.music[editingIndex] = { ...state.music[editingIndex], ...song };
+        delete event.currentTarget.dataset.editingIndex;
+      } else {
+        state.music.push(song);
+      }
+      event.currentTarget.reset();
+      window.updateAdminFieldPreview?.('music-form', 'url');
+      window.updateAdminFieldPreview?.('music-form', 'cover');
+      renderMusic();
+      $('#music-message').textContent = isEditing ? '歌曲已更新，记得保存音乐' : '已加入列表，记得保存音乐';
+    }
+
+    async function saveMusic() {
+      $('#music-message').textContent = '正在保存音乐...';
+      try {
+        await request('/admin/music', {
+          method: 'PUT',
+          body: JSON.stringify({ tracks: state.music }),
+        });
+        const playlistJson = await request('/admin/music/playlists');
+        state.musicPlaylists = playlistJson.data || [];
+        renderMusicPlaylists();
+        renderMusic();
+        $('#music-message').textContent = '音乐已保存';
+        notify('音乐已保存');
+      } catch (error) {
+        $('#music-message').textContent = error.message || '音乐保存失败';
+        notify(error.message || '音乐保存失败', true);
+      }
+    }
+
+    async function saveMusicPlaylist(event) {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const fields = form.elements;
+      const id = fields.namedItem('id').value;
+      const payload = {
+        name: fields.namedItem('name').value.trim(),
+        description: fields.namedItem('description').value.trim(),
+        cover: fields.namedItem('cover').value.trim(),
+        sort_order: Number(fields.namedItem('sort_order').value || 0),
+        is_active: fields.namedItem('is_active').checked,
+      };
+      if (!payload.name) {
+        $('#music-playlist-message').textContent = '请填写歌单名称';
+        return;
+      }
+      try {
+        await request(id ? `/admin/music/playlists/${id}` : '/admin/music/playlists', {
+          method: id ? 'PUT' : 'POST',
+          body: JSON.stringify(payload),
+        });
+        $('#music-playlist-message').textContent = id ? '歌单已更新' : '歌单已创建';
+        notify(id ? '歌单已更新' : '歌单已创建');
+        resetMusicPlaylistForm();
+        const playlistJson = await request('/admin/music/playlists');
+        state.musicPlaylists = playlistJson.data || [];
+        renderMusicPlaylists();
+        renderMusic();
+      } catch (error) {
+        $('#music-playlist-message').textContent = error.message || '歌单保存失败';
+        notify(error.message || '歌单保存失败', true);
+      }
+    }
+
+    function resetMusicPlaylistForm() {
+      const form = $('#music-playlist-form');
+      if (!form) return;
+      form.reset();
+      form.elements.namedItem('id').value = '';
+      form.elements.namedItem('is_active').checked = true;
+      window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
+    }
+
+    function editMusicPlaylist(id) {
+      const form = $('#music-playlist-form');
+      const playlist = state.musicPlaylists.find((item) => String(item.id) === String(id));
+      if (!form || !playlist) return;
+      form.elements.namedItem('id').value = playlist.id;
+      form.elements.namedItem('name').value = playlist.name || '';
+      form.elements.namedItem('description').value = playlist.description || '';
+      form.elements.namedItem('cover').value = playlist.cover || '';
+      form.elements.namedItem('sort_order').value = playlist.sort_order || 0;
+      form.elements.namedItem('is_active').checked = playlist.is_active !== 0;
+      window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
+      $('#music-playlist-message').textContent = '正在编辑歌单';
+    }
+
+    async function deleteMusicPlaylist(id) {
+      if (!confirm('确认删除这个歌单吗？歌曲会保留。')) return;
+      try {
+        await request(`/admin/music/playlists/${id}`, { method: 'DELETE' });
+        const [musicJson, playlistJson] = await Promise.all([
+          request('/admin/music'),
+          request('/admin/music/playlists'),
+        ]);
+        state.music = musicJson.data || [];
+        state.musicPlaylists = playlistJson.data || [];
+        renderMusic();
+        renderMusicPlaylists();
+        $('#music-playlist-message').textContent = '歌单已删除，歌曲已保留';
+        notify('歌单已删除，歌曲已保留');
+      } catch (error) {
+        $('#music-playlist-message').textContent = error.message || '歌单删除失败';
+        notify(error.message || '歌单删除失败', true);
+      }
+    }
+
+    async function uploadMusicField(file, fieldName) {
+      $('#music-message').textContent = '正在上传文件...';
+      try {
+        const media = await uploadFile(file);
+        $('#music-form').elements.namedItem(fieldName).value = media.url;
+        window.updateAdminFieldPreview?.('music-form', fieldName);
+        $('#music-message').textContent = '上传成功';
+        await loadMedia();
+      } catch (error) {
+        $('#music-message').textContent = error.message;
+      }
+    }
+
+    async function editCategory(id) {
+      const item = state.categories.find((cat) => String(cat.id) === String(id));
+      const name = prompt('分类名称', item?.name || '');
+      if (!name) return;
+      try {
+        await request(`/admin/categories/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name }),
+        });
+        await loadTaxonomy();
+        $('#category-message').textContent = '分类已更新';
+        notify('分类已更新');
+      } catch (error) {
+        $('#category-message').textContent = error.message || '分类更新失败';
+        notify(error.message || '分类更新失败', true);
+      }
+    }
+
+    async function deleteCategory(id) {
+      if (!confirm('确认删除这个分类？相关文章会变为未分类。')) return;
+      try {
+        await request(`/admin/categories/${id}`, { method: 'DELETE' });
+        await Promise.all([loadTaxonomy(), loadArticles()]);
+        $('#category-message').textContent = '分类已删除，相关文章已变为未分类';
+        notify('分类已删除');
+      } catch (error) {
+        $('#category-message').textContent = error.message || '分类删除失败';
+        notify(error.message || '分类删除失败', true);
+      }
+    }
+
+    async function editTag(id) {
+      const item = state.tags.find((tag) => String(tag.id) === String(id));
+      const name = prompt('标签名称', item?.name || '');
+      if (!name) return;
+      try {
+        await request(`/admin/tags/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name }),
+        });
+        await loadTaxonomy();
+        $('#tag-message').textContent = '标签已更新';
+        notify('标签已更新');
+      } catch (error) {
+        $('#tag-message').textContent = error.message || '标签更新失败';
+        notify(error.message || '标签更新失败', true);
+      }
+    }
+
+    async function deleteTag(id) {
+      if (!confirm('确认删除这个标签？文章上的关联会一起移除。')) return;
+      try {
+        await request(`/admin/tags/${id}`, { method: 'DELETE' });
+        await Promise.all([loadTaxonomy(), loadArticles()]);
+        $('#tag-message').textContent = '标签已删除，文章关联已移除';
+        notify('标签已删除');
+      } catch (error) {
+        $('#tag-message').textContent = error.message || '标签删除失败';
+        notify(error.message || '标签删除失败', true);
+      }
+    }
+
+    function resetPageForm() {
+      $('#page-form').reset();
+      $('#page-form').elements.namedItem('id').value = '';
+      $('#page-editor-title').textContent = '新建独立页面';
+      $('#page-message').textContent = '';
+    }
+
+    function editPage(id) {
+      const page = state.pages.find((item) => String(item.id) === String(id));
+      if (!page) return;
+      const fields = $('#page-form').elements;
+      fields.namedItem('id').value = page.id;
+      fields.namedItem('title').value = page.title || '';
+      fields.namedItem('template').value = page.template || 'default';
+      fields.namedItem('status').value = page.status || 'published';
+      fields.namedItem('content').value = page.content || '';
+      $('#page-editor-title').textContent = '编辑独立页面';
+      switchPanel('pages');
+    }
+
+    async function savePage(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      const id = fields.namedItem('id').value;
+      const payload = {
+        title: fields.namedItem('title').value.trim(),
+        template: fields.namedItem('template').value,
+        status: fields.namedItem('status').value,
+        content: fields.namedItem('content').value,
+      };
+      try {
+        await request(id ? `/admin/pages/${id}` : '/admin/pages', {
+          method: id ? 'PUT' : 'POST',
+          body: JSON.stringify(payload),
+        });
+        $('#page-message').textContent = '页面已保存';
+        notify('页面已保存');
+        resetPageForm();
+        state.pagesTrashMode = false;
+        await loadPages();
+      } catch (error) {
+        $('#page-message').textContent = error.message || '页面保存失败';
+        notify(error.message || '页面保存失败', true);
+      }
+    }
+
+    async function deletePage(id) {
+      if (!confirm('确认把这个独立页面移入回收站？')) return;
+      try {
+        await request(`/admin/pages/${id}`, { method: 'DELETE' });
+        notify('页面已移入回收站');
+        await loadPages();
+      } catch (error) {
+        notify(error.message || '删除页面失败', true);
+      }
+    }
+
+    async function restorePage(id) {
+      try {
+        await request(`/admin/pages/${id}/restore`, { method: 'PUT' });
+        notify('页面已恢复');
+        await loadPages();
+      } catch (error) {
+        notify(error.message || '恢复页面失败', true);
+      }
+    }
+
+    async function forceDeletePage(id) {
+      if (!confirm('确认永久删除这个独立页面？此操作不可恢复。')) return;
+      try {
+        await request(`/admin/pages/${id}/force`, { method: 'DELETE' });
+        notify('页面已永久删除');
+        await loadPages();
+      } catch (error) {
+        notify(error.message || '永久删除页面失败', true);
+      }
+    }
+
+    async function updateCommentStatus(id, status) {
+      try {
+        await request(`/admin/comments/${id}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ status }),
+        });
+        notify(status === 'approved' ? '评论已通过' : '评论已标记为垃圾');
+        await Promise.all([loadComments(), loadDashboard()]);
+      } catch (error) {
+        notify(error.message || '评论状态更新失败', true);
+      }
+    }
+
+    async function deleteComment(id) {
+      if (!confirm('确认删除这条评论？')) return;
+      try {
+        await request(`/admin/comments/${id}`, { method: 'DELETE' });
+        notify('评论已删除');
+        await Promise.all([loadComments(), loadDashboard()]);
+      } catch (error) {
+        notify(error.message || '评论删除失败', true);
+      }
+    }
+
+    function selectedCommentIds() {
+      return $$('[data-comment-check]:checked').map((input) => input.dataset.commentCheck).filter(Boolean);
+    }
+
+    async function batchUpdateComments(status) {
+      const ids = selectedCommentIds();
+      if (!ids.length) {
+        notify('请先选择评论', true);
+        return;
+      }
+      const label = status === 'approved' ? '通过' : '标记为垃圾';
+      if (!confirm(`确认将 ${ids.length} 条评论批量${label}？`)) return;
+      try {
+        for (const id of ids) {
+          await request(`/admin/comments/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status }),
+          });
+        }
+        notify(`已批量处理 ${ids.length} 条评论`);
+        await Promise.all([loadComments(), loadDashboard()]);
+      } catch (error) {
+        notify(error.message || '批量处理评论失败', true);
+      }
+    }
+
+    async function batchDeleteComments() {
+      const ids = selectedCommentIds();
+      if (!ids.length) {
+        notify('请先选择评论', true);
+        return;
+      }
+      if (!confirm(`确认删除 ${ids.length} 条评论？此操作不可恢复。`)) return;
+      try {
+        for (const id of ids) {
+          await request(`/admin/comments/${id}`, { method: 'DELETE' });
+        }
+        notify(`已删除 ${ids.length} 条评论`);
+        await Promise.all([loadComments(), loadDashboard()]);
+      } catch (error) {
+        notify(error.message || '批量删除评论失败', true);
+      }
+    }
+
+    async function installTheme(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      $('#theme-message').textContent = '正在安装主题...';
+      try {
+        await request('/admin/themes/install', {
+          method: 'POST',
+          body: JSON.stringify({
+            id: fields.namedItem('id').value.trim(),
+            name: fields.namedItem('name').value.trim(),
+            primary: fields.namedItem('primary').value,
+            author: fields.namedItem('author').value.trim(),
+            description: fields.namedItem('description').value.trim(),
+          }),
+        });
+        event.currentTarget.reset();
+        $('#theme-message').textContent = '主题已安装';
+        await loadThemes();
+        notify('主题已安装');
+      } catch (error) {
+        $('#theme-message').textContent = error.message || '主题安装失败';
+        notify(error.message || '主题安装失败', true);
+      }
+    }
+
+    async function previewTheme(id) {
+      try {
+        await request(`/admin/themes/${id}/preview`, { method: 'POST', body: JSON.stringify({}) });
+        $('#theme-message').textContent = '主题预览已开启，刷新前台查看';
+        notify('主题预览已开启');
+      } catch (error) {
+        $('#theme-message').textContent = error.message || '主题预览失败';
+        notify(error.message || '主题预览失败', true);
+      }
+    }
+
+    async function activateTheme(id) {
+      try {
+        await request(`/admin/themes/${id}/activate`, { method: 'PUT' });
+        await Promise.all([loadThemes(), loadSettings()]);
+        $('#theme-message').textContent = '主题已切换';
+        notify('主题已切换');
+      } catch (error) {
+        $('#theme-message').textContent = error.message || '主题切换失败';
+        notify(error.message || '主题切换失败', true);
+      }
+    }
+
+    async function deleteTheme(id) {
+      if (!confirm('确认删除这个主题？')) return;
+      try {
+        await request(`/admin/themes/${id}`, { method: 'DELETE' });
+        await loadThemes();
+        $('#theme-message').textContent = '主题已删除';
+        notify('主题已删除');
+      } catch (error) {
+        $('#theme-message').textContent = error.message || '主题删除失败';
+        notify(error.message || '主题删除失败', true);
+      }
+    }
+
+    async function installPlugin(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      $('#plugin-message').textContent = '正在安装插件...';
+      try {
+        await request('/admin/plugins/install', {
+          method: 'POST',
+          body: JSON.stringify({
+            id: fields.namedItem('id').value.trim(),
+            name: fields.namedItem('name').value.trim(),
+            description: fields.namedItem('description').value.trim(),
+          }),
+        });
+        event.currentTarget.reset();
+        $('#plugin-message').textContent = '插件已安装';
+        await loadPlugins();
+        notify('插件已安装');
+      } catch (error) {
+        $('#plugin-message').textContent = error.message || '插件安装失败';
+        notify(error.message || '插件安装失败', true);
+      }
+    }
+
+    async function togglePlugin(id) {
+      try {
+        await request(`/admin/plugins/${id}/toggle`, { method: 'PUT' });
+        await loadPlugins();
+        $('#plugin-message').textContent = '插件状态已更新';
+        notify('插件状态已更新');
+      } catch (error) {
+        $('#plugin-message').textContent = error.message || '插件状态更新失败';
+        notify(error.message || '插件状态更新失败', true);
+      }
+    }
+
+    async function saveAccount(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      const password = fields.namedItem('password').value;
+      if (password && password.length < 8) {
+        $('#account-message').textContent = '新密码不能少于 8 位';
+        notify('新密码不能少于 8 位', true);
+        return;
+      }
+      $('#account-message').textContent = '正在保存后台账号...';
+      try {
+        const payload = {
+          nickname: fields.namedItem('nickname').value.trim(),
+          avatar: fields.namedItem('avatar').value.trim(),
+        };
+        if (password) payload.password = password;
+        const json = await request('/auth/me', {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        state.user = json.data;
+        renderAccount();
+        $('#account-message').textContent = password ? '后台账号已保存，密码已更新' : '后台账号已保存';
+        notify('后台账号已保存');
+      } catch (error) {
+        $('#account-message').textContent = error.message || '后台账号保存失败';
+        notify(error.message || '后台账号保存失败', true);
+      }
+    }
+
+    async function saveProfile(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      $('#profile-message').textContent = '正在保存资料卡...';
+      try {
+        await request('/admin/settings', {
+          method: 'PUT',
+          body: JSON.stringify({
+            settings: {
+              profile_name: fields.namedItem('profile_name').value.trim(),
+              profile_avatar: fields.namedItem('profile_avatar').value.trim(),
+              profile_bio: fields.namedItem('profile_bio').value.trim(),
+            },
+          }),
+        });
+        $('#profile-message').textContent = '前台资料卡已保存';
+        await loadSettings();
+        notify('前台资料卡已保存');
+      } catch (error) {
+        $('#profile-message').textContent = error.message || '资料卡保存失败';
+        notify(error.message || '资料卡保存失败', true);
+      }
+    }
+
+    async function uploadAvatar(file) {
+      $('#profile-message').textContent = '正在上传头像...';
+      try {
+        const media = await uploadFile(file);
+        $('#profile-form').elements.namedItem('profile_avatar').value = media.url;
+        window.updateAdminFieldPreview?.('profile-form', 'profile_avatar');
+        $('#profile-message').textContent = '头像上传成功，记得保存';
+        await loadMedia();
+      } catch (error) {
+        $('#profile-message').textContent = error.message || '头像上传失败';
+        notify(error.message || '头像上传失败', true);
+      }
+    }
+
+    async function uploadBannerImages(files) {
+      if (!files.length) return;
+      $('#settings-message').textContent = `正在上传 ${files.length} 张 Banner 图...`;
+      const input = $('#site-settings-form').elements.namedItem('banner_images');
+      const current = input.value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+      try {
+        for (const file of files) {
+          const media = await uploadFile(file);
+          current.push(media.url);
+        }
+        input.value = Array.from(new Set(current)).join('\n');
+        await saveBannerImages();
+        $('#settings-message').textContent = 'Banner 图已上传并保存';
+        await loadMedia();
+      } catch (error) {
+        $('#settings-message').textContent = error.message;
+        notify(error.message || 'Banner 图上传失败', true);
+      }
+    }
+
+    async function saveBannerImages() {
+      const input = $('#site-settings-form').elements.namedItem('banner_images');
+      await request('/admin/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          settings: {
+            banner_images: input.value
+              .split(/\r?\n/)
+              .map((item) => item.trim())
+              .filter(Boolean),
+          },
+        }),
+      });
+    }
+
+    async function saveSiteSettings(event) {
+      event.preventDefault();
+      const fields = event.currentTarget.elements;
+      $('#settings-message').textContent = '正在保存站点设置...';
+      try {
+        await request('/admin/settings', {
+          method: 'PUT',
+          body: JSON.stringify({
+            settings: {
+              site_title: fields.namedItem('site_title').value.trim(),
+              site_description: fields.namedItem('site_description').value.trim(),
+              banner_images: fields.namedItem('banner_images').value
+                .split(/\r?\n/)
+                .map((item) => item.trim())
+                .filter(Boolean),
+              posts_per_page: Number(fields.namedItem('posts_per_page').value || 10),
+              enable_comments: fields.namedItem('enable_comments').checked,
+              comment_moderation: fields.namedItem('comment_moderation').checked,
+            },
+          }),
+        });
+        $('#settings-message').textContent = '站点设置已保存';
+        await loadSettings();
+        notify('站点设置已保存');
+      } catch (error) {
+        $('#settings-message').textContent = error.message || '站点设置保存失败';
+        notify(error.message || '站点设置保存失败', true);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }[char]));
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+      return new Date(value).toLocaleDateString('zh-CN');
+    }
+
+    function formatSize(size) {
+      const value = Number(size || 0);
+      if (value > 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+      if (value > 1024) return `${(value / 1024).toFixed(1)} KB`;
+      return `${value} B`;
+    }
+
+    function parseSetting(row) {
+      if (!row) return null;
+      if (row.type === 'json') {
+        try {
+          return JSON.parse(row.value || 'null');
+        } catch {
+          return null;
+        }
+      }
+      return row.value;
+    }
+
+    $$('.admin-nav').forEach((button) => {
+      button.addEventListener('click', () => switchPanel(button.dataset.panel));
+    });
+    document.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-panel-tab]');
+      if (tab) switchPanel(tab.dataset.panelTab);
+    });
+    $('#login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      $('#login-message').textContent = '正在登录...';
+      try {
+        const data = new FormData(event.currentTarget);
+        const user = await login(data.get('username'), data.get('password'));
+        $('#login-message').textContent = '';
+        setStatus(`已登录：${user.nickname || user.username}`);
+        await Promise.all([loadTaxonomy(), loadDashboard(), loadArticles(), loadMedia(), loadSettings()]);
+        switchPanel('dashboard');
+      } catch (error) {
+        $('#login-message').textContent = friendlyLoginError(error);
+      }
+    });
+    $('#logout-admin').addEventListener('click', () => {
+      localStorage.removeItem(tokenKey);
+      state.token = '';
+      $('#logout-admin').classList.add('hidden');
+      setStatus('已退出登录');
+      switchPanel('login');
+    });
+    $('#refresh-admin').addEventListener('click', loadAll);
+    $('#status-filter').addEventListener('change', loadArticles);
+    $('#trash-filter').addEventListener('change', loadArticles);
+    $('#batch-delete').addEventListener('click', batchDeleteArticles);
+    $('#select-all-articles').addEventListener('change', (event) => {
+      $$('.article-check').forEach((input) => {
+        input.checked = event.currentTarget.checked;
+      });
+    });
+    $('#media-type-filter').addEventListener('change', loadMedia);
+    $('#media-upload').addEventListener('change', (event) => uploadMediaFiles(Array.from(event.currentTarget.files || [])));
+    $('#cover-upload').addEventListener('change', (event) => {
+      const file = event.currentTarget.files?.[0];
+      if (file) uploadCover(file);
+    });
+    $('#reset-editor').addEventListener('click', resetEditor);
+    $('#article-form').addEventListener('submit', saveArticle);
+    $('#markdown-toolbar')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-md-insert]');
+      if (button) insertMarkdown(button.dataset.mdInsert);
+    });
+    $('#add-font-library')?.addEventListener('click', addFontToLibrary);
+    $('#save-font-library')?.addEventListener('click', saveFontLibrary);
+    $('#font-file-upload')?.addEventListener('change', async (event) => {
+      const file = event.currentTarget.files?.[0];
+      if (!file) return;
+      $('#font-library-message').textContent = '正在上传字体...';
+      try {
+        const media = await uploadFile(file);
+        $('#font-url-input').value = media.url;
+        $('#font-name-input').value = $('#font-name-input').value.trim() || file.name.replace(/\.[^.]+$/, '');
+        $('#font-library-message').textContent = '字体已上传，可点击加入字体库';
+      } catch (error) {
+        $('#font-library-message').textContent = error.message;
+      }
+    });
+    $('#font-library-list')?.addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-remove-font]');
+      const edit = event.target.closest('[data-edit-font]');
+      const title = event.target.closest('[data-use-title-font]');
+      const body = event.target.closest('[data-use-body-font]');
+      if (edit) editFontEntry(edit.dataset.editFont);
+      if (title) useFontInArticleForm(title.dataset.useTitleFont, 'title');
+      if (body) useFontInArticleForm(body.dataset.useBodyFont, 'body');
+      if (remove) {
+        state.fontLibrary.splice(Number(remove.dataset.removeFont), 1);
+        renderFontLibrary();
+        $('#font-library-message').textContent = '字体已移除，记得保存字体库';
+      }
+    });
+    $('#category-form').addEventListener('submit', createCategory);
+    $('#tag-form').addEventListener('submit', createTag);
+    $('#page-form').addEventListener('submit', savePage);
+    $('#reset-page').addEventListener('click', resetPageForm);
+    $('#pages-normal-mode')?.addEventListener('click', () => {
+      state.pagesTrashMode = false;
+      loadPages();
+    });
+    $('#pages-trash-mode')?.addEventListener('click', () => {
+      state.pagesTrashMode = true;
+      resetPageForm();
+      loadPages();
+    });
+    $('#comment-status-filter').addEventListener('change', loadComments);
+    $('#theme-form').addEventListener('submit', installTheme);
+    $('#plugin-form').addEventListener('submit', installPlugin);
+    $('#account-form').addEventListener('submit', saveAccount);
+    $('#profile-form').addEventListener('submit', saveProfile);
+    $('#site-settings-form').addEventListener('submit', saveSiteSettings);
+    $('#avatar-upload').addEventListener('change', (event) => {
+      const file = event.currentTarget.files?.[0];
+      if (file) uploadAvatar(file);
+    });
+    $('#banner-upload').addEventListener('change', (event) => {
+      uploadBannerImages(Array.from(event.currentTarget.files || []));
+    });
+    $('#media-normal-mode')?.addEventListener('click', () => {
+      state.mediaTrashMode = false;
+      loadMedia();
+    });
+    $('#media-trash-mode')?.addEventListener('click', () => {
+      state.mediaTrashMode = true;
+      loadMedia();
+    });
+    $('#cleanup-media').addEventListener('click', cleanupMedia);
+    $('#empty-media-trash')?.addEventListener('click', emptyMediaTrash);
+    $('#refresh-backup-manifest')?.addEventListener('click', loadBackupManifest);
+    $('#database-import-input')?.addEventListener('change', (event) => {
+      handleBackupImport('database', event.currentTarget.files?.[0]);
+    });
+    $('#articles-import-input')?.addEventListener('change', (event) => {
+      handleBackupImport('articles', event.currentTarget.files?.[0]);
+    });
+    $('#backup-panel')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-download-backup]');
+      if (button) handleBackupDownload(button.dataset.downloadBackup);
+    });
+    $('#music-form').addEventListener('submit', addMusic);
+    $('#save-music').addEventListener('click', saveMusic);
+    $('#music-playlist-filter')?.addEventListener('change', renderMusic);
+    $('#music-playlist-form')?.addEventListener('submit', saveMusicPlaylist);
+    $('#reset-music-playlist')?.addEventListener('click', resetMusicPlaylistForm);
+    $('#music-audio-upload').addEventListener('change', (event) => {
+      const file = event.currentTarget.files?.[0];
+      if (file) uploadMusicField(file, 'url');
+    });
+    $('#music-cover-upload').addEventListener('change', (event) => {
+      const file = event.currentTarget.files?.[0];
+      if (file) uploadMusicField(file, 'cover');
+    });
+    $('#articles-table').addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit]');
+      const del = event.target.closest('[data-delete]');
+      const restore = event.target.closest('[data-restore]');
+      const forceDelete = event.target.closest('[data-force-delete]');
+      if (edit) editArticle(edit.dataset.edit);
+      if (del) deleteArticle(del.dataset.delete);
+      if (restore) restoreArticle(restore.dataset.restore);
+      if (forceDelete) forceDeleteArticle(forceDelete.dataset.forceDelete);
+    });
+    $('#media-grid').addEventListener('click', async (event) => {
+      const copy = event.target.closest('[data-copy-url]');
+      const del = event.target.closest('[data-delete-media]');
+      const restore = event.target.closest('[data-restore-media]');
+      const forceDelete = event.target.closest('[data-force-delete-media]');
+      const addFont = event.target.closest('[data-add-font-from-media]');
+      if (copy) {
+        await navigator.clipboard?.writeText(copy.dataset.copyUrl);
+        $('#media-message').textContent = `已复制：${copy.dataset.copyUrl}`;
+      }
+      if (addFont) addFontFromMedia(addFont.dataset.addFontFromMedia);
+      if (del) deleteMedia(del.dataset.deleteMedia);
+      if (restore) restoreMedia(restore.dataset.restoreMedia);
+      if (forceDelete) forceDeleteMedia(forceDelete.dataset.forceDeleteMedia);
+    });
+    $('#music-list').addEventListener('click', (event) => {
+      const batchRemove = event.target.closest('[data-batch-remove-music]');
+      const edit = event.target.closest('[data-edit-song]');
+      const move = event.target.closest('[data-move-song]');
+      const remove = event.target.closest('[data-remove-song]');
+      if (batchRemove) {
+        batchRemoveMusic();
+        return;
+      }
+      if (edit) {
+        const index = Number(edit.dataset.editSong);
+        const song = state.music[index];
+        const form = $('#music-form');
+        if (!song || !form) return;
+        form.dataset.editingIndex = String(index);
+        form.elements.namedItem('title').value = song.title || '';
+        form.elements.namedItem('artist').value = song.artist || '';
+        form.elements.namedItem('playlist').value = song.playlist || song.collection || '默认歌单';
+        form.elements.namedItem('url').value = song.url || '';
+        form.elements.namedItem('cover').value = song.cover || '';
+        form.elements.namedItem('lyrics').value = song.lyrics || '';
+        window.updateAdminFieldPreview?.('music-form', 'url');
+        window.updateAdminFieldPreview?.('music-form', 'cover');
+        $('#music-message').textContent = '正在编辑歌曲，修改后点击添加到播放列表';
+        return;
+      }
+      if (move) {
+        const index = Number(move.dataset.moveSong);
+        const nextIndex = move.dataset.direction === 'up' ? index - 1 : index + 1;
+        if (nextIndex < 0 || nextIndex >= state.music.length) return;
+        const current = state.music[index];
+        state.music[index] = state.music[nextIndex];
+        state.music[nextIndex] = current;
+        renderMusic();
+        $('#music-message').textContent = '顺序已调整，记得保存配置';
+        return;
+      }
+      if (remove) {
+        state.music.splice(Number(remove.dataset.removeSong), 1);
+        renderMusic();
+        $('#music-message').textContent = '已移除，记得保存配置';
+      }
+    });
+    $('#music-playlist-list')?.addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit-music-playlist]');
+      const del = event.target.closest('[data-delete-music-playlist]');
+      if (edit) editMusicPlaylist(edit.dataset.editMusicPlaylist);
+      if (del) deleteMusicPlaylist(del.dataset.deleteMusicPlaylist);
+    });
+    $('#category-list').addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit-category]');
+      const del = event.target.closest('[data-delete-category]');
+      if (edit) editCategory(edit.dataset.editCategory);
+      if (del) deleteCategory(del.dataset.deleteCategory);
+    });
+    $('#tag-list').addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit-tag]');
+      const del = event.target.closest('[data-delete-tag]');
+      if (edit) editTag(edit.dataset.editTag);
+      if (del) deleteTag(del.dataset.deleteTag);
+    });
+    $('#pages-list').addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit-page]');
+      const del = event.target.closest('[data-delete-page]');
+      const restore = event.target.closest('[data-restore-page]');
+      const forceDelete = event.target.closest('[data-force-delete-page]');
+      if (edit) editPage(edit.dataset.editPage);
+      if (del) deletePage(del.dataset.deletePage);
+      if (restore) restorePage(restore.dataset.restorePage);
+      if (forceDelete) forceDeletePage(forceDelete.dataset.forceDeletePage);
+    });
+    $('#comments-list').addEventListener('click', (event) => {
+      const status = event.target.closest('[data-comment-status]');
+      const del = event.target.closest('[data-delete-comment]');
+      if (status) updateCommentStatus(status.dataset.commentStatus, status.dataset.status);
+      if (del) deleteComment(del.dataset.deleteComment);
+    });
+    $('#comment-select-all')?.addEventListener('click', () => {
+      const checks = $$('[data-comment-check]');
+      const shouldCheck = checks.some((input) => !input.checked);
+      checks.forEach((input) => {
+        input.checked = shouldCheck;
+      });
+    });
+    $$('[data-comment-batch-status]').forEach((button) => {
+      button.addEventListener('click', () => batchUpdateComments(button.dataset.commentBatchStatus));
+    });
+    $('#comment-batch-delete')?.addEventListener('click', batchDeleteComments);
+    $('#themes-list').addEventListener('click', (event) => {
+      const preview = event.target.closest('[data-preview-theme]');
+      const activate = event.target.closest('[data-activate-theme]');
+      const del = event.target.closest('[data-delete-theme]');
+      if (preview) previewTheme(preview.dataset.previewTheme);
+      if (activate) activateTheme(activate.dataset.activateTheme);
+      if (del) deleteTheme(del.dataset.deleteTheme);
+    });
+    $('#plugins-list').addEventListener('click', (event) => {
+      const toggle = event.target.closest('[data-toggle-plugin]');
+      if (toggle) togglePlugin(toggle.dataset.togglePlugin);
+    });
+
+    loadAll();
+    </script>
+    <script is:inline>
+      (() => {
+        const root = document.querySelector('.admin-shell');
+        const apiBase = root?.dataset.apiBase || '/api';
+        const tokenKey = 'boke_admin_token';
+        const state = {
+          navigation: [],
+          bangumi: [],
+          albums: [],
+          mediaPicker: null,
+          mediaPickerItems: [],
+        };
+        const $ = (selector) => document.querySelector(selector);
+
+        function token() {
+          return localStorage.getItem(tokenKey) || '';
+        }
+
+        async function api(path, options = {}) {
+          const isForm = options.body instanceof FormData;
+          const headers = { ...(options.headers || {}) };
+          if (!isForm) headers['Content-Type'] = 'application/json';
+          const authToken = token();
+          if (authToken) headers.Authorization = `Bearer ${authToken}`;
+          let res;
+          try {
+            res = await fetch(`${apiBase}${path}`, { ...options, headers });
+          } catch {
+            throw new Error(`无法连接后端 API（${apiBase}），请确认 Express 服务已启动`);
+          }
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || json.success === false) throw new Error(json.message || `接口请求失败（HTTP ${res.status}）`);
+          return json;
+        }
+
+        async function upload(file) {
+          const body = new FormData();
+          body.append('file', file);
+          const json = await api('/admin/media/upload', { method: 'POST', body });
+          return json.data?.url || `/uploads/${json.data?.path || ''}`;
+        }
+
+        function setPanelMessage(id, message, error = false) {
+          const el = $(`#${id}`);
+          if (!el) return;
+          el.textContent = message;
+          el.classList.toggle('text-error', error);
+          el.classList.toggle('text-success', !error && !!message);
+        }
+
+        function mediaUrl(file) {
+          return file.url || `/uploads/${file.path || ''}`;
+        }
+
+        function mediaName(file) {
+          return file.original_name || file.filename || mediaUrl(file);
+        }
+
+        function setTargetValue(config, value) {
+          const form = document.getElementById(config.form);
+          const field = form?.elements.namedItem(config.field);
+          if (!field) return;
+          if (config.append) {
+            const current = String(field.value || '').trim();
+            field.value = current ? `${current}\n${value}` : value;
+          } else {
+            field.value = value;
+          }
+          updateFieldPreview(config.form, config.field);
+          if (config.form === 'article-form' && config.field === 'cover_image' && typeof updateCoverPreview === 'function') {
+            updateCoverPreview(value);
+          }
+        }
+
+        function renderMediaPicker() {
+          const grid = $('#media-picker-grid');
+          if (!grid) return;
+          const keyword = String($('#media-picker-search')?.value || '').trim().toLowerCase();
+          const type = String($('#media-picker-type')?.value || '');
+          const visibleItems = state.mediaPickerItems.filter((file) => {
+            const url = mediaUrl(file);
+            const haystack = `${mediaName(file)} ${url} ${file.mime_type || ''}`.toLowerCase();
+            return (!keyword || haystack.includes(keyword)) && (!type || file.mime_type?.startsWith(`${type}/`));
+          });
+          grid.innerHTML = visibleItems.map((file) => {
+            const url = mediaUrl(file);
+            const isImage = file.mime_type?.startsWith('image/');
+            const isAudio = file.mime_type?.startsWith('audio/');
+            return `
+              <button class="admin-media-picker-card" type="button" data-choose-media="${html(url)}">
+                <div class="admin-media-picker-thumb">
+                  ${isImage ? `<img src="${html(url)}" alt="" />` : isAudio ? '<span class="text-3xl">♪</span>' : '<span class="text-3xl">□</span>'}
+                </div>
+                <div class="p-3">
+                  <p class="truncate text-sm font-black">${html(mediaName(file))}</p>
+                  <p class="truncate text-xs text-base-content/45">${html(url)}</p>
+                </div>
+              </button>
+            `;
+          }).join('') || '<p class="text-base-content/45">没有匹配的媒体文件。</p>';
+        }
+
+        async function openMediaPicker(config) {
+          state.mediaPicker = config;
+          const qs = new URLSearchParams({ page: '1', pageSize: '80' });
+          if (config.type) qs.set('type', config.type);
+          $('#media-picker-dialog h3').textContent = '选择媒体资源';
+          $('#close-media-picker').textContent = '关闭';
+          $('#media-picker-type').value = config.type || '';
+          $('#media-picker-search').value = '';
+          $('#media-picker-hint').textContent = config.append ? '选择后会追加到当前字段。' : '选择后会自动写入当前字段。';
+          $('#media-picker-grid').innerHTML = '<p class="text-base-content/45">正在读取媒体库...</p>';
+          $('#media-picker-dialog')?.showModal();
+          try {
+            const json = await api(`/admin/media?${qs.toString()}`);
+            state.mediaPickerItems = json.data || [];
+            renderMediaPicker();
+          } catch (error) {
+            $('#media-picker-grid').innerHTML = `<p class="text-error">${html(error.message || '媒体库读取失败')}</p>`;
+          }
+        }
+
+        async function reloadMediaPickerItems() {
+          const type = String($('#media-picker-type')?.value || '');
+          const qs = new URLSearchParams({ page: '1', pageSize: '80' });
+          if (type) qs.set('type', type);
+          $('#media-picker-grid').innerHTML = '<p class="text-base-content/45">正在读取媒体库...</p>';
+          try {
+            const json = await api(`/admin/media?${qs.toString()}`);
+            state.mediaPickerItems = json.data || [];
+            renderMediaPicker();
+          } catch (error) {
+            $('#media-picker-grid').innerHTML = `<p class="text-error">${html(error.message || '媒体库读取失败')}</p>`;
+          }
+        }
+
+        function html(value) {
+          return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+          }[char]));
+        }
+
+        function updateFieldPreview(formId, fieldName) {
+          const form = document.getElementById(formId);
+          const field = form?.elements.namedItem(fieldName);
+          if (!field) return;
+          const value = String(field.value || '').trim().split(/\r?\n/).filter(Boolean).at(-1) || '';
+          const previewId = `${formId}-${fieldName}-preview`;
+          let preview = document.getElementById(previewId);
+          if (!preview) {
+            preview = document.createElement('div');
+            preview.id = previewId;
+            preview.className = 'admin-field-preview mt-3 hidden';
+            const anchor = field.closest('.join') || field;
+            anchor.insertAdjacentElement('afterend', preview);
+          }
+          if (!value) {
+            preview.classList.add('hidden');
+            preview.innerHTML = '';
+            return;
+          }
+          preview.classList.remove('hidden');
+          if (/\.(mp3|wav|ogg|flac|m4a|aac)(\?|#|$)/i.test(value)) {
+            preview.innerHTML = `<audio controls src="${html(value)}"></audio>`;
+          } else {
+            preview.innerHTML = `<img src="${html(value)}" alt="预览" />`;
+          }
+        }
+        window.updateAdminFieldPreview = updateFieldPreview;
+
+        function fill(form, item, fields) {
+          fields.forEach((field) => {
+            const input = form.elements.namedItem(field);
+            if (!input) return;
+            if (input.type === 'checkbox') input.checked = item[field] === true || item[field] === 1;
+            else input.value = item[field] ?? '';
+            updateFieldPreview(form.id, field);
+          });
+        }
+
+        function resetForm(formId) {
+          const form = $(`#${formId}`);
+          form?.reset();
+          form?.elements.namedItem('id') && (form.elements.namedItem('id').value = '');
+          const active = form?.elements.namedItem('is_active');
+          if (active) active.checked = true;
+        }
+
+        function selectedExtraIds(type) {
+          return Array.from(document.querySelectorAll(`[data-extra-select="${type}"]:checked`)).map((input) => input.value);
+        }
+
+        async function batchDeleteExtra(type) {
+          const ids = selectedExtraIds(type);
+          const labels = { navigation: '导航', bangumi: '追番', album: '相册' };
+          if (!ids.length) {
+            window.notifyAdmin?.(`请先勾选要删除的${labels[type] || '项目'}`, true);
+            return;
+          }
+          if (!confirm(`确认删除选中的 ${ids.length} 项${labels[type] || ''}吗？`)) return;
+          const paths = {
+            navigation: '/admin/navigation',
+            bangumi: '/admin/bangumi',
+            album: '/admin/albums',
+          };
+          try {
+            for (const id of ids) {
+              await api(`${paths[type]}/${id}`, { method: 'DELETE' });
+            }
+            if (type === 'navigation') await loadNavigation();
+            if (type === 'bangumi') await loadBangumi();
+            if (type === 'album') await loadAlbums();
+            window.notifyAdmin?.(`已删除 ${ids.length} 项${labels[type] || ''}`);
+          } catch (error) {
+            window.notifyAdmin?.(error.message || `批量删除${labels[type] || '项目'}失败`, true);
+          }
+        }
+
+        async function moveExtra(type, id, direction) {
+          const collections = {
+            navigation: state.navigation,
+            bangumi: state.bangumi,
+            album: state.albums,
+          };
+          const paths = {
+            navigation: '/admin/navigation',
+            bangumi: '/admin/bangumi',
+            album: '/admin/albums',
+          };
+          const items = [...(collections[type] || [])].sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || Number(b.id) - Number(a.id));
+          const index = items.findIndex((item) => String(item.id) === String(id));
+          const nextIndex = direction === 'up' ? index - 1 : index + 1;
+          if (index < 0 || nextIndex < 0 || nextIndex >= items.length) return;
+          const current = items[index];
+          const target = items[nextIndex];
+          const currentOrder = Number(current.sort_order || 0);
+          const targetOrder = Number(target.sort_order || 0);
+          try {
+            await api(`${paths[type]}/${current.id}`, { method: 'PUT', body: JSON.stringify({ sort_order: targetOrder }) });
+            await api(`${paths[type]}/${target.id}`, { method: 'PUT', body: JSON.stringify({ sort_order: currentOrder }) });
+            if (type === 'navigation') await loadNavigation();
+            if (type === 'bangumi') await loadBangumi();
+            if (type === 'album') await loadAlbums();
+            window.notifyAdmin?.('排序已更新');
+          } catch (error) {
+            window.notifyAdmin?.(error.message || '调整排序失败', true);
+          }
+        }
+
+        async function loadNavigation() {
+          const json = await api('/admin/navigation');
+          state.navigation = json.data || [];
+          const list = $('#navigation-list');
+          if (!list) return;
+          list.innerHTML = `
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm text-base-content/50">共 ${state.navigation.length} 个资源</span>
+              <button class="btn btn-sm btn-error rounded-xl" type="button" data-extra-batch-delete="navigation">批量删除</button>
+            </div>
+            ${state.navigation.map((item) => `
+              <div class="rounded-2xl bg-base-100/65 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex min-w-0 flex-1 items-start gap-3">
+                    <input class="checkbox checkbox-sm mt-1" type="checkbox" value="${item.id}" data-extra-select="navigation" />
+                    <div class="min-w-0">
+                      <p class="font-black">${html(item.icon || '◇')} ${html(item.title)} ${item.is_active ? '' : '<span class="badge badge-ghost">隐藏</span>'}</p>
+                      <p class="text-xs text-base-content/45">${html(item.category || '默认')} · ${html(item.url)} · 排序 ${Number(item.sort_order || 0)}</p>
+                      <p class="mt-1 text-sm text-base-content/60">${html(item.description || '')}</p>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-move="navigation" data-id="${item.id}" data-direction="up">上移</button>
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-move="navigation" data-id="${item.id}" data-direction="down">下移</button>
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-edit-navigation="${item.id}">编辑</button>
+                    <button class="btn btn-xs btn-error rounded-lg" type="button" data-extra-delete-navigation="${item.id}">删除</button>
+                  </div>
+                </div>
+              </div>
+            `).join('') || '<p class="text-base-content/45">暂无导航数据</p>'}
+          `;
+        }
+
+        async function loadBangumi() {
+          const json = await api('/admin/bangumi');
+          state.bangumi = json.data || [];
+          const list = $('#bangumi-list');
+          if (!list) return;
+          list.innerHTML = `
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm text-base-content/50">共 ${state.bangumi.length} 个作品</span>
+              <button class="btn btn-sm btn-error rounded-xl" type="button" data-extra-batch-delete="bangumi">批量删除</button>
+            </div>
+            ${state.bangumi.map((item) => `
+              <div class="rounded-2xl bg-base-100/65 p-4">
+                <div class="flex flex-wrap items-center gap-3">
+                  <input class="checkbox checkbox-sm" type="checkbox" value="${item.id}" data-extra-select="bangumi" />
+                  <div class="h-20 w-14 overflow-hidden rounded-xl bg-base-200">${item.cover ? `<img class="h-full w-full object-cover" src="${html(item.cover)}" alt="" />` : ''}</div>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-black">${html(item.title)} ${item.is_active ? '' : '<span class="badge badge-ghost">隐藏</span>'}</p>
+                    <p class="text-xs text-base-content/45">${html(item.status || 'watching')} · ${html(item.progress || '未填进度')} · 评分 ${Number(item.rating || 0).toFixed(1)} · 排序 ${Number(item.sort_order || 0)}</p>
+                    <p class="mt-1 line-clamp-2 text-sm text-base-content/60">${html(item.summary || '')}</p>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-move="bangumi" data-id="${item.id}" data-direction="up">上移</button>
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-move="bangumi" data-id="${item.id}" data-direction="down">下移</button>
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-edit-bangumi="${item.id}">编辑</button>
+                    <button class="btn btn-xs btn-error rounded-lg" type="button" data-extra-delete-bangumi="${item.id}">删除</button>
+                  </div>
+                </div>
+              </div>
+            `).join('') || '<p class="text-base-content/45">暂无追番数据</p>'}
+          `;
+        }
+
+        async function loadAlbums() {
+          const json = await api('/admin/albums');
+          state.albums = json.data || [];
+          const selector = $('#album-photo-form')?.elements.namedItem('album_id');
+          if (selector) {
+            selector.innerHTML = state.albums.map((album) => `<option value="${album.id}">${html(album.title)}</option>`).join('');
+          }
+          const list = $('#albums-list');
+          if (!list) return;
+          list.innerHTML = `
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <span class="text-sm text-base-content/50">共 ${state.albums.length} 个相册</span>
+              <button class="btn btn-sm btn-error rounded-xl" type="button" data-extra-batch-delete="album">批量删除</button>
+            </div>
+            ${state.albums.map((album) => `
+              <div class="rounded-2xl bg-base-100/65 p-4">
+                <div class="flex flex-wrap items-start gap-3">
+                  <input class="checkbox checkbox-sm mt-1" type="checkbox" value="${album.id}" data-extra-select="album" />
+                  <div class="h-20 w-28 overflow-hidden rounded-xl bg-base-200">${album.cover ? `<img class="h-full w-full object-cover" src="${html(album.cover)}" alt="" />` : ''}</div>
+                  <div class="min-w-0 flex-1">
+                    <p class="font-black">${html(album.icon || '▧')} ${html(album.title)} ${album.is_active ? '' : '<span class="badge badge-ghost">隐藏</span>'}</p>
+                    <p class="text-xs text-base-content/45">${html(album.event_date || '未标日期')} · ${html(album.location || '未标地点')} · ${(album.photos || []).length} 张照片 · 排序 ${Number(album.sort_order || 0)}</p>
+                    <p class="mt-1 line-clamp-2 text-sm text-base-content/60">${html(album.description || '')}</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      ${(album.photos || []).map((photo) => `
+                        <span class="inline-flex items-center gap-2 rounded-xl bg-base-200/80 px-2 py-1 text-xs">
+                          ${html(photo.title || '照片')}
+                          <button class="text-error" type="button" data-extra-delete-photo="${photo.id}">删除</button>
+                        </span>
+                      `).join('')}
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-move="album" data-id="${album.id}" data-direction="up">上移</button>
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-move="album" data-id="${album.id}" data-direction="down">下移</button>
+                    <button class="btn btn-xs rounded-lg" type="button" data-extra-edit-album="${album.id}">编辑</button>
+                    <button class="btn btn-xs btn-error rounded-lg" type="button" data-extra-delete-album="${album.id}">删除</button>
+                  </div>
+                </div>
+              </div>
+            `).join('') || '<p class="text-base-content/45">暂无相册数据</p>'}
+          `;
+        }
+
+        async function loadPanel(panel) {
+          if (!token()) return;
+          try {
+            if (panel === 'navigation') await loadNavigation();
+            if (panel === 'bangumi') await loadBangumi();
+            if (panel === 'albums') await loadAlbums();
+          } catch (error) {
+            console.warn(error);
+          }
+        }
+
+        $('#navigation-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          try {
+            const form = event.currentTarget;
+            const fields = form.elements;
+            const id = fields.namedItem('id').value;
+            const payload = {
+              title: fields.namedItem('title').value.trim(),
+              url: fields.namedItem('url').value.trim(),
+              category: fields.namedItem('category').value.trim() || '默认',
+              icon: fields.namedItem('icon').value.trim(),
+              avatar: fields.namedItem('avatar').value.trim(),
+              sort_order: Number(fields.namedItem('sort_order').value || 0),
+              description: fields.namedItem('description').value.trim(),
+              is_active: fields.namedItem('is_active').checked,
+            };
+            await api(id ? `/admin/navigation/${id}` : '/admin/navigation', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+            setPanelMessage('navigation-message', '导航已保存');
+            resetForm('navigation-form');
+            await loadNavigation();
+          } catch (error) {
+            setPanelMessage('navigation-message', error.message || '导航保存失败', true);
+          }
+        });
+
+        $('#bangumi-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          try {
+            const form = event.currentTarget;
+            const fields = form.elements;
+            const id = fields.namedItem('id').value;
+            const payload = {
+              title: fields.namedItem('title').value.trim(),
+              original_title: fields.namedItem('original_title').value.trim(),
+              cover: fields.namedItem('cover').value.trim(),
+              url: fields.namedItem('url').value.trim(),
+              status: fields.namedItem('status').value,
+              progress: fields.namedItem('progress').value.trim(),
+              rating: Number(fields.namedItem('rating').value || 0),
+              season: fields.namedItem('season').value.trim(),
+              sort_order: Number(fields.namedItem('sort_order').value || 0),
+              summary: fields.namedItem('summary').value.trim(),
+              is_active: fields.namedItem('is_active').checked,
+            };
+            await api(id ? `/admin/bangumi/${id}` : '/admin/bangumi', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+            setPanelMessage('bangumi-message', '追番已保存');
+            resetForm('bangumi-form');
+            await loadBangumi();
+          } catch (error) {
+            setPanelMessage('bangumi-message', error.message || '追番保存失败', true);
+          }
+        });
+
+        $('#album-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          try {
+            const form = event.currentTarget;
+            const fields = form.elements;
+            const id = fields.namedItem('id').value;
+            const payload = {
+              title: fields.namedItem('title').value.trim(),
+              cover: fields.namedItem('cover').value.trim(),
+              event_date: fields.namedItem('event_date').value,
+              location: fields.namedItem('location').value.trim(),
+              icon: fields.namedItem('icon').value.trim(),
+              sort_order: Number(fields.namedItem('sort_order').value || 0),
+              description: fields.namedItem('description').value.trim(),
+              is_active: fields.namedItem('is_active').checked,
+            };
+            await api(id ? `/admin/albums/${id}` : '/admin/albums', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+            setPanelMessage('album-message', '相册已保存');
+            resetForm('album-form');
+            await loadAlbums();
+          } catch (error) {
+            setPanelMessage('album-message', error.message || '相册保存失败', true);
+          }
+        });
+
+        $('#album-photo-form')?.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          try {
+            const fields = event.currentTarget.elements;
+            await api('/admin/album-photos', {
+              method: 'POST',
+              body: JSON.stringify({
+                album_id: Number(fields.namedItem('album_id').value),
+                image: fields.namedItem('image').value.trim(),
+                title: fields.namedItem('title').value.trim(),
+                variant: fields.namedItem('variant').value,
+                sort_order: Number(fields.namedItem('sort_order').value || 0),
+                description: fields.namedItem('description').value.trim(),
+              }),
+            });
+            setPanelMessage('album-photo-message', '照片已添加');
+            event.currentTarget.reset();
+            await loadAlbums();
+          } catch (error) {
+            setPanelMessage('album-photo-message', error.message || '照片添加失败', true);
+          }
+        });
+
+        document.addEventListener('click', async (event) => {
+          const target = event.target.closest('button');
+          if (!target) return;
+          if (target.dataset.pickMedia !== undefined) {
+            await openMediaPicker({
+              form: target.dataset.targetForm,
+              field: target.dataset.targetField,
+              type: target.dataset.mediaType || '',
+              append: target.dataset.appendMedia === 'true',
+            });
+            return;
+          }
+          if (target.dataset.chooseMedia) {
+            if (state.mediaPicker) setTargetValue(state.mediaPicker, target.dataset.chooseMedia);
+            $('#media-picker-dialog')?.close();
+            return;
+          }
+          if (target.dataset.extraBatchDelete) {
+            await batchDeleteExtra(target.dataset.extraBatchDelete);
+            return;
+          }
+          if (target.dataset.extraMove) {
+            await moveExtra(target.dataset.extraMove, target.dataset.id, target.dataset.direction);
+            return;
+          }
+          const panel = target.dataset.panel;
+          if (panel) loadPanel(panel);
+          if (target.dataset.resetExtra) resetForm(`${target.dataset.resetExtra}-form`);
+          if (target.dataset.extraEditNavigation) {
+            const item = state.navigation.find((row) => String(row.id) === target.dataset.extraEditNavigation);
+            if (item) fill($('#navigation-form'), item, ['id', 'title', 'url', 'category', 'icon', 'avatar', 'sort_order', 'description', 'is_active']);
+          }
+          if (target.dataset.extraDeleteNavigation && confirm('确认删除这个导航吗？')) {
+            try {
+              await api(`/admin/navigation/${target.dataset.extraDeleteNavigation}`, { method: 'DELETE' });
+              await loadNavigation();
+              window.notifyAdmin?.('导航已删除');
+            } catch (error) {
+              window.notifyAdmin?.(error.message || '删除导航失败', true);
+            }
+          }
+          if (target.dataset.extraEditBangumi) {
+            const item = state.bangumi.find((row) => String(row.id) === target.dataset.extraEditBangumi);
+            if (item) fill($('#bangumi-form'), item, ['id', 'title', 'original_title', 'cover', 'url', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
+          }
+          if (target.dataset.extraDeleteBangumi && confirm('确认删除这个追番吗？')) {
+            try {
+              await api(`/admin/bangumi/${target.dataset.extraDeleteBangumi}`, { method: 'DELETE' });
+              await loadBangumi();
+              window.notifyAdmin?.('追番已删除');
+            } catch (error) {
+              window.notifyAdmin?.(error.message || '删除追番失败', true);
+            }
+          }
+          if (target.dataset.extraEditAlbum) {
+            const item = state.albums.find((row) => String(row.id) === target.dataset.extraEditAlbum);
+            if (item) fill($('#album-form'), item, ['id', 'title', 'cover', 'event_date', 'location', 'icon', 'sort_order', 'description', 'is_active']);
+          }
+          if (target.dataset.extraDeleteAlbum && confirm('确认删除这个相册及其照片吗？')) {
+            try {
+              await api(`/admin/albums/${target.dataset.extraDeleteAlbum}`, { method: 'DELETE' });
+              await loadAlbums();
+              window.notifyAdmin?.('相册已删除');
+            } catch (error) {
+              window.notifyAdmin?.(error.message || '删除相册失败', true);
+            }
+          }
+          if (target.dataset.extraDeletePhoto && confirm('确认删除这张照片吗？')) {
+            try {
+              await api(`/admin/album-photos/${target.dataset.extraDeletePhoto}`, { method: 'DELETE' });
+              await loadAlbums();
+              window.notifyAdmin?.('照片已删除');
+            } catch (error) {
+              window.notifyAdmin?.(error.message || '删除照片失败', true);
+            }
+          }
+        });
+
+        $('#bangumi-cover-upload')?.addEventListener('change', async (event) => {
+          try {
+            const file = event.currentTarget.files?.[0];
+            if (!file) return;
+            $('#bangumi-form').elements.namedItem('cover').value = await upload(file);
+            updateFieldPreview('bangumi-form', 'cover');
+            setPanelMessage('bangumi-message', '封面上传成功');
+          } catch (error) {
+            setPanelMessage('bangumi-message', error.message || '封面上传失败', true);
+          }
+        });
+        $('#navigation-avatar-upload')?.addEventListener('change', async (event) => {
+          try {
+            const file = event.currentTarget.files?.[0];
+            if (!file) return;
+            $('#navigation-form').elements.namedItem('avatar').value = await upload(file);
+            updateFieldPreview('navigation-form', 'avatar');
+            setPanelMessage('navigation-message', '图片上传成功');
+          } catch (error) {
+            setPanelMessage('navigation-message', error.message || '图片上传失败', true);
+          }
+        });
+        $('#album-cover-upload')?.addEventListener('change', async (event) => {
+          try {
+            const file = event.currentTarget.files?.[0];
+            if (!file) return;
+            $('#album-form').elements.namedItem('cover').value = await upload(file);
+            updateFieldPreview('album-form', 'cover');
+            setPanelMessage('album-message', '封面上传成功');
+          } catch (error) {
+            setPanelMessage('album-message', error.message || '封面上传失败', true);
+          }
+        });
+        $('#album-photo-upload')?.addEventListener('change', async (event) => {
+          try {
+            const file = event.currentTarget.files?.[0];
+            if (!file) return;
+            $('#album-photo-form').elements.namedItem('image').value = await upload(file);
+            updateFieldPreview('album-photo-form', 'image');
+            setPanelMessage('album-photo-message', '照片上传成功');
+          } catch (error) {
+            setPanelMessage('album-photo-message', error.message || '照片上传失败', true);
+          }
+        });
+        $('#close-media-picker')?.addEventListener('click', () => {
+          $('#media-picker-dialog')?.close();
+        });
+        $('#media-picker-search')?.addEventListener('input', renderMediaPicker);
+        $('#media-picker-type')?.addEventListener('change', reloadMediaPickerItems);
+        [
+          ['article-form', 'cover_image'],
+          ['music-form', 'url'],
+          ['music-form', 'cover'],
+          ['music-playlist-form', 'cover'],
+          ['account-form', 'avatar'],
+          ['profile-form', 'profile_avatar'],
+          ['navigation-form', 'avatar'],
+          ['bangumi-form', 'cover'],
+          ['album-form', 'cover'],
+          ['album-photo-form', 'image'],
+        ].forEach(([formId, fieldName]) => {
+          const field = document.getElementById(formId)?.elements.namedItem(fieldName);
+          field?.addEventListener('input', () => updateFieldPreview(formId, fieldName));
+          updateFieldPreview(formId, fieldName);
+        });
+      })();
+    </script>
+  </body>
+</html>

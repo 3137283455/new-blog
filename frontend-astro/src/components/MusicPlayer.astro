@@ -1,0 +1,206 @@
+---
+import type { MusicTrack } from '../lib/api'
+import { resolveUploadUrl } from '../lib/media'
+
+interface Props {
+  tracks?: MusicTrack[]
+}
+
+const tracks = (Astro.props.tracks || [])
+  .filter((track) => track?.title && track?.url)
+  .map((track) => ({
+    ...track,
+    url: resolveUploadUrl(track.url),
+    cover: resolveUploadUrl(track.cover || '/image2.webp'),
+  }))
+const payload = JSON.stringify(tracks)
+---
+
+<section class="music-player" data-music-player data-tracks={payload}>
+  <div class="music-player-cover">
+    <img data-music-cover src={tracks[0]?.cover || '/image2.webp'} alt="音乐封面" loading="lazy" />
+  </div>
+  <div class="music-player-meta">
+    <p class="music-player-kicker">全站音乐</p>
+    <h3 data-music-title>{tracks[0]?.title || '暂无音乐'}</h3>
+    <p data-music-artist>{tracks[0]?.artist || (tracks.length ? '未知歌手' : '请在后台音乐管理添加')}</p>
+  </div>
+  <audio data-music-audio src={tracks[0]?.url || ''} preload="metadata"></audio>
+  <div class="music-player-time">
+    <span data-music-current>00:00</span>
+    <span data-music-duration>00:00</span>
+  </div>
+  <input class="music-player-range" data-music-seek type="range" min="0" max="1000" value="0" step="1" aria-label="播放进度" />
+  <div class="music-player-actions">
+    <button type="button" data-music-prev aria-label="上一首" title="上一首">‹</button>
+    <button type="button" data-music-toggle aria-label="播放或暂停" title="播放或暂停">▶</button>
+    <button type="button" data-music-next aria-label="下一首" title="下一首">›</button>
+    <a data-music-detail href={tracks[0] ? `/music/0` : '/admin'} aria-label="音乐详情" title="音乐详情">详情</a>
+  </div>
+</section>
+
+<script>
+  type StoredMusicState = {
+    index: number;
+    time: number;
+    playing: boolean;
+    url?: string;
+    updatedAt: number;
+  };
+
+  const musicStateKey = 'boke_music_state';
+
+  function readMusicState(): StoredMusicState | null {
+    try {
+      return JSON.parse(sessionStorage.getItem(musicStateKey) || 'null');
+    } catch {
+      return null;
+    }
+  }
+
+  function writeMusicState(state: StoredMusicState) {
+    sessionStorage.setItem(musicStateKey, JSON.stringify({ ...state, updatedAt: Date.now() }));
+  }
+
+  function formatMusicTime(value: number) {
+    if (!Number.isFinite(value) || value < 0) return '00:00';
+    const minutes = Math.floor(value / 60);
+    const seconds = Math.floor(value % 60);
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function initMusicPlayers() {
+    document.querySelectorAll('[data-music-player]').forEach((node) => {
+      const root = node as HTMLElement;
+      if (root.dataset.ready === 'true') return;
+      root.dataset.ready = 'true';
+
+      const tracks = JSON.parse(root.getAttribute('data-tracks') || '[]');
+      const audio = root.querySelector<HTMLAudioElement>('[data-music-audio]');
+      const title = root.querySelector<HTMLElement>('[data-music-title]');
+      const artist = root.querySelector<HTMLElement>('[data-music-artist]');
+      const cover = root.querySelector<HTMLImageElement>('[data-music-cover]');
+      const seek = root.querySelector<HTMLInputElement>('[data-music-seek]');
+      const currentTime = root.querySelector<HTMLElement>('[data-music-current]');
+      const durationTime = root.querySelector<HTMLElement>('[data-music-duration]');
+      const toggle = root.querySelector<HTMLButtonElement>('[data-music-toggle]');
+      const detail = root.querySelector<HTMLAnchorElement>('[data-music-detail]');
+      let current = 0;
+      let isSeeking = false;
+
+      const stored = readMusicState();
+      if (stored && tracks[stored.index]?.url === stored.url) {
+        current = Math.max(0, Math.min(stored.index, tracks.length - 1));
+      }
+
+      const save = () => {
+        if (!audio || !tracks[current]) return;
+        writeMusicState({
+          index: current,
+          time: audio.currentTime || 0,
+          playing: !audio.paused,
+          url: tracks[current].url,
+          updatedAt: Date.now(),
+        });
+      };
+
+      const updateProgress = () => {
+        if (!audio || !seek) return;
+        const duration = audio.duration || 0;
+        if (!isSeeking) {
+          seek.value = duration ? String(Math.round((audio.currentTime / duration) * 1000)) : '0';
+        }
+        if (currentTime) currentTime.textContent = formatMusicTime(audio.currentTime || 0);
+        if (durationTime) durationTime.textContent = formatMusicTime(duration);
+      };
+
+      const render = (restoreTime = false) => {
+        const track = tracks[current];
+        if (!track || !audio) return;
+        audio.src = track.url;
+        if (title) title.textContent = track.title || '暂无音乐';
+        if (artist) artist.textContent = track.artist || '未知歌手';
+        if (cover) cover.src = track.cover || '/image2.webp';
+        if (detail) detail.href = `/music/${current}`;
+        if (seek) seek.value = '0';
+        if (toggle) toggle.textContent = '▶';
+
+        const state = readMusicState();
+        if (restoreTime && state && state.url === track.url) {
+          const restore = () => {
+            audio.currentTime = Math.max(0, state.time || 0);
+            updateProgress();
+            if (state.playing) {
+              audio.play().then(() => {
+                if (toggle) toggle.textContent = 'Ⅱ';
+              }).catch(() => {
+                if (toggle) toggle.textContent = '▶';
+              });
+            }
+            audio.removeEventListener('loadedmetadata', restore);
+          };
+          audio.addEventListener('loadedmetadata', restore);
+        }
+      };
+
+      const play = async () => {
+        if (!tracks.length || !audio) return;
+        try {
+          await audio.play();
+          if (toggle) toggle.textContent = 'Ⅱ';
+          save();
+        } catch {
+          if (toggle) toggle.textContent = '▶';
+        }
+      };
+
+      const move = (step: number) => {
+        if (!tracks.length) return;
+        current = (current + step + tracks.length) % tracks.length;
+        render(false);
+        play();
+      };
+
+      toggle?.addEventListener('click', () => {
+        if (!tracks.length || !audio) return;
+        if (audio.paused) play();
+        else {
+          audio.pause();
+          toggle.textContent = '▶';
+          save();
+        }
+      });
+      root.querySelector('[data-music-prev]')?.addEventListener('click', () => move(-1));
+      root.querySelector('[data-music-next]')?.addEventListener('click', () => move(1));
+      detail?.addEventListener('click', save);
+      seek?.addEventListener('input', () => {
+        if (!audio || !audio.duration) return;
+        isSeeking = true;
+        audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
+        updateProgress();
+      });
+      seek?.addEventListener('change', () => {
+        isSeeking = false;
+        save();
+      });
+      audio?.addEventListener('loadedmetadata', updateProgress);
+      audio?.addEventListener('timeupdate', () => {
+        updateProgress();
+        save();
+      });
+      audio?.addEventListener('play', () => {
+        if (toggle) toggle.textContent = 'Ⅱ';
+        save();
+      });
+      audio?.addEventListener('pause', () => {
+        if (toggle) toggle.textContent = '▶';
+        save();
+      });
+      audio?.addEventListener('ended', () => move(1));
+      render(true);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initMusicPlayers);
+  document.addEventListener('astro:page-load', initMusicPlayers);
+</script>

@@ -1,0 +1,70 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { getAlbum, formatDate } from '../../lib/api'
+import { resolveUploadUrl } from '../../lib/media'
+
+const album = await getAlbum(Astro.params.id || '')
+if (!album) return Astro.redirect('/albums')
+
+const resolveMedia = (src?: string) => resolveUploadUrl(src || '')
+const photos = album.photos || []
+---
+
+<BaseLayout
+  title={album.title}
+  subtitle={album.description || '照片集'}
+  sidebarProps={{
+    statItems: [
+      { label: '照片', value: photos.length },
+      { label: '地点', value: album.location || '未标注' },
+      { label: '日期', value: album.event_date ? formatDate(album.event_date) : '未标注' },
+    ],
+    sidebarSections: [
+      {
+        title: '相册信息',
+        marker: '▧',
+        tone: 'primary',
+        items: [
+          { label: album.location || '未标注地点' },
+          { label: album.event_date ? formatDate(album.event_date) : '未标注日期' },
+          { label: `${photos.length} 张照片` },
+        ],
+      },
+    ],
+  }}
+>
+  <section class="feature-toolbar ryu-card">
+    <div>
+      <p class="feature-kicker">PHOTO WALL</p>
+      <h1 class="text-2xl font-black md:text-4xl">{album.icon || ''} {album.title}</h1>
+      <p class="mt-2 text-base-content/60">{album.description || '照片集'}</p>
+    </div>
+    <a class="ryu-btn" href="/albums">返回相册</a>
+  </section>
+
+  <section class="photo-wall">
+    {photos.map((photo, index) => (
+      <a
+        class={`photo-wall-item variant-${photo.variant || '1x1'}`}
+        href={resolveMedia(photo.image)}
+        target="_blank"
+        style={`--rotate:${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg`}
+      >
+        <img src={resolveMedia(photo.image)} alt={photo.title || album.title} loading="lazy" />
+        {(photo.title || photo.description) && (
+          <span>
+            <strong>{photo.title}</strong>
+            <small>{photo.description}</small>
+          </span>
+        )}
+      </a>
+    ))}
+  </section>
+
+  {photos.length === 0 && (
+    <div class="empty-feature ryu-card">
+      <strong>这个相册还没有照片</strong>
+      <span>去后台上传并添加照片。</span>
+    </div>
+  )}
+</BaseLayout>

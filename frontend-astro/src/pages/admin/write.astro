@@ -1,0 +1,1732 @@
+---
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>写作台</title>
+    <style>
+      :root {
+        --bg: #f2f3f5;
+        --panel: #f7f8fa;
+        --paper: #fff;
+        --line: #e5e7eb;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --primary: #1677ff;
+        --danger: #ef4444;
+        --preview-split: 50%;
+      }
+
+      * { box-sizing: border-box; }
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+        position: fixed;
+        inset: 0;
+      }
+      button, input, textarea, select { font: inherit; }
+      button, a { cursor: pointer; }
+
+      .writer-shell {
+        display: grid;
+        width: 100%;
+        height: 100dvh;
+        min-height: 0;
+        overflow: hidden;
+        grid-template-rows: 3.75rem 1fr 2rem;
+      }
+
+      .writer-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 1px solid var(--line);
+        background: rgb(255 255 255 / 0.94);
+        padding: 0 1.35rem;
+        backdrop-filter: blur(14px);
+      }
+
+      .writer-brand,
+      .writer-actions,
+      .writer-crumbs {
+        display: flex;
+        align-items: center;
+      }
+
+      .writer-brand { gap: 1rem; min-width: 0; }
+      .writer-actions { gap: 0.55rem; }
+      .writer-crumbs { flex-wrap: wrap; gap: 0.6rem; color: var(--muted); font-size: 0.92rem; }
+      .writer-crumbs strong { color: var(--text); }
+
+      .writer-logo {
+        display: grid;
+        width: 2rem;
+        height: 2rem;
+        place-items: center;
+        border-radius: 0.55rem;
+        background: var(--primary);
+        color: #fff;
+        font-weight: 900;
+        text-decoration: none;
+      }
+
+      .writer-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 2.25rem;
+        border: 1px solid var(--line);
+        border-radius: 0.55rem;
+        background: #fff;
+        color: var(--text);
+        padding: 0 1rem;
+        font-weight: 700;
+        line-height: 1;
+        text-decoration: none;
+      }
+      .writer-btn.primary { border-color: var(--primary); background: var(--primary); color: #fff; }
+      .writer-btn.icon {
+        width: 2.25rem;
+        padding: 0;
+        font-size: 1rem;
+      }
+
+      .writer-main {
+        display: grid;
+        grid-template-columns: 20rem minmax(0, 1fr) 18rem;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .writer-left,
+      .writer-right {
+        min-height: 0;
+        background: var(--panel);
+      }
+      .writer-left {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        border-right: 1px solid var(--line);
+        overflow: hidden;
+      }
+      .writer-right {
+        border-left: 1px solid var(--line);
+        padding: 1rem;
+        overflow: auto;
+        overscroll-behavior: contain;
+      }
+
+      .writer-left-head {
+        display: grid;
+        gap: 0.75rem;
+        padding: 1rem;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .writer-search {
+        width: 100%;
+        border: 0;
+        border-radius: 0.55rem;
+        background: #eef0f2;
+        padding: 0.7rem 0.75rem;
+        outline: none;
+      }
+
+      .writer-left-action {
+        border: 0;
+        border-radius: 0.55rem;
+        background: var(--primary);
+        color: #fff;
+        padding: 0.72rem 0.9rem;
+        text-align: center;
+        font-weight: 800;
+      }
+
+      .writer-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.45rem;
+      }
+
+      .writer-tab {
+        border: 1px solid var(--line);
+        border-radius: 0.6rem;
+        background: #fff;
+        color: var(--muted);
+        padding: 0.56rem 0.45rem;
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+      .writer-tab.active {
+        border-color: color-mix(in srgb, var(--primary) 34%, white);
+        background: #eaf3ff;
+        color: var(--primary);
+      }
+
+      .writer-list {
+        display: grid;
+        gap: 0.75rem;
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding: 1rem;
+        align-content: start;
+      }
+
+      .writer-empty {
+        border: 1px dashed var(--line);
+        border-radius: 0.8rem;
+        padding: 1.2rem;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .writer-post {
+        position: relative;
+        display: grid;
+        gap: 0.7rem;
+        overflow: hidden;
+        border: 1px solid #e4e9f2;
+        border-radius: 0.95rem;
+        background:
+          linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(248 251 255 / 0.94));
+        padding: 0.85rem 0.85rem 0.75rem 1rem;
+        color: inherit;
+        text-align: left;
+        text-decoration: none;
+        box-shadow: 0 12px 30px rgb(15 23 42 / 0.035);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+      }
+      .writer-post::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0.22rem;
+        background: #a7b2c4;
+      }
+      .writer-post[data-status="published"]::before { background: #16a34a; }
+      .writer-post[data-status="draft"]::before { background: #f59e0b; }
+      .writer-post[data-status="trash"]::before { background: #ef4444; }
+      .writer-post:hover {
+        border-color: color-mix(in srgb, var(--primary) 26%, #dbe4f0);
+        box-shadow: 0 14px 36px rgb(15 23 42 / 0.07);
+        transform: translateY(-1px);
+      }
+      .writer-post.active {
+        border-color: color-mix(in srgb, var(--primary) 42%, white);
+        background:
+          linear-gradient(135deg, rgb(236 245 255 / 0.98), rgb(255 255 255 / 0.96));
+        box-shadow: 0 14px 34px rgb(22 119 255 / 0.12);
+      }
+      .writer-post-main {
+        display: grid;
+        gap: 0.38rem;
+        min-width: 0;
+      }
+      .writer-post-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #172033;
+        font-size: 0.96rem;
+        font-weight: 900;
+        line-height: 1.2;
+      }
+      .writer-post-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+      .writer-post-time {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .writer-post-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+      .writer-pill {
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3158d4;
+        padding: 0.16rem 0.46rem;
+        font-size: 0.68rem;
+        font-weight: 900;
+        line-height: 1.25;
+      }
+      .writer-pill.published { background: #dcfce7; color: #15803d; }
+      .writer-pill.draft { background: #fef3c7; color: #b45309; }
+      .writer-pill.trash { background: #fee2e2; color: #b91c1c; }
+      .writer-post-menu {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.42rem;
+      }
+      .writer-mini {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 1.9rem;
+        border: 1px solid #dce4ef;
+        border-radius: 0.62rem;
+        background: #fff;
+        color: #24324a;
+        padding: 0 0.55rem;
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-decoration: none;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+      }
+      .writer-mini:hover {
+        border-color: color-mix(in srgb, var(--primary) 32%, #dce4ef);
+        background: #f3f8ff;
+        color: var(--primary);
+      }
+      .writer-mini.danger {
+        border-color: #fee2e2;
+        color: var(--danger);
+      }
+      .writer-mini.danger:hover {
+        border-color: #fecaca;
+        background: #fff1f2;
+        color: #dc2626;
+      }
+
+      .writer-stage {
+        display: grid;
+        grid-template-rows: 3.25rem 1fr;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        background: #f1f2f4;
+      }
+
+      .writer-toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.55rem;
+        border-bottom: 1px solid var(--line);
+        background: #f8f9fb;
+        padding: 0 0.8rem;
+        color: var(--muted);
+        overflow: hidden;
+      }
+      .writer-tool-group {
+        display: flex;
+        align-items: center;
+        gap: 0.16rem;
+        min-width: 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+      }
+      .writer-tool-group::-webkit-scrollbar { display: none; }
+      .writer-action-tools {
+        min-width: 0;
+        max-width: min(35rem, 45vw);
+        border-left: 1px solid #d9dde5;
+        padding-left: 0.55rem;
+      }
+
+      .writer-tool {
+        flex: 0 0 auto;
+        border: 0;
+        border-radius: 0.42rem;
+        background: transparent;
+        color: #374151;
+        min-width: 1.72rem;
+        height: 2rem;
+        padding: 0 0.34rem;
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1;
+      }
+      .writer-tool:hover { background: #e9edf3; color: var(--text); }
+      .writer-tool.is-text { font-size: 0.78rem; min-width: auto; padding: 0 0.58rem; }
+      .writer-tool.active { background: #eaf3ff; color: var(--primary); }
+      .writer-heading-select {
+        flex: 0 0 auto;
+        height: 2rem;
+        border: 0;
+        border-radius: 0.42rem;
+        background: transparent;
+        color: #374151;
+        padding: 0 0.25rem;
+        font-weight: 800;
+        outline: none;
+      }
+      .writer-heading-select:hover { background: #e9edf3; }
+      .writer-font-select {
+        flex: 0 0 4.35rem;
+        width: 4.35rem;
+        height: 1.8rem;
+        border: 1px solid #d9dde5;
+        border-radius: 0.42rem;
+        background: #fff;
+        color: #374151;
+        padding: 0 0.28rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        outline: none;
+      }
+      .writer-font-select:hover { border-color: color-mix(in srgb, var(--primary) 30%, #d9dde5); }
+      .writer-tool i {
+        display: block;
+        width: 1rem;
+        height: 1rem;
+        pointer-events: none;
+      }
+      .writer-divider {
+        flex: 0 0 auto;
+        width: 1px;
+        height: 1.35rem;
+        margin: 0 0.22rem;
+        background: #d9dde5;
+      }
+      .writer-import { color: var(--primary); }
+
+      .writer-paper-wrap {
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding: 1.65rem 2rem 4rem;
+      }
+      body.preview-on .writer-paper-wrap {
+        display: grid;
+        grid-template-columns: minmax(18rem, var(--preview-split)) 10px minmax(18rem, 1fr);
+        gap: 0;
+        padding: 1rem;
+      }
+      body.preview-on.preview-left .writer-paper-wrap {
+        grid-template-columns: minmax(18rem, calc(100% - var(--preview-split))) 10px minmax(18rem, var(--preview-split));
+      }
+      .writer-paper {
+        max-width: 49.5rem;
+        min-height: calc(100vh - 12rem);
+        margin: 0 auto;
+        border: 1px solid #ebeef3;
+        background: var(--paper);
+        box-shadow: 0 18px 48px rgb(15 23 42 / 0.04);
+      }
+      body.preview-on .writer-paper {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        margin: 0;
+        border-radius: 0.65rem 0 0 0.65rem;
+      }
+      body.preview-on.preview-left .writer-paper {
+        border-radius: 0 0.65rem 0.65rem 0;
+      }
+      .writer-title {
+        width: calc(100% - 4.5rem);
+        margin: 2.4rem 2.25rem 0;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 0 0 0.75rem;
+        outline: none;
+        color: var(--text);
+        font-size: 1.42rem;
+      }
+      .writer-content {
+        width: calc(100% - 4.5rem);
+        min-height: 34rem;
+        margin: 1.5rem 2.25rem 2rem;
+        border: 0;
+        outline: none;
+        resize: vertical;
+        color: #2b2f36;
+        font-family: "Microsoft YaHei", "PingFang SC", serif;
+        font-size: 1rem;
+        line-height: 2.05;
+      }
+      .writer-preview {
+        display: none;
+        max-width: 49.5rem;
+        min-height: calc(100vh - 12rem);
+        margin: 0 auto;
+        border: 1px solid #ebeef3;
+        background: #fff;
+        box-shadow: 0 18px 48px rgb(15 23 42 / 0.04);
+        padding: 2.25rem;
+        overflow: auto;
+      }
+      body.preview-on .writer-preview {
+        display: block;
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        margin: 0;
+        border-radius: 0 0.65rem 0.65rem 0;
+      }
+      .writer-resizer {
+        display: none;
+        position: relative;
+        z-index: 3;
+        cursor: col-resize;
+        background: transparent;
+      }
+      .writer-resizer::before {
+        content: "";
+        position: absolute;
+        inset: 0 4px;
+        border-radius: 999px;
+        background: #d5dbe6;
+        transition: background 0.18s ease, box-shadow 0.18s ease;
+      }
+      .writer-resizer:hover::before,
+      body.resizing-preview .writer-resizer::before {
+        background: var(--primary);
+        box-shadow: 0 0 0 3px rgb(22 119 255 / 0.14);
+      }
+      body.preview-on .writer-resizer { display: block; }
+      body.preview-on.preview-left .writer-preview {
+        order: 1;
+        border-radius: 0.65rem 0 0 0.65rem;
+      }
+      body.preview-on.preview-left .writer-resizer { order: 2; }
+      body.preview-on.preview-left .writer-paper { order: 3; }
+      .writer-preview h1 { margin: 0 0 1rem; font-size: 1.85rem; font-weight: 900; }
+      .writer-preview h2 { margin: 1.4rem 0 0.75rem; font-size: 1.45rem; font-weight: 900; }
+      .writer-preview h3 { margin: 1.2rem 0 0.6rem; font-size: 1.22rem; font-weight: 900; }
+      .writer-preview p,
+      .writer-preview li { color: #374151; line-height: 2; }
+      .writer-preview-body { color: #374151; line-height: 2; }
+      .writer-preview blockquote {
+        margin: 1rem 0;
+        border-left: 4px solid var(--primary);
+        background: #f8fafc;
+        padding: 0.7rem 1rem;
+        color: var(--muted);
+      }
+      .writer-preview pre {
+        overflow: auto;
+        border-radius: 0.8rem;
+        background: #111827;
+        color: #e5e7eb;
+        padding: 1rem;
+      }
+      .writer-preview code {
+        border-radius: 0.35rem;
+        background: #eef2ff;
+        padding: 0.12rem 0.35rem;
+      }
+      .writer-preview pre code { background: transparent; padding: 0; }
+      .writer-preview table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+      .writer-preview th,
+      .writer-preview td { border: 1px solid var(--line); padding: 0.55rem 0.7rem; }
+      .writer-preview img { max-width: 100%; border-radius: 0.8rem; margin: 1rem 0; }
+
+      .writer-panel,
+      .writer-card {
+        display: grid;
+        gap: 1rem;
+      }
+      .writer-card {
+        gap: 0.75rem;
+        border: 1px solid var(--line);
+        border-radius: 0.8rem;
+        background: #fff;
+        padding: 1rem;
+      }
+      .writer-card h2 { margin: 0; font-size: 1rem; }
+      .writer-field {
+        display: grid;
+        gap: 0.35rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+      .writer-field input,
+      .writer-field textarea,
+      .writer-field select {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 0.55rem;
+        background: #fff;
+        color: var(--text);
+        padding: 0.65rem 0.75rem;
+        outline: none;
+      }
+      .writer-field textarea { min-height: 5rem; resize: vertical; }
+      .writer-inline {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 0.45rem;
+      }
+      .writer-upload-btn {
+        border: 1px solid var(--line);
+        border-radius: 0.55rem;
+        background: #f8fafc;
+        color: var(--primary);
+        padding: 0 0.7rem;
+        font-weight: 900;
+      }
+      .writer-check {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        color: var(--text);
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+      .writer-help {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.7;
+      }
+      .writer-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid var(--line);
+        background: #fff;
+        padding: 0 1.5rem;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      .hidden { display: none !important; }
+      .writer-list,
+      .writer-right,
+      .writer-paper-wrap,
+      .writer-preview,
+      .writer-toolbar,
+      .writer-tool-group {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .writer-list::-webkit-scrollbar,
+      .writer-right::-webkit-scrollbar,
+      .writer-paper-wrap::-webkit-scrollbar,
+      .writer-preview::-webkit-scrollbar,
+      .writer-toolbar::-webkit-scrollbar,
+      .writer-tool-group::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        display: none;
+      }
+      body.left-collapsed .writer-left { display: none; }
+      body.right-collapsed .writer-right { display: none; }
+      body.left-collapsed:not(.right-collapsed) .writer-main { grid-template-columns: minmax(0, 1fr) 18rem; }
+      body.right-collapsed:not(.left-collapsed) .writer-main { grid-template-columns: 20rem minmax(0, 1fr); }
+      body.left-collapsed.right-collapsed .writer-main { grid-template-columns: minmax(0, 1fr); }
+      body.immersive .writer-topbar,
+      body.immersive .writer-left,
+      body.immersive .writer-right,
+      body.immersive .writer-footer,
+      body.immersive .writer-toolbar { display: none; }
+      body.immersive .writer-shell { grid-template-rows: 1fr; }
+      body.immersive .writer-main { grid-template-columns: minmax(0, 1fr); }
+      body.immersive .writer-stage { grid-template-rows: 1fr; }
+      body.immersive .writer-paper-wrap { padding: 1.25rem; }
+      body.immersive .writer-paper,
+      body.immersive .writer-preview { min-height: calc(100vh - 2.5rem); }
+
+      @media (max-width: 1100px) {
+        .writer-main { grid-template-columns: 17rem minmax(0, 1fr); }
+        .writer-right { display: none; }
+        .writer-toolbar { grid-template-columns: 1fr; height: auto; min-height: 3.25rem; padding: 0.45rem 0.65rem; }
+        .writer-action-tools { border-left: 0; border-top: 1px solid #d9dde5; padding-left: 0; padding-top: 0.35rem; }
+      }
+      @media (max-width: 760px) {
+        .writer-main { grid-template-columns: 1fr; }
+        .writer-left { display: none; }
+        .writer-topbar { align-items: flex-start; flex-direction: column; height: auto; padding: 0.85rem; }
+        .writer-topbar > div:last-child { width: 100%; overflow-x: auto; scrollbar-width: none; }
+        .writer-topbar > div:last-child::-webkit-scrollbar { display: none; }
+        .writer-toolbar { position: sticky; top: 0; z-index: 12; }
+        .writer-paper-wrap { padding: 0.75rem; }
+        .writer-paper { width: 100%; min-height: calc(100vh - 12rem); padding: 1.5rem 1.25rem; }
+        .writer-stage.is-previewing { grid-template-columns: minmax(18rem, 1fr) 0.45rem minmax(18rem, 1fr); overflow-x: auto; }
+        .writer-right { width: min(100%, 22rem); }
+      }
+    </style>
+    <style is:global>
+      #article-list.writer-list {
+        display: grid;
+        gap: 0.8rem;
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        padding: 1rem;
+        align-content: start;
+      }
+
+      #article-list .writer-post {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 0.72rem;
+        min-height: 6.85rem;
+        overflow: visible;
+        border: 1px solid #dfe7f2;
+        border-radius: 0.95rem;
+        background: linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(246 250 255 / 0.96));
+        padding: 0.88rem 0.88rem 0.78rem 1.05rem;
+        color: inherit;
+        text-align: left;
+        text-decoration: none;
+        box-shadow: 0 12px 30px rgb(15 23 42 / 0.045);
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+      }
+
+      #article-list .writer-post[data-status="trash"] {
+        border-color: #fed7d7;
+        background: linear-gradient(135deg, #fffafa, #fff7f7);
+      }
+
+      #article-list .writer-post::before {
+        content: "";
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0.24rem;
+        background: #a7b2c4;
+      }
+
+      #article-list .writer-post[data-status="published"]::before { background: #16a34a; }
+      #article-list .writer-post[data-status="draft"]::before { background: #f59e0b; }
+      #article-list .writer-post[data-status="trash"]::before { background: #ef4444; }
+
+      #article-list .writer-post:hover {
+        border-color: color-mix(in srgb, var(--primary) 30%, #dbe4f0);
+        box-shadow: 0 16px 36px rgb(15 23 42 / 0.08);
+        transform: translateY(-1px);
+      }
+
+      #article-list .writer-post.active {
+        border-color: color-mix(in srgb, var(--primary) 44%, white);
+        background: linear-gradient(135deg, rgb(236 245 255 / 0.98), rgb(255 255 255 / 0.98));
+        box-shadow: 0 14px 34px rgb(22 119 255 / 0.14);
+      }
+
+      #article-list .writer-post-main {
+        display: grid;
+        gap: 0.4rem;
+        min-width: 0;
+      }
+
+      #article-list .writer-post-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #172033;
+        font-size: 0.98rem;
+        font-weight: 900;
+        line-height: 1.2;
+      }
+
+      #article-list .writer-post-meta {
+        display: flex !important;
+        align-items: center;
+        gap: 0.45rem;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 0.76rem;
+        visibility: visible;
+        opacity: 1;
+      }
+
+      #article-list .writer-post-time {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #article-list .writer-pill {
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3158d4;
+        padding: 0.18rem 0.5rem;
+        font-size: 0.68rem;
+        font-weight: 900;
+        line-height: 1.25;
+      }
+
+      #article-list .writer-pill.published { background: #dcfce7; color: #15803d; }
+      #article-list .writer-pill.draft { background: #fef3c7; color: #b45309; }
+      #article-list .writer-pill.trash { background: #fee2e2; color: #b91c1c; }
+
+      #article-list .writer-post-menu {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+        visibility: visible;
+        opacity: 1;
+      }
+
+      #article-list .writer-mini {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 1.95rem;
+        border: 1px solid #dce4ef;
+        border-radius: 0.62rem;
+        background: #fff;
+        color: #24324a;
+        padding: 0 0.55rem;
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-decoration: none;
+        transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+      }
+
+      #article-list .writer-mini:hover {
+        border-color: color-mix(in srgb, var(--primary) 32%, #dce4ef);
+        background: #f3f8ff;
+        color: var(--primary);
+      }
+
+      #article-list .writer-mini.danger {
+        border-color: #fee2e2;
+        color: var(--danger);
+      }
+
+      #article-list .writer-mini.danger:hover {
+        border-color: #fecaca;
+        background: #fff1f2;
+        color: #dc2626;
+      }
+
+      #article-list .writer-post[data-status="trash"] .writer-mini {
+        border-color: #fecaca;
+        background: #fff;
+      }
+
+      #article-list .writer-post[data-status="trash"] .writer-mini:not(.danger) {
+        color: #2563eb;
+      }
+    </style>
+  </head>
+  <body data-api-base={apiBase}>
+    <main class="writer-shell">
+      <header class="writer-topbar">
+        <div class="writer-brand">
+          <a class="writer-logo" href="/admin" title="返回后台">写</a>
+          <div class="writer-crumbs">
+            <strong>写作台</strong>
+            <span>/</span>
+            <span id="writer-mode">新文章</span>
+            <span>/</span>
+            <select id="quick-status" aria-label="状态">
+              <option value="draft">草稿</option>
+              <option value="published">发布</option>
+            </select>
+          </div>
+        </div>
+        <div class="writer-actions">
+          <button id="toggle-left" class="writer-btn icon" type="button" title="收起左侧">⇤</button>
+          <button id="toggle-right" class="writer-btn icon" type="button" title="收起右侧">⇥</button>
+          <a class="writer-btn" href="/admin">返回后台</a>
+          <button id="save-draft" class="writer-btn" type="button">保存草稿</button>
+          <button id="publish-article" class="writer-btn primary" type="button">发布</button>
+        </div>
+      </header>
+
+      <section class="writer-main">
+        <aside class="writer-left">
+          <div class="writer-left-head">
+            <input id="article-search" class="writer-search" type="search" placeholder="搜索标题、摘要、slug" />
+            <button id="new-draft" class="writer-left-action" type="button">+ 新建文章</button>
+            <div class="writer-tabs" id="article-tabs">
+              <button class="writer-tab active" type="button" data-filter="all">全部 0</button>
+              <button class="writer-tab" type="button" data-filter="draft">草稿箱 0</button>
+              <button class="writer-tab" type="button" data-filter="published">已发布 0</button>
+              <button class="writer-tab" type="button" data-filter="trash">回收站 0</button>
+            </div>
+          </div>
+          <div id="article-list" class="writer-list"></div>
+        </aside>
+
+        <section class="writer-stage">
+          <div class="writer-toolbar">
+            <input id="text-file-input" class="hidden" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" />
+            <input id="article-image-input" class="hidden" type="file" accept="image/*" />
+            <input id="cover-file-input" class="hidden" type="file" accept="image/*" />
+            <div class="writer-tool-group writer-format-tools">
+              <button class="writer-tool" type="button" data-md-insert="bold" title="加粗">B</button>
+              <button class="writer-tool" type="button" data-md-insert="italic" title="斜体"><em>I</em></button>
+              <button class="writer-tool" type="button" data-md-insert="heading" title="标题">H</button>
+              <select id="heading-level" class="writer-heading-select" title="标题等级">
+                <option value="1">H1</option>
+                <option value="2" selected>H2</option>
+                <option value="3">H3</option>
+                <option value="4">H4</option>
+                <option value="5">H5</option>
+                <option value="6">H6</option>
+              </select>
+              <span class="writer-divider"></span>
+              <button class="writer-tool" type="button" data-md-insert="strike" title="删除线">S</button>
+              <button class="writer-tool" type="button" data-md-insert="hr" title="分隔线">−</button>
+              <span class="writer-divider"></span>
+              <button class="writer-tool" type="button" data-md-insert="task" title="任务列表">☑</button>
+              <button class="writer-tool" type="button" data-md-insert="ordered" title="编号列表">⑴</button>
+              <button class="writer-tool" type="button" data-md-insert="unordered" title="无序列表">☷</button>
+              <span class="writer-divider"></span>
+              <button class="writer-tool" type="button" data-md-insert="code" title="代码块">{}</button>
+              <button class="writer-tool" type="button" data-md-insert="inlineCode" title="行内代码">&lt;/&gt;</button>
+              <button class="writer-tool" type="button" data-md-insert="link" title="链接">↗</button>
+              <button id="insert-image-button" class="writer-tool writer-import" type="button" title="上传插图">▧</button>
+              <button class="writer-tool" type="button" data-md-insert="table" title="表格">▦</button>
+              <button class="writer-tool" type="button" data-md-insert="quote" title="引用">❝</button>
+              <button class="writer-tool" type="button" data-md-insert="math" title="公式">Σₓ</button>
+              <button class="writer-tool is-text" type="button" data-md-insert="footnote" title="脚注">脚注</button>
+            </div>
+            <div class="writer-tool-group writer-action-tools">
+              <button id="toggle-preview" class="writer-tool is-text" type="button" title="开启/关闭预览">预览</button>
+              <button id="swap-preview" class="writer-tool is-text" type="button" title="预览换边">换边</button>
+              <button id="immersive-mode" class="writer-tool is-text" type="button" title="沉浸模式，Esc 退出">沉浸</button>
+              <button id="import-text-button" class="writer-tool is-text writer-import" type="button" title="导入 txt/md">导入</button>
+              <select id="inline-font-select" class="writer-font-select" title="选中文字后应用或移除局部字体">
+                <option value="">字体</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="writer-paper-wrap">
+            <article class="writer-paper">
+              <input id="title" class="writer-title" placeholder="请输入文章标题" />
+              <textarea id="content" class="writer-content" placeholder="从这里开始写。支持 Markdown、代码块、表格、图片、公式和脚注。"></textarea>
+            </article>
+            <div id="preview-resizer" class="writer-resizer" title="拖动调整预览宽度"></div>
+            <article id="preview-panel" class="writer-preview"></article>
+          </div>
+        </section>
+
+        <aside class="writer-right">
+          <div class="writer-panel">
+            <section class="writer-card">
+              <h2>文章属性</h2>
+              <label class="writer-field">状态
+                <select id="status">
+                  <option value="draft">草稿</option>
+                  <option value="published">发布</option>
+                </select>
+              </label>
+              <label class="writer-field">可见性
+                <select id="visibility">
+                  <option value="public">公开</option>
+                  <option value="private">私密</option>
+                </select>
+              </label>
+              <label class="writer-check"><input id="is-pinned" type="checkbox" /> 置顶</label>
+              <label class="writer-check"><input id="is-recommended" type="checkbox" /> 推荐</label>
+            </section>
+
+            <section class="writer-card">
+              <h2>分类与封面</h2>
+              <label class="writer-field">分类
+                <select id="category"></select>
+              </label>
+              <label class="writer-field">标签
+                <select id="tags" multiple></select>
+              </label>
+              <label class="writer-field">封面图
+                <span class="writer-inline">
+                  <input id="cover" placeholder="/uploads/cover.webp" />
+                  <button id="cover-upload-button" class="writer-upload-btn" type="button">上传</button>
+                </span>
+              </label>
+              <label class="writer-field">摘要
+                <textarea id="excerpt" placeholder="不填时可由正文概括"></textarea>
+              </label>
+            </section>
+
+            <section class="writer-card">
+              <h2>文章字体</h2>
+              <label class="writer-field">标题字体
+                <select id="title-font-select"></select>
+              </label>
+              <label class="writer-field">正文字体
+                <select id="body-font-select"></select>
+              </label>
+              <p class="writer-help">字体库在后台「设置」里统一导入；这里仅选择当前文章使用的标题/正文字体。</p>
+            </section>
+          </div>
+        </aside>
+      </section>
+
+      <footer class="writer-footer">
+        <span id="word-count">本章字数：0</span>
+        <span id="save-status">未保存</span>
+      </footer>
+    </main>
+
+    <script is:inline src="/admin-write-utils.js"></script>
+    <script is:inline>
+      // @ts-nocheck
+      const API_BASE = document.body.dataset.apiBase || '/api'
+      const tokenKey = 'boke_admin_token'
+      const token = localStorage.getItem(tokenKey) || ''
+      const params = new URLSearchParams(location.search)
+      let articleId = params.get('id') || ''
+      let articles = []
+      let trashedArticles = []
+      let currentFilter = 'all'
+      let previewEnabled = false
+      let previewSplit = 52
+      let fontLibrary = []
+      let previewRequestId = 0
+      let isDirty = false
+      let autosaveTimer = null
+
+      const $ = (selector) => document.querySelector(selector)
+      const $$ = (selector) => Array.from(document.querySelectorAll(selector))
+      const writerUtils = window.WriterUtils || {}
+
+      function setMessage(text) {
+        $('#save-status').textContent = text || '未保存'
+      }
+
+      function autosaveKey(id = articleId) {
+        return `boke_writer_autosave_${id || 'new'}`
+      }
+
+      function collectLocalDraft() {
+        return {
+          articleId,
+          title: $('#title')?.value || '',
+          content: $('#content')?.value || '',
+          excerpt: $('#excerpt')?.value || '',
+          cover: $('#cover')?.value || '',
+          status: $('#status')?.value || 'draft',
+          visibility: $('#visibility')?.value || 'public',
+          category: $('#category')?.value || '',
+          titleFont: $('#title-font-select')?.value || '',
+          bodyFont: $('#body-font-select')?.value || '',
+          isPinned: !!$('#is-pinned')?.checked,
+          isRecommended: !!$('#is-recommended')?.checked,
+          updatedAt: Date.now(),
+        }
+      }
+
+      function applyLocalDraft(draft) {
+        if (!draft) return
+        $('#title').value = draft.title || ''
+        $('#content').value = draft.content || ''
+        $('#excerpt').value = draft.excerpt || ''
+        $('#cover').value = draft.cover || ''
+        $('#status').value = draft.status || 'draft'
+        $('#quick-status').value = draft.status || 'draft'
+        $('#visibility').value = draft.visibility || 'public'
+        $('#category').value = draft.category || ''
+        $('#title-font-select').value = draft.titleFont || ''
+        $('#body-font-select').value = draft.bodyFont || ''
+        $('#is-pinned').checked = !!draft.isPinned
+        $('#is-recommended').checked = !!draft.isRecommended
+        updateWordCount()
+        applyArticleFonts()
+      }
+
+      function markDirty() {
+        isDirty = true
+        window.clearTimeout(autosaveTimer)
+        autosaveTimer = window.setTimeout(() => {
+          const draft = collectLocalDraft()
+          localStorage.setItem(autosaveKey(), JSON.stringify(draft))
+          setMessage(`已本地自动保存 ${new Date(draft.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`)
+        }, 5000)
+      }
+
+      function clearLocalDraft(id = articleId) {
+        localStorage.removeItem(autosaveKey(id))
+      }
+
+      function restoreLocalDraftIfNeeded() {
+        const raw = localStorage.getItem(autosaveKey())
+        if (!raw) return
+        try {
+          const draft = JSON.parse(raw)
+          if (!draft?.updatedAt) return
+          const label = new Date(draft.updatedAt).toLocaleString('zh-CN')
+          if (confirm(`检测到 ${label} 的本地临时稿，是否恢复？`)) {
+            applyLocalDraft(draft)
+            isDirty = true
+            setMessage('已恢复本地临时稿')
+          }
+        } catch {
+          clearLocalDraft()
+        }
+      }
+
+      function html(value) {
+        return writerUtils.html(value)
+      }
+
+      function cssString(value = '') {
+        return writerUtils.cssString(value)
+      }
+
+      function cssUrl(value = '') {
+        return writerUtils.cssUrl(value)
+      }
+
+      function fontStyleBlock() {
+        return writerUtils.fontStyleBlock(fontLibrary)
+      }
+
+      function ensureWriterFontStyle() {
+        let style = document.getElementById('writer-font-library-style')
+        if (!style) {
+          style = document.createElement('style')
+          style.id = 'writer-font-library-style'
+          document.head.appendChild(style)
+        }
+        style.textContent = fontStyleBlock()
+      }
+
+      function fontFamilyCss(font) {
+        return writerUtils.fontFamilyCss(font)
+      }
+
+      function applyArticleFonts() {
+        const titleFont = parseFontSelection($('#title-font-select')?.value || '')
+        const bodyFont = parseFontSelection($('#body-font-select')?.value || '')
+        const titleFamily = fontFamilyCss(titleFont)
+        const bodyFamily = fontFamilyCss(bodyFont)
+        $('#title').style.fontFamily = titleFamily || ''
+        $('#content').style.fontFamily = bodyFamily || ''
+        if (previewEnabled) updatePreview()
+      }
+
+      function parseSetting(row) {
+        return writerUtils.parseSetting(row)
+      }
+
+      function fontKey(font) {
+        return writerUtils.fontKey(font)
+      }
+
+      function parseFontSelection(value) {
+        return writerUtils.parseFontSelection(value)
+      }
+
+      function renderFontSelectors() {
+        const options = ['<option value="">默认字体</option>']
+          .concat(fontLibrary.map((font) => {
+            const family = font.family || font.name || ''
+            const url = font.url || ''
+            if (!family || !url) return ''
+            return `<option value="${html(fontKey({ family, url }))}">${html(family)}</option>`
+          }))
+          .filter(Boolean)
+          .join('')
+        $('#title-font-select').innerHTML = options
+        $('#body-font-select').innerHTML = options
+        $('#inline-font-select').innerHTML = '<option value="">字体</option><option value="__clear">取消字体</option>' + options.replace('<option value="">默认字体</option>', '')
+        ensureWriterFontStyle()
+      }
+
+      async function loadFontLibrary() {
+        try {
+          const json = await request('/admin/settings')
+          const rows = json.data || []
+          const settings = Object.fromEntries(rows.map((item) => [item.key, parseSetting(item)]))
+          fontLibrary = Array.isArray(settings.font_library) ? settings.font_library : []
+        } catch {
+          fontLibrary = []
+        }
+        renderFontSelectors()
+      }
+
+      function renderInlineMarkdown(value) {
+        return writerUtils.renderInlineMarkdown(value)
+      }
+
+      function markdownToHtml(markdown) {
+        return writerUtils.markdownToHtml(markdown)
+      }
+
+      async function updatePreview() {
+        const requestId = ++previewRequestId
+        const title = $('#title').value.trim()
+        const content = $('#content').value
+        const fontCss = fontStyleBlock()
+        const titleFont = parseFontSelection($('#title-font-select')?.value || '')
+        const bodyFont = parseFontSelection($('#body-font-select')?.value || '')
+        let contentHtml = markdownToHtml(content)
+        try {
+          const json = await request('/admin/markdown/preview', {
+            method: 'POST',
+            body: JSON.stringify({ content }),
+          })
+          contentHtml = json.data?.html || ''
+        } catch {
+          // Keep the local renderer as a fallback when the API is temporarily unavailable.
+        }
+        if (requestId !== previewRequestId) return
+        $('#preview-panel').innerHTML = writerUtils.buildPreviewHtml({ title, contentHtml, fontCss, titleFont, bodyFont })
+      }
+
+      async function request(path, options = {}) {
+        if (!token) {
+          setMessage('请先回后台登录')
+          throw new Error('请先登录后台')
+        }
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          ...(options.headers || {}),
+        }
+        if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json'
+        let res
+        try {
+          res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+        } catch {
+          throw new Error(`无法连接后端 API（${API_BASE}），请确认 Express 服务已启动且代理配置正常`)
+        }
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || json.success === false) throw new Error(json.message || `请求失败（HTTP ${res.status}）`)
+        return json
+      }
+
+      async function publicRequest(path) {
+        try {
+          const res = await fetch(`${API_BASE}${path}`)
+          if (!res.ok) return { data: [] }
+          return res.json()
+        } catch {
+          return { data: [] }
+        }
+      }
+
+      async function uploadFile(file, message = '上传中...') {
+        if (!file) return null
+        setMessage(message)
+        const form = new FormData()
+        form.append('file', file)
+        const json = await request('/admin/media/upload', { method: 'POST', body: form })
+        return json.data
+      }
+
+      function collectPayload(statusOverride) {
+        const titleFont = parseFontSelection($('#title-font-select').value)
+        const bodyFont = parseFontSelection($('#body-font-select').value)
+        return {
+          title: $('#title').value.trim(),
+          content: $('#content').value.trim(),
+          excerpt: $('#excerpt').value.trim(),
+          cover_image: $('#cover').value.trim(),
+          title_font_family: titleFont.family,
+          title_font_url: titleFont.url,
+          body_font_family: bodyFont.family,
+          body_font_url: bodyFont.url,
+          status: statusOverride || $('#status').value,
+          visibility: $('#visibility').value,
+          category_id: $('#category').value ? Number($('#category').value) : null,
+          tag_ids: Array.from($('#tags').selectedOptions).map((option) => Number(option.value)),
+          is_pinned: $('#is-pinned').checked,
+          is_recommended: $('#is-recommended').checked,
+        }
+      }
+
+      function fillArticle(post) {
+        articleId = post?.id ? String(post.id) : ''
+        $('#writer-mode').textContent = articleId ? '编辑文章' : '新文章'
+        $('#title').value = post?.title || ''
+        $('#content').value = post?.content || ''
+        $('#excerpt').value = post?.excerpt || ''
+        $('#cover').value = post?.cover_image || ''
+        $('#status').value = post?.status || 'draft'
+        $('#quick-status').value = post?.status || 'draft'
+        $('#visibility').value = post?.visibility || 'public'
+        $('#category').value = post?.category_id || ''
+        $('#title-font-select').value = fontKey({ family: post?.title_font_family, url: post?.title_font_url })
+        $('#body-font-select').value = fontKey({ family: post?.body_font_family, url: post?.body_font_url })
+        $('#is-pinned').checked = !!post?.is_pinned
+        $('#is-recommended').checked = !!post?.is_recommended
+        const tagIds = new Set((post?.tags || []).map((tag) => String(tag.id)))
+        Array.from($('#tags').options).forEach((option) => {
+          option.selected = tagIds.has(option.value)
+        })
+        updateWordCount()
+        applyArticleFonts()
+        isDirty = false
+        renderArticleList()
+      }
+
+      async function saveArticle(statusOverride) {
+        const payload = collectPayload(statusOverride)
+        if (!payload.title) {
+          setMessage('请先填写标题')
+          return
+        }
+        if (!payload.content) {
+          setMessage('请先填写正文')
+          return
+        }
+        setMessage('正在保存...')
+        try {
+          const json = await request(articleId ? `/admin/articles/${articleId}` : '/admin/articles', {
+            method: articleId ? 'PUT' : 'POST',
+            body: JSON.stringify(payload),
+          })
+          const oldArticleId = articleId
+          if (!articleId && json.data?.id) articleId = String(json.data.id)
+          clearLocalDraft(oldArticleId)
+          clearLocalDraft(articleId)
+          isDirty = false
+          setMessage(payload.status === 'published' ? '已发布' : '已保存草稿')
+          await loadArticles()
+        } catch (error) {
+          setMessage(error.message || '保存失败')
+        }
+      }
+
+      function insertText(before, text, after = '') {
+        const textarea = $('#content')
+        const start = textarea.selectionStart || 0
+        const end = textarea.selectionEnd || start
+        const selected = textarea.value.slice(start, end) || text
+        textarea.setRangeText(`${before}${selected}${after}`, start, end, 'end')
+        textarea.focus()
+        updateWordCount()
+        updatePreview()
+      }
+
+      function unwrapInlineFont(value) {
+        return writerUtils.unwrapInlineFont(value)
+      }
+
+      function inlineFontRangeAt(value, start, end) {
+        return writerUtils.inlineFontRangeAt(value, start, end)
+      }
+
+      function clearInlineFont() {
+        const textarea = $('#content')
+        const start = textarea.selectionStart || 0
+        const end = textarea.selectionEnd || start
+        const value = textarea.value
+        const selected = value.slice(start, end)
+        const enclosing = inlineFontRangeAt(value, start, end)
+
+        if (enclosing && (start === end || selected.includes('<span') || selected.includes('</span>'))) {
+          textarea.setRangeText(enclosing.text, enclosing.start, enclosing.end, 'select')
+          setMessage('已移除局部字体')
+        } else if (selected) {
+          const cleaned = unwrapInlineFont(selected)
+          textarea.setRangeText(cleaned, start, end, 'select')
+          setMessage(cleaned === selected ? '选中内容没有局部字体标签' : '已移除选中内容的局部字体')
+        } else {
+          setMessage('请选中内容，或把光标放在已有局部字体文字中')
+          textarea.focus()
+          return
+        }
+
+        textarea.focus()
+        updateWordCount()
+        updatePreview()
+      }
+
+      function applyInlineFont() {
+        const select = $('#inline-font-select')
+        if (select.value === '__clear') {
+          clearInlineFont()
+          select.value = ''
+          return
+        }
+        const font = parseFontSelection(select.value)
+        const textarea = $('#content')
+        const start = textarea.selectionStart || 0
+        const end = textarea.selectionEnd || start
+        const selected = textarea.value.slice(start, end)
+
+        if (!selected) {
+          setMessage('请先选中要更换字体的文字')
+          select.value = ''
+          textarea.focus()
+          return
+        }
+
+        const cleanSelected = selected.replace(/<span\s+data-font="[^"]+"(?:\s+data-font-url="[^"]+")?>([\s\S]*?)<\/span>/g, '$1')
+        if (!font.family) {
+          textarea.setRangeText(cleanSelected, start, end, 'select')
+          setMessage('已移除选中文字的局部字体')
+        } else {
+          textarea.setRangeText(`<span data-font="${html(font.family)}" data-font-url="${html(font.url)}">${cleanSelected}</span>`, start, end, 'select')
+          setMessage(`已应用局部字体：${font.family}`)
+          if (!previewEnabled) setPreviewState(true)
+        }
+
+        select.value = ''
+        textarea.focus()
+        updateWordCount()
+        updatePreview()
+      }
+
+      function insertMarkdown(kind) {
+        const headingLevel = Math.max(1, Math.min(6, Number($('#heading-level')?.value || 2)))
+        const snippets = {
+          heading: [`\n${'#'.repeat(headingLevel)} `, `H${headingLevel} 标题`, '\n'],
+          bold: ['**', '重点文字', '**'],
+          italic: ['*', '斜体文字', '*'],
+          strike: ['~~', '删除线文字', '~~'],
+          hr: ['\n\n', '---', '\n\n'],
+          task: ['\n- [ ] ', '待办事项', '\n'],
+          ordered: ['\n1. ', '第一项', '\n2. 第二项\n'],
+          unordered: ['\n- ', '列表项', '\n- 另一项\n'],
+          quote: ['\n> ', '引用内容', '\n'],
+          code: ['\n```js\n', 'console.log("Hello")', '\n```\n'],
+          inlineCode: ['`', 'code', '`'],
+          link: ['[', '链接文字', '](https://example.com)'],
+          table: ['\n| 列一 | 列二 |\n| --- | --- |\n| ', '内容', ' | 内容 |\n'],
+          math: ['\n$$\n', 'E = mc^2', '\n$$\n'],
+          footnote: ['', '需要说明的文字[^1]\n\n[^1]: 脚注内容', ''],
+        }
+        const item = snippets[kind]
+        if (!item) return
+        insertText(item[0], item[1], item[2])
+      }
+
+      function importTextFile(file) {
+        if (!file) return
+        const allowed = /\.(txt|md|markdown)$/i.test(file.name) || /^text\//i.test(file.type || '')
+        if (!allowed) {
+          setMessage('只支持 txt、md、markdown 文本文件')
+          return
+        }
+        const reader = new FileReader()
+        reader.onload = () => {
+          const text = String(reader.result || '').replace(/^\uFEFF/, '')
+          const titleFromFile = file.name.replace(/\.(txt|md|markdown)$/i, '')
+          if (!$('#title').value.trim()) $('#title').value = titleFromFile
+          $('#content').value = $('#content').value.trim()
+            ? `${$('#content').value.trimEnd()}\n\n${text}`
+            : text
+          updateWordCount()
+          updatePreview()
+          setMessage(`已导入：${file.name}`)
+        }
+        reader.onerror = () => setMessage('文本读取失败')
+        reader.readAsText(file, 'utf-8')
+      }
+
+      function updateWordCount() {
+        const text = `${$('#title').value}\n${$('#content').value}`
+        $('#word-count').textContent = `本章字数：${text.replace(/\s/g, '').length}`
+      }
+
+      function getVisibleArticles() {
+        const keyword = $('#article-search').value.trim().toLowerCase()
+        const pool = currentFilter === 'trash' ? trashedArticles : articles
+        return pool.filter((post) => {
+          const matchFilter =
+            currentFilter === 'all' ||
+            currentFilter === 'trash' ||
+            (currentFilter === 'draft' && post.status !== 'published') ||
+            (currentFilter === 'published' && post.status === 'published')
+          const matchKeyword = !keyword || `${post.title} ${post.slug} ${post.excerpt || ''}`.toLowerCase().includes(keyword)
+          return matchFilter && matchKeyword
+        })
+      }
+
+      function renderTabs() {
+        const counts = {
+          all: articles.length,
+          draft: articles.filter((post) => post.status !== 'published').length,
+          published: articles.filter((post) => post.status === 'published').length,
+          trash: trashedArticles.length,
+        }
+        const labels = { all: '全部', draft: '草稿箱', published: '已发布', trash: '回收站' }
+        $$('#article-tabs .writer-tab').forEach((button) => {
+          const filter = button.dataset.filter
+          button.classList.toggle('active', filter === currentFilter)
+          button.textContent = `${labels[filter]} ${counts[filter]}`
+        })
+      }
+
+      function renderArticleList() {
+        renderTabs()
+        const visible = getVisibleArticles()
+        const emptyText = {
+          all: '还没有文章，点上方“新建文章”开始写。',
+          draft: '草稿箱里暂时没有文章。',
+          published: '还没有已发布文章。',
+          trash: '回收站为空。',
+        }[currentFilter] || '这里暂时没有文章'
+        $('#article-list').innerHTML = visible.length
+          ? visible.map(renderArticleItem).join('')
+          : `<div class="writer-empty">${html(emptyText)}</div>`
+      }
+
+      function renderArticleItem(post) {
+        const isTrash = !!post.deleted_at || currentFilter === 'trash'
+        const status = isTrash ? '回收站' : (post.status === 'published' ? '已发布' : '草稿')
+        const statusKey = isTrash ? 'trash' : (post.status === 'published' ? 'published' : 'draft')
+        const date = isTrash
+          ? `删除于 ${post.deleted_at || post.updated_at || post.created_at || ''}`
+          : (post.updated_at || post.created_at || '')
+        return `
+          <article class="writer-post ${String(post.id) === String(articleId) ? 'active' : ''}" data-id="${post.id}" data-status="${statusKey}">
+            <div class="writer-post-main">
+              <div class="writer-post-title">${html(post.title || '未命名文章')}</div>
+              <div class="writer-post-meta">
+                <span class="writer-pill ${statusKey}">${html(status)}</span>
+                <span class="writer-post-time">${html(date)}</span>
+              </div>
+            </div>
+            <div class="writer-post-actions writer-post-menu">
+              ${isTrash
+                ? `<button class="writer-mini" type="button" data-action="restore" data-id="${post.id}">恢复</button>
+                   <button class="writer-mini danger" type="button" data-action="force-delete" data-id="${post.id}">永久删除</button>`
+                : `<a class="writer-mini" href="/admin/write?id=${post.id}">编辑</a>
+                   <button class="writer-mini danger" type="button" data-action="delete" data-id="${post.id}">删除</button>`}
+            </div>
+          </article>
+        `
+      }
+
+      async function loadArticles() {
+        const [normalJson, trashJson] = await Promise.all([
+          request('/admin/articles?pageSize=200'),
+          request('/admin/articles?trashed=true&pageSize=200'),
+        ])
+        articles = normalJson.data || []
+        trashedArticles = trashJson.data || []
+        renderArticleList()
+      }
+
+      async function loadTaxonomy() {
+        const [categoryJson, tagJson] = await Promise.all([
+          publicRequest('/categories'),
+          publicRequest('/tags'),
+        ])
+        $('#category').innerHTML = '<option value="">无分类</option>' + (categoryJson.data || []).map((item) => (
+          `<option value="${item.id}">${html(item.name)}</option>`
+        )).join('')
+        $('#tags').innerHTML = (tagJson.data || []).map((item) => (
+          `<option value="${item.id}">${html(item.name)}</option>`
+        )).join('')
+      }
+
+      async function loadCurrentArticle() {
+        if (!articleId) {
+          fillArticle(null)
+          return
+        }
+        const json = await request(`/admin/articles/${articleId}`)
+        fillArticle(json.data)
+      }
+
+      async function deleteArticle(id) {
+        if (!confirm('确定把这篇文章移入回收站吗？')) return
+        await request(`/admin/articles/${id}`, { method: 'DELETE' })
+        if (String(id) === String(articleId)) {
+          history.pushState(null, '', '/admin/write')
+          fillArticle(null)
+        }
+        setMessage('已移入回收站')
+        await loadArticles()
+      }
+
+      async function restoreArticle(id) {
+        await request(`/admin/articles/${id}/restore`, { method: 'PUT' })
+        setMessage('已恢复文章')
+        await loadArticles()
+      }
+
+      async function forceDeleteArticle(id) {
+        if (!confirm('确定永久删除吗？这个操作不能撤销。')) return
+        await request(`/admin/articles/${id}/force`, { method: 'DELETE' })
+        if (String(id) === String(articleId)) {
+          history.pushState(null, '', '/admin/write')
+          fillArticle(null)
+        }
+        setMessage('已永久删除')
+        await loadArticles()
+      }
+
+      function setPreviewState(enabled) {
+        previewEnabled = enabled
+        document.body.classList.toggle('preview-on', previewEnabled)
+        $('#toggle-preview')?.classList.toggle('active', previewEnabled)
+        if (previewEnabled) {
+          setPreviewSplit(previewSplit)
+          updatePreview()
+        }
+      }
+
+      function setPreviewSplit(value) {
+        previewSplit = Math.max(28, Math.min(72, Number(value) || 52))
+        document.documentElement.style.setProperty('--preview-split', `${previewSplit}%`)
+      }
+
+      function startPreviewResize(event) {
+        if (!previewEnabled) return
+        event.preventDefault()
+        const wrap = event.currentTarget.closest('.writer-paper-wrap')
+        const rect = wrap.getBoundingClientRect()
+        document.body.classList.add('resizing-preview')
+
+        const onMove = (moveEvent) => {
+          const raw = ((moveEvent.clientX - rect.left) / rect.width) * 100
+          setPreviewSplit(document.body.classList.contains('preview-left') ? 100 - raw : raw)
+        }
+        const onUp = () => {
+          document.body.classList.remove('resizing-preview')
+          window.removeEventListener('mousemove', onMove)
+          window.removeEventListener('mouseup', onUp)
+        }
+
+        window.addEventListener('mousemove', onMove)
+        window.addEventListener('mouseup', onUp)
+      }
+
+      function enterImmersive() {
+        setPreviewState(true)
+        document.body.classList.add('immersive')
+        setMessage('沉浸模式，按 Esc 退出')
+      }
+
+      function exitImmersive() {
+        document.body.classList.remove('immersive')
+        setMessage('已退出沉浸模式')
+      }
+
+      $('#quick-status').addEventListener('change', (event) => {
+        $('#status').value = event.target.value
+      })
+      $('#status').addEventListener('change', (event) => {
+        $('#quick-status').value = event.target.value
+      })
+      $('#toggle-left').addEventListener('click', () => {
+        document.body.classList.toggle('left-collapsed')
+      })
+      $('#toggle-right').addEventListener('click', () => {
+        document.body.classList.toggle('right-collapsed')
+      })
+      $('#toggle-preview').addEventListener('click', () => {
+        setPreviewState(!previewEnabled)
+      })
+      $('#swap-preview').addEventListener('click', () => {
+        document.body.classList.toggle('preview-left')
+        if (!previewEnabled) setPreviewState(true)
+      })
+      $('#preview-resizer').addEventListener('mousedown', startPreviewResize)
+      $('#immersive-mode').addEventListener('click', enterImmersive)
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && document.body.classList.contains('immersive')) {
+          exitImmersive()
+        }
+      })
+      $('#save-draft').addEventListener('click', () => saveArticle('draft'))
+      $('#publish-article').addEventListener('click', () => saveArticle('published'))
+      $('#import-text-button').addEventListener('click', () => $('#text-file-input').click())
+      $('#insert-image-button').addEventListener('click', () => $('#article-image-input').click())
+      $('#cover-upload-button').addEventListener('click', () => $('#cover-file-input').click())
+      $('#inline-font-select').addEventListener('change', applyInlineFont)
+      $('#title-font-select').addEventListener('change', applyArticleFonts)
+      $('#body-font-select').addEventListener('change', applyArticleFonts)
+
+      $('#text-file-input').addEventListener('change', (event) => {
+        importTextFile(event.target.files?.[0])
+        event.target.value = ''
+      })
+      $('#article-image-input').addEventListener('change', async (event) => {
+        try {
+          const file = event.target.files?.[0]
+          const media = await uploadFile(file, '正在上传插图...')
+          if (media?.url) {
+            insertText('\n![', file.name.replace(/\.[^.]+$/, '') || '图片', `](${media.url})\n`)
+            setMessage('插图已插入')
+          }
+        } catch (error) {
+          setMessage(error.message || '插图上传失败')
+        }
+        event.target.value = ''
+      })
+      $('#cover-file-input').addEventListener('change', async (event) => {
+        try {
+          const media = await uploadFile(event.target.files?.[0], '正在上传封面...')
+          if (media?.url) $('#cover').value = media.url
+          setMessage('封面已上传')
+        } catch (error) {
+          setMessage(error.message || '封面上传失败')
+        }
+        event.target.value = ''
+      })
+      $('#new-draft').addEventListener('click', () => {
+        history.pushState(null, '', '/admin/write')
+        fillArticle(null)
+        setMessage('新文章')
+      })
+      $('#article-search').addEventListener('input', renderArticleList)
+      $('#content').addEventListener('input', () => {
+        updateWordCount()
+        markDirty()
+        if (previewEnabled) updatePreview()
+      })
+      $('#title').addEventListener('input', () => {
+        updateWordCount()
+        markDirty()
+        if (previewEnabled) updatePreview()
+      })
+      ;['excerpt', 'cover', 'status', 'visibility', 'category', 'tags', 'title-font-select', 'body-font-select', 'is-pinned', 'is-recommended'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('change', markDirty)
+      })
+      window.addEventListener('beforeunload', (event) => {
+        if (!isDirty) return
+        event.preventDefault()
+        event.returnValue = ''
+      })
+      $$('.writer-tool[data-md-insert]').forEach((button) => {
+        button.addEventListener('click', () => insertMarkdown(button.dataset.mdInsert))
+      })
+      $$('#article-tabs .writer-tab').forEach((button) => {
+        button.addEventListener('click', () => {
+          currentFilter = button.dataset.filter
+          renderArticleList()
+        })
+      })
+      $('#article-list').addEventListener('click', async (event) => {
+        const target = event.target.closest('[data-action]')
+        if (!target) return
+        const id = target.dataset.id
+        const action = target.dataset.action
+        try {
+          if (action === 'delete') await deleteArticle(id)
+          if (action === 'restore') await restoreArticle(id)
+          if (action === 'force-delete') await forceDeleteArticle(id)
+        } catch (error) {
+          setMessage(error.message || '操作失败')
+        }
+      })
+
+      ;(async () => {
+        try {
+          await loadTaxonomy()
+          await loadFontLibrary()
+          await loadArticles()
+          await loadCurrentArticle()
+          restoreLocalDraftIfNeeded()
+          if (articleId) setMessage('已载入文章')
+        } catch (error) {
+          setMessage(error.message || '后端未连接')
+        }
+      })()
+    </script>
+  </body>
+</html>

@@ -1,0 +1,107 @@
+---
+import Navbar from '@components/Navbar.astro'
+import Banner from '@components/Banner.astro'
+import Sidebar from '@components/Sidebar.astro'
+import { getMusicTracks, getPublicSettings } from '../lib/api'
+import '../styles/global.scss'
+
+interface Props {
+  title: string
+  subtitle?: string
+  showSidebar?: boolean
+  showBanner?: boolean
+  sidebarProps?: Record<string, unknown>
+}
+
+const {
+  title,
+  subtitle = '',
+  showSidebar = true,
+  showBanner = true,
+  sidebarProps = {},
+} = Astro.props
+
+const publicSettings = await getPublicSettings()
+const publicMusicTracks = await getMusicTracks()
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+const bannerImages = Array.isArray(publicSettings.banner_images)
+  ? publicSettings.banner_images
+  : typeof publicSettings.banner_images === 'string'
+    ? publicSettings.banner_images.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean)
+    : []
+
+const siteTitle = publicSettings.site_title || '个人博客'
+const mergedSidebarProps = {
+  ...sidebarProps,
+  musicPlaylist: publicMusicTracks.length ? publicMusicTracks : publicSettings.music_playlist || [],
+  profileName: publicSettings.profile_name || siteTitle,
+  profileAvatar: publicSettings.profile_avatar || '/profile.png',
+  profileBio: publicSettings.profile_bio || publicSettings.site_description || '记录技术、生活和灵感的个人空间。',
+}
+---
+
+<!doctype html>
+<html lang="zh-CN" data-theme="boke-green" data-theme-type="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={subtitle || siteTitle} />
+    <title>{title} - {siteTitle}</title>
+    <script is:inline define:vars={{ apiBase }}>
+      const themeTypes = { 'boke-night': 'dark', 'boke-punk': 'dark', 'boke-green': 'light' };
+      const storedTheme = localStorage.getItem('theme') || 'boke-green';
+      document.documentElement.setAttribute('data-theme', storedTheme);
+      document.documentElement.setAttribute('data-theme-type', themeTypes[storedTheme] || 'light');
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col bg-[var(--banner-wave-bg)]">
+    <div class="site-bg-grid"></div>
+    <Navbar />
+    {showBanner && <Banner title={title} subtitle={subtitle} images={bannerImages} />}
+
+    <div class={`page-content-animate mx-auto w-full max-w-blog flex-grow ${showBanner ? 'mt-5' : 'mt-24'}`}>
+      <div class={`grid grid-cols-1 gap-4 px-4 pb-4 ${showSidebar ? 'md:grid-cols-5 lg:grid-cols-4' : ''}`}>
+        <main class={`order-1 flex flex-col gap-4 ${showSidebar ? 'md:order-2 md:col-span-4 lg:col-span-3' : ''}`}>
+          <slot />
+        </main>
+        {showSidebar && (
+          <aside class="order-2 hidden md:order-1 md:col-span-1 md:block">
+            <Sidebar {...mergedSidebarProps} />
+          </aside>
+        )}
+      </div>
+    </div>
+
+    <footer class="mx-auto w-full max-w-blog px-4 pb-8 pt-4 text-center text-sm text-base-content/50">
+      <div class="flex flex-wrap justify-center gap-3">
+        <span>© 2026 {siteTitle}</span>
+        <span>运行 <strong id="site-uptime">--</strong></span>
+        <span>今日访客 <strong id="visitor-today">--</strong></span>
+        <span>累计访客 <strong id="visitor-total">--</strong></span>
+      </div>
+    </footer>
+    <script is:inline>
+      const siteStart = new Date('2026-01-01T00:00:00+08:00').getTime();
+      const uptimeEl = document.getElementById('site-uptime');
+      function updateUptime() {
+        if (!uptimeEl) return;
+        const seconds = Math.max(0, Math.floor((Date.now() - siteStart) / 1000));
+        const days = Math.floor(seconds / 86400);
+        const hours = Math.floor((seconds % 86400) / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        uptimeEl.textContent = `${days} 天 ${hours} 时 ${minutes} 分`;
+      }
+      updateUptime();
+      setInterval(updateUptime, 60000);
+      fetch(`${apiBase}/visitors/count`, { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((json) => {
+          const todayEl = document.getElementById('visitor-today');
+          const totalEl = document.getElementById('visitor-total');
+          if (todayEl) todayEl.textContent = json.data?.today ?? '--';
+          if (totalEl) totalEl.textContent = json.data?.total ?? '--';
+        })
+        .catch(() => {});
+    </script>
+  </body>
+</html>

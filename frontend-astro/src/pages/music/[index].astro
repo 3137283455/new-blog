@@ -1,0 +1,390 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { getMusicTracks, getPublicSettings, type MusicTrack } from '../../lib/api'
+import { resolveUploadUrl } from '../../lib/media'
+
+const settings = await getPublicSettings()
+const publicTracks = await getMusicTracks()
+const resolveAsset = (src = '') => resolveUploadUrl(src)
+const rawPlaylist = (publicTracks.length ? publicTracks : settings.music_playlist || []).filter((track: MusicTrack) => track?.title && track?.url)
+const playlist = rawPlaylist.map((track: MusicTrack, index: number) => ({
+  ...track,
+  index,
+  playlist: track.playlist || track.collection || '默认歌单',
+  resolvedUrl: resolveAsset(track.url),
+  resolvedCover: resolveAsset(track.cover || '/image2.webp'),
+}))
+const currentIndex = Number(Astro.params.index || 0)
+const safeIndex = Number.isFinite(currentIndex) ? Math.max(0, Math.min(currentIndex, playlist.length - 1)) : 0
+const track = playlist[safeIndex]
+const collections = Array.from(new Map(playlist.map((item) => [item.playlist, playlist.filter((song) => song.playlist === item.playlist).length])).entries())
+const payload = JSON.stringify(playlist)
+const profileAvatar = resolveAsset(settings.profile_avatar || '/profile.png')
+const profileName = settings.profile_name || settings.site_title || '个人博客'
+const profileBio = settings.profile_bio || settings.site_description || '清风的个人博客'
+---
+
+<BaseLayout title={track?.title || '音乐详情'} subtitle="歌单、歌词和播放详情" showSidebar={false} showBanner={false}>
+  <section class="music-stage" data-music-detail data-index={safeIndex} data-playlist={payload}>
+    {track ? (
+      <div class="music-room">
+        <aside class="music-profile-panel">
+          <img class="music-profile-cover" data-profile-cover src={profileAvatar} alt="个人头像" />
+          <h2>{profileName}</h2>
+          <span></span>
+          <p>{profileBio}</p>
+          <div class="music-profile-icons">
+            <a href="/">⌂</a>
+            <a href="/archive">▣</a>
+            <a href="/music">♪</a>
+            <a href="/search">⌕</a>
+          </div>
+          <div class="music-profile-stats">
+            <div><small>歌曲数</small><strong>{playlist.length}</strong></div>
+            <div><small>合集数</small><strong>{collections.length}</strong></div>
+          </div>
+        </aside>
+
+        <main class="music-center-panel">
+          <div class="music-turntable">
+            <div class="music-record">
+              <img data-track-cover src={track.resolvedCover} alt={`${track.title} 封面`} />
+            </div>
+            <div class="music-tonearm"></div>
+          </div>
+          <h1 data-track-title>{track.title}</h1>
+          <p data-track-artist>{track.artist || '未知歌手'}</p>
+          <audio data-detail-audio src={track.resolvedUrl} preload="metadata"></audio>
+          <div class="music-progress-row">
+            <span data-detail-current>00:00</span>
+            <input class="music-player-range music-stage-range" data-detail-seek type="range" min="0" max="1000" value="0" step="1" aria-label="播放进度" />
+            <span data-detail-duration>00:00</span>
+          </div>
+          <div class="music-playlist-card">
+            <h2>歌单合集</h2>
+            <div class="music-collection-grid" data-collection-list>
+              {collections.map(([name, count]) => (
+                <button class={name === track.playlist ? 'is-active' : ''} type="button" data-collection={name}>
+                  <span>{name}</span>
+                  <small>{count} 首</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        </main>
+
+        <aside class="music-lyrics-panel">
+          <div class="music-panel-tabs">
+            <button class="is-active" type="button" data-music-tab="playlist">播放列表</button>
+            <button type="button" data-music-tab="lyrics">歌词</button>
+          </div>
+          <div class="music-side-panel" data-panel="playlist">
+            <div class="music-playlist-grid music-side-list" data-track-list></div>
+          </div>
+          <div class="music-side-panel hidden" data-panel="lyrics">
+            <div class="music-lyrics" data-lyrics>
+              <p>正在加载歌词...</p>
+            </div>
+          </div>
+          <div class="music-control-card">
+            <button type="button" data-detail-prev aria-label="上一首">‹</button>
+            <button type="button" data-detail-toggle aria-label="播放">▶</button>
+            <button type="button" data-detail-next aria-label="下一首">›</button>
+          </div>
+        </aside>
+      </div>
+    ) : (
+      <div class="music-empty">
+        <h1>暂无音乐</h1>
+        <p>请先在后台音乐管理中上传音频并保存配置。</p>
+        <a class="ryu-btn-primary mt-5" href="/admin">进入后台</a>
+      </div>
+    )}
+  </section>
+</BaseLayout>
+
+<script>
+  type Track = {
+    title: string
+    artist?: string
+    url: string
+    cover?: string
+    lyrics?: string
+    playlist: string
+    index: number
+    resolvedUrl: string
+    resolvedCover: string
+  }
+  type LyricLine = { time: number; text: string; translation?: string }
+  type StoredMusicState = { index: number; time: number; playing: boolean; url?: string; updatedAt: number }
+
+  const musicStateKey = 'boke_music_state'
+
+  function readMusicState(): StoredMusicState | null {
+    try {
+      return JSON.parse(sessionStorage.getItem(musicStateKey) || 'null')
+    } catch {
+      return null
+    }
+  }
+
+  function writeMusicState(state: StoredMusicState) {
+    sessionStorage.setItem(musicStateKey, JSON.stringify({ ...state, updatedAt: Date.now() }))
+  }
+
+  function formatMusicTime(value: number) {
+    if (!Number.isFinite(value) || value < 0) return '00:00'
+    const minutes = Math.floor(value / 60)
+    const seconds = Math.floor(value % 60)
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  function escapeHtml(value: string) {
+    const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }
+    return String(value || '').replace(/[&<>"']/g, (char) => map[char] || char)
+  }
+
+  function parseLyrics(text: string): LyricLine[] {
+    const timedLines: LyricLine[] = []
+    const timeReg = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/g
+    for (const rawLine of String(text || '').split(/\r?\n/)) {
+      const line = rawLine.trim()
+      if (!line) continue
+      const matches = Array.from(line.matchAll(timeReg))
+      const content = line.replace(timeReg, '').replace(/<\d{1,2}:\d{2}(?:[.:]\d{1,3})?>/g, '').trim()
+      if (!matches.length) continue
+      for (const match of matches) {
+        const minutes = Number(match[1] || 0)
+        const seconds = Number(match[2] || 0)
+        const millis = Number((match[3] || '0').padEnd(3, '0'))
+        timedLines.push({ time: minutes * 60 + seconds + millis / 1000, text: content || '♪' })
+      }
+    }
+    timedLines.sort((a, b) => a.time - b.time)
+    return timedLines.reduce<LyricLine[]>((result, line) => {
+      const previous = result[result.length - 1]
+      if (previous && Math.abs(previous.time - line.time) < 0.01) previous.translation = line.text
+      else result.push(line)
+      return result
+    }, [])
+  }
+
+  function renderLyrics(container: HTMLElement, lyrics: LyricLine[], plainText: string) {
+    if (lyrics.length) {
+      container.innerHTML = `<div class="music-lyrics-inner">${lyrics.map((line, index) => `
+        <button class="lyric-line" type="button" data-lyric-index="${index}" data-time="${line.time}">
+          <span>${escapeHtml(line.text)}</span>
+          ${line.translation ? `<small>${escapeHtml(line.translation)}</small>` : ''}
+        </button>
+      `).join('')}</div>`
+      return
+    }
+    const plainLines = String(plainText || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    container.innerHTML = plainLines.length
+      ? `<div class="music-lyrics-inner">${plainLines.map((line) => `<p class="lyric-line-static">${escapeHtml(line)}</p>`).join('')}</div>`
+      : '<p class="lyric-line-static">后台还没有填写歌词。</p>'
+  }
+
+  function initMusicDetail() {
+    const root = document.querySelector<HTMLElement>('[data-music-detail]')
+    if (!root || root.dataset.ready === 'true') return
+    root.dataset.ready = 'true'
+
+    const playlist = JSON.parse(root.dataset.playlist || '[]') as Track[]
+    let currentIndex = Number(root.dataset.index || 0)
+    let currentTrack = playlist[currentIndex]
+    let activeCollection = currentTrack?.playlist || playlist[0]?.playlist || '默认歌单'
+    let lyrics: LyricLine[] = []
+    let activeLyricIndex = -1
+    let isSeeking = false
+
+    const audio = root.querySelector<HTMLAudioElement>('[data-detail-audio]')
+    const seek = root.querySelector<HTMLInputElement>('[data-detail-seek]')
+    const toggle = root.querySelector<HTMLButtonElement>('[data-detail-toggle]')
+    const currentTime = root.querySelector<HTMLElement>('[data-detail-current]')
+    const durationTime = root.querySelector<HTMLElement>('[data-detail-duration]')
+    const lyricsContainer = root.querySelector<HTMLElement>('[data-lyrics]')
+    const trackList = root.querySelector<HTMLElement>('[data-track-list]')
+    const title = root.querySelector<HTMLElement>('[data-track-title]')
+    const artist = root.querySelector<HTMLElement>('[data-track-artist]')
+    const cover = root.querySelector<HTMLImageElement>('[data-track-cover]')
+    const collectionButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-collection]'))
+    const tabButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-music-tab]'))
+    const panels = Array.from(root.querySelectorAll<HTMLElement>('[data-panel]'))
+
+    if (!currentTrack || !audio || !seek || !lyricsContainer || !trackList) return
+
+    const save = () => {
+      writeMusicState({ index: currentIndex, time: audio.currentTime || 0, playing: !audio.paused, url: currentTrack.resolvedUrl, updatedAt: Date.now() })
+    }
+
+    const updateProgress = () => {
+      const duration = audio.duration || 0
+      if (!isSeeking) seek.value = duration ? String(Math.round((audio.currentTime / duration) * 1000)) : '0'
+      if (currentTime) currentTime.textContent = formatMusicTime(audio.currentTime || 0)
+      if (durationTime) durationTime.textContent = formatMusicTime(duration)
+    }
+
+    const syncLyrics = () => {
+      if (!lyrics.length) return
+      let nextIndex = -1
+      for (let i = 0; i < lyrics.length; i++) {
+        if (audio.currentTime >= lyrics[i].time) nextIndex = i
+        else break
+      }
+      if (nextIndex === activeLyricIndex) return
+      activeLyricIndex = nextIndex
+      const lines = Array.from(lyricsContainer.querySelectorAll<HTMLElement>('.lyric-line'))
+      lines.forEach((line, lineIndex) => line.classList.toggle('is-active', lineIndex === activeLyricIndex))
+      const activeLine = lines[activeLyricIndex]
+      if (activeLine) {
+        const top = activeLine.offsetTop - lyricsContainer.clientHeight / 2 + activeLine.clientHeight / 2
+        lyricsContainer.scrollTo({ top, behavior: 'smooth' })
+      }
+    }
+
+    const renderTrackList = () => {
+      const tracks = playlist.filter((item) => item.playlist === activeCollection)
+      trackList.innerHTML = tracks.map((item) => `
+        <button class="music-detail-track ${item.index === currentIndex ? 'is-active' : ''}" type="button" data-track-index="${item.index}">
+          <span>${escapeHtml(item.title)}</span>
+          <small>${escapeHtml(item.artist || '未知歌手')}</small>
+        </button>
+      `).join('')
+      collectionButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.collection === activeCollection))
+    }
+
+    const setTab = (tab: string) => {
+      tabButtons.forEach((button) => button.classList.toggle('is-active', button.dataset.musicTab === tab))
+      panels.forEach((panel) => panel.classList.toggle('hidden', panel.dataset.panel !== tab))
+    }
+
+    const loadTrack = async (nextIndex: number, options: { autoplay?: boolean } = {}) => {
+      const next = playlist[nextIndex]
+      if (!next) return
+      const wasPlaying = options.autoplay ?? !audio.paused
+      currentIndex = next.index
+      currentTrack = next
+      activeCollection = next.playlist
+      audio.src = next.resolvedUrl
+      if (title) title.textContent = next.title
+      if (artist) artist.textContent = next.artist || '未知歌手'
+      if (cover) {
+        cover.src = next.resolvedCover
+        cover.alt = `${next.title} 封面`
+      }
+      lyrics = parseLyrics(next.lyrics || '')
+      activeLyricIndex = -1
+      renderLyrics(lyricsContainer, lyrics, next.lyrics || '')
+      renderTrackList()
+      history.replaceState(null, '', `/music/${next.index}`)
+      seek.value = '0'
+      if (currentTime) currentTime.textContent = '00:00'
+      if (durationTime) durationTime.textContent = '00:00'
+      if (wasPlaying) {
+        try {
+          await audio.play()
+          if (toggle) toggle.textContent = 'Ⅱ'
+        } catch {
+          if (toggle) toggle.textContent = '▶'
+        }
+      } else if (toggle) {
+        toggle.textContent = '▶'
+      }
+      save()
+    }
+
+    const move = (step: number) => {
+      const tracks = playlist.filter((item) => item.playlist === activeCollection)
+      const localIndex = Math.max(0, tracks.findIndex((item) => item.index === currentIndex))
+      const next = tracks[(localIndex + step + tracks.length) % tracks.length]
+      if (next) loadTrack(next.index, { autoplay: true })
+    }
+
+    collectionButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        activeCollection = button.dataset.collection || activeCollection
+        renderTrackList()
+        setTab('playlist')
+      })
+    })
+
+    trackList.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-track-index]')
+      if (!button) return
+      loadTrack(Number(button.dataset.trackIndex || 0), { autoplay: true })
+    })
+
+    tabButtons.forEach((button) => button.addEventListener('click', () => setTab(button.dataset.musicTab || 'playlist')))
+    root.querySelector('[data-detail-prev]')?.addEventListener('click', () => move(-1))
+    root.querySelector('[data-detail-next]')?.addEventListener('click', () => move(1))
+    toggle?.addEventListener('click', async () => {
+      if (audio.paused) {
+        try {
+          await audio.play()
+          toggle.textContent = 'Ⅱ'
+        } catch {
+          toggle.textContent = '▶'
+        }
+      } else {
+        audio.pause()
+        toggle.textContent = '▶'
+      }
+      save()
+    })
+    seek.addEventListener('input', () => {
+      if (!audio.duration) return
+      isSeeking = true
+      audio.currentTime = (Number(seek.value) / 1000) * audio.duration
+      updateProgress()
+      syncLyrics()
+    })
+    seek.addEventListener('change', () => {
+      isSeeking = false
+      save()
+    })
+    lyricsContainer.addEventListener('click', (event) => {
+      const line = (event.target as HTMLElement).closest<HTMLElement>('[data-time]')
+      if (!line) return
+      audio.currentTime = Number(line.dataset.time || 0)
+      updateProgress()
+      syncLyrics()
+      save()
+    })
+    audio.addEventListener('loadedmetadata', () => {
+      updateProgress()
+      syncLyrics()
+    })
+    audio.addEventListener('timeupdate', () => {
+      updateProgress()
+      syncLyrics()
+      save()
+    })
+    audio.addEventListener('play', () => {
+      if (toggle) toggle.textContent = 'Ⅱ'
+      save()
+    })
+    audio.addEventListener('pause', () => {
+      if (toggle) toggle.textContent = '▶'
+      save()
+    })
+    audio.addEventListener('ended', () => move(1))
+
+    const stored = readMusicState()
+    lyrics = parseLyrics(currentTrack.lyrics || '')
+    renderLyrics(lyricsContainer, lyrics, currentTrack.lyrics || '')
+    renderTrackList()
+    setTab('playlist')
+    if (stored && stored.url === currentTrack.resolvedUrl) {
+      audio.addEventListener('loadedmetadata', () => {
+        audio.currentTime = Math.max(0, stored.time || 0)
+        updateProgress()
+        syncLyrics()
+        if (stored.playing) audio.play().catch(() => {})
+      }, { once: true })
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', initMusicDetail)
+  document.addEventListener('astro:page-load', initMusicDetail)
+</script>

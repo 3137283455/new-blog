@@ -1,0 +1,250 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { getNavigationLinks } from '../lib/api'
+import { resolveUploadUrl, uploadBase } from '../lib/media'
+
+const links = (await getNavigationLinks()).filter((item) => item.is_active !== 0 && item.is_active !== false)
+const categories = Array.from(new Set(links.map((item) => item.category || '常用'))).filter(Boolean)
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+
+const normalizeUrl = (url: string) => {
+  const value = (url || '').trim()
+  if (!value) return '#'
+  if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value
+  return `https://${value}`
+}
+
+const getHost = (url: string) => {
+  try {
+    return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+const resolveMedia = (src?: string) => {
+  return resolveUploadUrl(src || '')
+}
+
+const categoryItems = categories.map((category) => ({
+  label: category,
+  value: links.filter((item) => (item.category || '常用') === category).length,
+}))
+const hostItems = Array.from(new Set(links.map((item) => getHost(item.url)).filter(Boolean)))
+  .slice(0, 10)
+  .map((label) => ({ label }))
+---
+
+<BaseLayout
+  title="导航"
+  subtitle="常用资源导航"
+  showBanner={false}
+  sidebarProps={{
+    statItems: [
+      { label: '资源', value: links.length },
+      { label: '分类', value: categories.length },
+      { label: '外链', value: links.filter((item) => normalizeUrl(item.url).startsWith('http')).length },
+    ],
+    sidebarSections: [
+      { title: '资源分类', marker: '#', tone: 'primary', items: categoryItems },
+      { title: '站点域名', marker: '@', tone: 'secondary', items: hostItems },
+    ],
+  }}
+>
+  <section class="nav-board" data-api-base={apiBase} data-upload-base={uploadBase}>
+    <div class="nav-search-row">
+      <label class="nav-search-box">
+        <span>⌕</span>
+        <input id="nav-filter" type="search" placeholder="搜索资源..." autocomplete="off" />
+      </label>
+      <a class="nav-edit-button" href="/admin">编辑</a>
+    </div>
+
+    <div id="nav-category-pills" class="nav-category-pills" aria-label="导航分类">
+      <button class="is-active" type="button" data-nav-category="all">全部</button>
+      {categories.map((category) => (
+        <button type="button" data-nav-category={category.toLowerCase()}>{category}</button>
+      ))}
+    </div>
+
+    <div id="nav-grid" class="nav-resource-grid">
+      {links.map((item) => {
+        const href = normalizeUrl(item.url)
+        const avatar = resolveMedia(item.avatar)
+        const category = item.category || '常用'
+        const host = getHost(item.url)
+        return (
+          <a
+            class="nav-resource-card"
+            href={href}
+            target={href.startsWith('http') ? '_blank' : undefined}
+            rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
+            data-category={category.toLowerCase()}
+            data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()}
+          >
+            <span class="nav-resource-main">
+              <span class="nav-resource-icon">
+                {avatar ? <img src={avatar} alt={item.title} loading="lazy" /> : <b>{item.icon || item.title.slice(0, 1)}</b>}
+              </span>
+              <span class="nav-resource-title">
+                <strong>{item.title}</strong>
+                <small>{host}</small>
+              </span>
+            </span>
+            <span class="nav-resource-badge">{item.icon || category}</span>
+            <span class="nav-resource-desc">{item.description || item.url}</span>
+          </a>
+        )
+      })}
+    </div>
+
+    <div id="nav-empty" class={`empty-feature ${links.length ? 'hidden' : ''}`}>
+      <strong>还没有导航资源</strong>
+      <span>去后台“内容中心”里的导航栏目添加第一个资源入口。</span>
+    </div>
+  </section>
+
+  <script>
+    type NavItem = {
+      title?: string
+      url?: string
+      description?: string
+      category?: string
+      icon?: string
+      avatar?: string
+      is_active?: number | boolean
+    }
+
+    const board = document.querySelector<HTMLElement>('.nav-board')
+    const input = document.getElementById('nav-filter') as HTMLInputElement | null
+    const grid = document.getElementById('nav-grid')
+    const pillsWrap = document.getElementById('nav-category-pills')
+    const empty = document.getElementById('nav-empty')
+    const apiBase = board?.dataset.apiBase || '/api'
+    const uploadBase = board?.dataset.uploadBase || ''
+    let activeCategory = 'all'
+
+    function normalizeUrl(url?: string) {
+      const value = String(url || '').trim()
+      if (!value) return '#'
+      if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value
+      return `https://${value}`
+    }
+
+    function getHost(url?: string) {
+      try {
+        return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '')
+      } catch {
+        return url || ''
+      }
+    }
+
+    function resolveMedia(src?: string) {
+      if (!src) return ''
+      if (src.startsWith('/uploads/')) return `${uploadBase}${src}`
+      return src
+    }
+
+    function escapeHtml(value?: string) {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }
+      return String(value || '').replace(/[&<>"']/g, (char) => map[char] || char)
+    }
+
+    function renderCard(item: NavItem) {
+      const href = normalizeUrl(item.url)
+      const host = getHost(item.url)
+      const category = item.category || '常用'
+      const avatar = resolveMedia(item.avatar)
+      const title = item.title || host || '未命名资源'
+      const targetAttrs = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
+      const icon = avatar
+        ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(title)}" loading="lazy" />`
+        : `<b>${escapeHtml(item.icon || title.slice(0, 1))}</b>`
+      const search = `${title} ${item.description || ''} ${category} ${host} ${item.url || ''}`.toLowerCase()
+
+      return `
+        <a class="nav-resource-card" href="${escapeHtml(href)}"${targetAttrs} data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}">
+          <span class="nav-resource-main">
+            <span class="nav-resource-icon">${icon}</span>
+            <span class="nav-resource-title">
+              <strong>${escapeHtml(title)}</strong>
+              <small>${escapeHtml(host)}</small>
+            </span>
+          </span>
+          <span class="nav-resource-badge">${escapeHtml(item.icon || category)}</span>
+          <span class="nav-resource-desc">${escapeHtml(item.description || item.url || '')}</span>
+        </a>
+      `
+    }
+
+    function getCards() {
+      return Array.from(document.querySelectorAll<HTMLElement>('.nav-resource-card'))
+    }
+
+    function applyFilter() {
+      const keyword = input?.value.trim().toLowerCase() || ''
+      let visibleCount = 0
+      getCards().forEach((card) => {
+        const matchCategory = activeCategory === 'all' || card.dataset.category === activeCategory
+        const matchKeyword = !keyword || (card.dataset.search || '').includes(keyword)
+        const visible = matchCategory && matchKeyword
+        card.hidden = !visible
+        if (visible) visibleCount += 1
+      })
+      empty?.classList.toggle('hidden', visibleCount > 0)
+    }
+
+    function showEmptyMessage(title: string, message: string) {
+      if (!empty) return
+      empty.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span>`
+      empty.classList.remove('hidden')
+    }
+
+    function bindPills() {
+      Array.from(document.querySelectorAll<HTMLButtonElement>('[data-nav-category]')).forEach((button) => {
+        button.addEventListener('click', () => {
+          activeCategory = button.dataset.navCategory || 'all'
+          Array.from(document.querySelectorAll<HTMLButtonElement>('[data-nav-category]')).forEach((item) => item.classList.toggle('is-active', item === button))
+          applyFilter()
+        })
+      })
+    }
+
+    function renderCategories(links: NavItem[]) {
+      const categories = Array.from(new Set(links.map((item) => item.category || '常用'))).filter(Boolean)
+      if (!pillsWrap) return
+      pillsWrap.innerHTML = [
+        '<button class="is-active" type="button" data-nav-category="all">全部</button>',
+        ...categories.map((category) => `<button type="button" data-nav-category="${escapeHtml(category.toLowerCase())}">${escapeHtml(category)}</button>`),
+      ].join('')
+      activeCategory = 'all'
+      bindPills()
+    }
+
+    async function refreshNavigation() {
+      try {
+        const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' })
+        if (!response.ok) throw new Error('导航接口读取失败')
+        const json = await response.json()
+        const links = ((json.data || []) as NavItem[]).filter((item) => item && item.title && item.url && item.is_active !== 0 && item.is_active !== false)
+        if (!grid) return
+        grid.innerHTML = links.map(renderCard).join('')
+        renderCategories(links)
+        applyFilter()
+      } catch {
+        if (getCards().length) applyFilter()
+        else showEmptyMessage('导航资源读取失败', '请确认后端 API 已启动，并且后台“内容中心 / 导航”里资源已启用。')
+      }
+    }
+
+    input?.addEventListener('input', applyFilter)
+    bindPills()
+    refreshNavigation()
+  </script>
+</BaseLayout>

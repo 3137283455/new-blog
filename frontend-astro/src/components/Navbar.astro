@@ -1,0 +1,94 @@
+---
+import { getPages, getPublicSettings } from '../lib/api'
+import { resolveUploadUrl } from '../lib/media'
+
+const customPages = await getPages()
+const publicSettings = await getPublicSettings()
+const brandAvatar = resolveUploadUrl(publicSettings.profile_avatar || '/profile.png')
+const navItems = [
+  { href: '/', label: '首页', icon: '⌂' },
+  { href: '/archive', label: '归档', icon: '▣' },
+  { href: '/search', label: '搜索', icon: '⌕' },
+  { href: '/nav', label: '导航', icon: '◎' },
+  { href: '/bangumi', label: '追番', icon: '▤' },
+  { href: '/albums', label: '相册', icon: '▧' },
+  { href: '/music', label: '音乐', icon: '♪' },
+  ...customPages.map((page) => ({ href: `/page/${page.slug}`, label: page.title, icon: '◇' })),
+  { href: '/admin', label: '后台', icon: '✎' },
+]
+
+const pathname = Astro.url.pathname
+---
+
+<nav class="site-nav fixed left-0 right-0 top-0 z-50">
+  <div class="mx-auto flex h-[4.5rem] max-w-blog items-center justify-between px-4 py-3">
+    <a href="/" class="brand-pill group">
+      <img class="h-9 w-9 rounded-xl object-cover" src={brandAvatar} alt="个人头像" />
+      <span class="leading-tight">
+        <strong class="block text-sm font-black">{publicSettings.profile_name || publicSettings.site_title || '个人博客'}</strong>
+        <span class="block text-[11px] text-base-content/50">记录 · 写作 · 分享</span>
+      </span>
+    </a>
+
+    <div class="nav-pill hidden md:flex">
+      {navItems.map((item) => (
+        <a
+          class:list={[
+            'nav-link',
+            (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)) && 'is-active',
+          ]}
+          href={item.href}
+        >
+          <span>{item.icon}</span>
+          <span>{item.label}</span>
+        </a>
+      ))}
+    </div>
+
+    <div class="hidden items-center gap-2 md:flex">
+      <a class="nav-action" href="/search" aria-label="搜索文章" title="搜索文章">⌕</a>
+      <details class="theme-menu dropdown dropdown-end">
+        <summary class="nav-action list-none" aria-label="颜色模式" title="颜色模式">◐</summary>
+        <div class="dropdown-content mt-3 w-44 rounded-2xl border border-base-content/10 bg-base-100/90 p-2 shadow-neu-out backdrop-blur-xl">
+          <button class="theme-option" data-theme-option="boke-night"><span class="theme-dot bg-[#60a5fa]"></span>黑夜</button>
+          <button class="theme-option" data-theme-option="boke-punk"><span class="theme-dot bg-[#d946ef]"></span>朋克紫</button>
+          <button class="theme-option" data-theme-option="boke-green"><span class="theme-dot bg-[#16a34a]"></span>清新绿色</button>
+        </div>
+      </details>
+    </div>
+
+    <details class="dropdown dropdown-end md:hidden">
+      <summary class="brand-pill cursor-pointer list-none px-4">菜单</summary>
+      <ul class="menu dropdown-content z-[1] mt-3 w-52 rounded-box bg-base-100 p-2 shadow-neu-out">
+        {navItems.map((item) => <li><a href={item.href}><span>{item.icon}</span>{item.label}</a></li>)}
+      </ul>
+    </details>
+  </div>
+</nav>
+
+<script is:inline>
+  function initThemeMenu() {
+    const themeTypes = { 'boke-night': 'dark', 'boke-punk': 'dark', 'boke-green': 'light' };
+    const options = document.querySelectorAll('[data-theme-option]');
+    const applyTheme = (theme) => {
+      const next = themeTypes[theme] ? theme : 'boke-green';
+      document.documentElement.setAttribute('data-theme', next);
+      document.documentElement.setAttribute('data-theme-type', themeTypes[next]);
+      localStorage.setItem('theme', next);
+      options.forEach((option) => {
+        option.classList.toggle('is-active', option.dataset.themeOption === next);
+      });
+    };
+    applyTheme(localStorage.getItem('theme') || document.documentElement.dataset.theme || 'boke-green');
+    options.forEach((option) => {
+      if (option.dataset.boundThemeOption) return;
+      option.dataset.boundThemeOption = 'true';
+      option.addEventListener('click', () => {
+        applyTheme(option.dataset.themeOption);
+        option.closest('details')?.removeAttribute('open');
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded', initThemeMenu);
+  document.addEventListener('astro:page-load', initThemeMenu);
+</script>

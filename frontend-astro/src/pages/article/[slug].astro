@@ -1,0 +1,198 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import BaseCard from '@components/BaseCard.astro'
+import { formatDate, getArticle, getPublicSettings } from '@/lib/api'
+import { buildArticleFontCss, fontFamilyStyle, injectHeadingIds } from '@/lib/markdown'
+
+const { slug } = Astro.params
+const article = slug ? await getArticle(slug) : null
+const publicSettings = await getPublicSettings()
+
+if (!article) {
+  return Astro.redirect('/404')
+}
+
+const renderedArticle = injectHeadingIds(article.content_html || article.excerpt || '')
+const articleHtml = renderedArticle.html
+const toc = renderedArticle.toc
+const fontFaces = buildArticleFontCss(article, Array.isArray(publicSettings.font_library) ? publicSettings.font_library : [])
+const titleFontStyle = fontFamilyStyle(article.title_font_family, 'var(--font-title)')
+const bodyFontStyle = fontFamilyStyle(article.body_font_family, 'var(--font-body)')
+const commentsEnabled = publicSettings.enable_comments !== false
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+---
+
+<BaseLayout title={article.title} subtitle={article.excerpt || ''}>
+  {fontFaces && <style set:html={fontFaces} />}
+
+  <div class="article-reading-layout">
+    <div class="article-reading-main">
+      <BaseCard class="p-6 md:p-10">
+        <header class="mb-10 border-b border-base-content/10 pb-8 text-center">
+          <div class="mb-4 flex flex-wrap justify-center gap-2">
+            {article.category_name && <span class="badge badge-primary badge-outline">{article.category_name}</span>}
+            <span class="badge badge-ghost">{formatDate(article.published_at || article.created_at)}</span>
+          </div>
+          <h1 class="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl" style={titleFontStyle}>{article.title}</h1>
+          <p class="mt-4 text-sm text-base-content/50">
+            {article.view_count || 0} 阅读 · {article.comment_count || 0} 评论
+          </p>
+        </header>
+
+        <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
+      </BaseCard>
+
+      <BaseCard class="p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-2xl font-black">评论</h2>
+          <button id="reload-comments" class="ryu-btn btn-sm" data-article-id={article.id}>刷新评论</button>
+        </div>
+        <div id="comments-list" class="mt-5 grid gap-3"></div>
+        {commentsEnabled ? (
+          <form id="comment-form" class="mt-5 grid gap-3" data-article-id={article.id}>
+            <div class="grid gap-3 md:grid-cols-2">
+              <input class="input input-bordered rounded-xl" name="author_name" maxlength="40" placeholder="昵称" required />
+              <input class="input input-bordered rounded-xl" name="author_email" type="email" maxlength="120" placeholder="邮箱，可选" />
+            </div>
+            <input class="input input-bordered rounded-xl" name="author_url" maxlength="200" placeholder="个人网站，可选" />
+            <textarea class="textarea textarea-bordered min-h-28 rounded-xl" name="content" maxlength="2000" placeholder="写下你的评论..." required></textarea>
+            <div class="flex items-center gap-3">
+              <button class="ryu-btn-primary" type="submit">提交评论</button>
+              <p id="comment-message" class="text-sm text-base-content/50"></p>
+            </div>
+          </form>
+        ) : (
+          <p class="mt-5 rounded-2xl bg-base-100/65 p-4 text-sm text-base-content/55">站点当前已关闭评论提交。</p>
+        )}
+      </BaseCard>
+    </div>
+
+    <aside class="article-reading-side" aria-label="文章侧栏">
+      <BaseCard class="article-toc-card p-5">
+        <h2>文章目录</h2>
+        {toc.length ? (
+          <nav aria-label="文章目录">
+            {toc.map((item) => (
+              <a class={`article-toc-link level-${item.level}`} href={`#${item.id}`}>{item.text}</a>
+            ))}
+          </nav>
+        ) : (
+          <p class="text-sm text-base-content/50">这篇文章还没有二级或三级标题。</p>
+        )}
+      </BaseCard>
+    </aside>
+  </div>
+
+  <div class="article-floating-actions" aria-label="文章操作">
+    <button id="share-button" type="button" title="分享文章" aria-label="分享文章">分享</button>
+    <button id="back-top-button" type="button" title="回到顶部" aria-label="回到顶部">顶部</button>
+    <p id="interaction-message" aria-live="polite"></p>
+  </div>
+
+  <script is:inline define:vars={{ apiBase }}>
+    const articleId =
+      document.getElementById('comment-form')?.dataset.articleId ||
+      document.getElementById('reload-comments')?.dataset.articleId
+    const commentsList = document.getElementById('comments-list')
+    const commentMessage = document.getElementById('comment-message')
+    const interactionMessage = document.getElementById('interaction-message')
+
+    function escapeHtml(value) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }
+      return String(value ?? '').replace(/[&<>"']/g, (char) => map[char] || char)
+    }
+
+    async function loadComments() {
+      if (!articleId || !commentsList) return
+      try {
+        const res = await fetch(`${apiBase}/articles/${articleId}/comments`, { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || json.success === false) throw new Error(json.message || '评论读取失败')
+        const comments = json.data || []
+        commentsList.innerHTML = comments.map((comment) => `
+          <div class="rounded-2xl bg-base-100/65 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <strong>${escapeHtml(comment.author_name)}</strong>
+              <span class="text-xs text-base-content/45">${new Date(comment.created_at).toLocaleString('zh-CN')}</span>
+            </div>
+            <p class="mt-2 text-sm">${escapeHtml(comment.content)}</p>
+          </div>
+        `).join('') || '<p class="text-base-content/45">暂无评论，来坐第一排。</p>'
+      } catch (error) {
+        commentsList.innerHTML = `<p class="rounded-2xl bg-error/10 p-4 text-sm text-error">${escapeHtml(error instanceof Error ? error.message : '评论读取失败')}</p>`
+      }
+    }
+
+    document.getElementById('comment-form')?.addEventListener('submit', async (event) => {
+      event.preventDefault()
+      if (!articleId) return
+      const form = event.currentTarget
+      const data = new FormData(form)
+      if (commentMessage) commentMessage.textContent = '正在提交...'
+      try {
+        const res = await fetch(`${apiBase}/articles/${articleId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.fromEntries(data.entries())),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || json.success === false) {
+          if (commentMessage) commentMessage.textContent = json.message || '提交失败'
+          return
+        }
+        if (commentMessage) commentMessage.textContent = json.message || '已提交'
+        if (json.success) {
+          form.reset()
+          await loadComments()
+        }
+      } catch {
+        if (commentMessage) commentMessage.textContent = '网络异常，评论提交失败'
+      }
+    })
+
+    document.getElementById('reload-comments')?.addEventListener('click', loadComments)
+    const tocLinks = Array.from(document.querySelectorAll('.article-toc-link'))
+    const tocTargets = tocLinks
+      .map((link) => {
+        const id = decodeURIComponent(link.hash.slice(1))
+        return id ? { link, target: document.getElementById(id) } : null
+      })
+      .filter((item) => Boolean(item?.target))
+
+    function setActiveToc() {
+      if (!tocTargets.length) return
+      let active = tocTargets[0]
+      for (const item of tocTargets) {
+        if (item.target.getBoundingClientRect().top <= 140) active = item
+      }
+      tocLinks.forEach((link) => link.classList.toggle('is-active', link === active.link))
+    }
+
+    document.getElementById('share-button')?.addEventListener('click', async () => {
+      const shareData = { title: document.title, url: location.href }
+      try {
+        if (navigator.share) await navigator.share(shareData)
+        else {
+          await navigator.clipboard?.writeText(location.href)
+          if (interactionMessage) interactionMessage.textContent = '链接已复制'
+        }
+      } catch (error) {
+        if (interactionMessage) {
+          interactionMessage.textContent = error instanceof Error && error.name === 'AbortError' ? '' : '分享失败'
+        }
+      }
+    })
+    document.getElementById('back-top-button')?.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+    window.addEventListener('scroll', setActiveToc, { passive: true })
+    setActiveToc()
+    loadComments()
+  </script>
+</BaseLayout>

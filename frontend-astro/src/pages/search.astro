@@ -1,0 +1,130 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+
+const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+---
+
+<BaseLayout title="搜索" subtitle="搜索站内文章">
+  <div class="ryu-card p-5" data-api-base={apiBase}>
+    <label class="input input-bordered flex items-center gap-2 rounded-2xl">
+      <input id="search-input" type="search" class="grow" placeholder="输入关键词，搜索标题、正文、标签、分类..." />
+    </label>
+    <div id="search-results" class="mt-4 flex flex-col gap-3" aria-live="polite"></div>
+    <button id="search-more" class="ryu-btn mt-4 hidden" type="button">加载更多</button>
+  </div>
+
+  <script>
+    const box = document.querySelector<HTMLElement>('[data-api-base]')
+    const input = document.getElementById('search-input') as HTMLInputElement | null
+    const results = document.getElementById('search-results')
+    const moreButton = document.getElementById('search-more') as HTMLButtonElement | null
+    const apiBase = box?.dataset.apiBase || '/api'
+    let currentQuery = ''
+    let currentPage = 1
+    let hasMore = false
+
+    function escapeHtml(value: unknown) {
+      const map: Record<string, string> = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      }
+      return String(value ?? '').replace(/[&<>"']/g, (char) => map[char] || char)
+    }
+
+    function renderPosts(posts: any[]) {
+      return posts.map((post: any) => {
+        const title = post.title_highlight || escapeHtml(post.title || '')
+        const snippet = post.content_snippet || escapeHtml(post.excerpt || '')
+        const date = post.published_at || post.created_at || ''
+        const category = post.category_highlight || escapeHtml(post.category_name || '')
+        const tags = Array.isArray(post.tags_highlight) ? post.tags_highlight : []
+        return `
+          <a class="ryu-card search-result block p-4 hover:text-primary" href="/article/${encodeURIComponent(post.slug)}">
+            <h2 class="text-xl font-black">${title}</h2>
+            <p class="mt-2 text-sm text-base-content/60">${snippet}</p>
+            <div class="search-meta mt-3 flex flex-wrap items-center gap-2 text-xs text-base-content/50">
+              ${category ? `<span class="search-chip">${category}</span>` : ''}
+              ${tags.map((tag: string) => `<span class="search-chip">${tag}</span>`).join('')}
+              ${date ? `<span>${escapeHtml(date)}</span>` : ''}
+            </div>
+          </a>
+        `
+      }).join('')
+    }
+
+    function setMoreVisible(visible: boolean) {
+      hasMore = visible
+      moreButton?.classList.toggle('hidden', !visible)
+    }
+
+    async function search(query: string, page = 1, append = false) {
+      if (!results) return
+      if (!query.trim()) {
+        results.innerHTML = ''
+        setMoreVisible(false)
+        return
+      }
+      currentQuery = query.trim()
+      currentPage = page
+      try {
+        if (!append) results.innerHTML = '<p class="text-base-content/45">正在搜索...</p>'
+        if (moreButton) moreButton.disabled = true
+        const params = new URLSearchParams({ q: query, page: String(page), pageSize: '20' })
+        const res = await fetch(`${apiBase}/articles/search?${params.toString()}`, { cache: 'no-store' })
+        const json = await res.json()
+        if (!res.ok || json.success === false) throw new Error(json.message || '搜索失败')
+        const posts = json.data?.posts || json.data || []
+        const html = renderPosts(posts)
+        results.innerHTML = append ? results.innerHTML + html : (html || '<p class="text-base-content/45">没有找到相关内容</p>')
+        const pagination = json.pagination || {}
+        setMoreVisible(Number(pagination.page || page) < Number(pagination.totalPages || 1))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '搜索服务暂时不可用'
+        if (!append) results.innerHTML = `<p class="text-base-content/45">${escapeHtml(message)}</p>`
+        setMoreVisible(false)
+      } finally {
+        if (moreButton) moreButton.disabled = false
+      }
+    }
+
+    let timer: number | undefined
+    input?.addEventListener('input', () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        const url = new URL(location.href)
+        const value = input.value.trim()
+        if (value) url.searchParams.set('q', value)
+        else url.searchParams.delete('q')
+        history.replaceState(null, '', url)
+        search(input.value, 1, false)
+      }, 180)
+    })
+    moreButton?.addEventListener('click', () => {
+      if (!hasMore || !currentQuery) return
+      search(currentQuery, currentPage + 1, true)
+    })
+
+    const initial = new URLSearchParams(location.search).get('q') || ''
+    if (input && initial) {
+      input.value = initial
+      search(initial, 1, false)
+    }
+  </script>
+  <style>
+    :global(.search-result mark) {
+      border-radius: 0.35rem;
+      background: color-mix(in srgb, var(--p) 24%, transparent);
+      color: hsl(var(--pc));
+      padding: 0 0.18em;
+    }
+    .search-chip {
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--p) 9%, transparent);
+      padding: 0.2rem 0.55rem;
+      color: hsl(var(--bc) / 0.72);
+    }
+  </style>
+</BaseLayout>
