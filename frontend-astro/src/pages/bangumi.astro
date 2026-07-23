@@ -20,6 +20,10 @@ const statusText: Record<string, string> = {
 }
 const watching = items.filter((item) => item.status === 'watching').length
 const done = items.filter((item) => item.status === 'done').length
+const scoredItems = items.filter((item) => Number(item.rating || 0) > 0)
+const averageRating = scoredItems.length
+  ? scoredItems.reduce((sum, item) => sum + Number(item.rating || 0), 0) / scoredItems.length
+  : 0
 const statusItems = ['watching', 'done', 'plan', 'paused']
   .map((status) => ({
     label: statusText[status],
@@ -37,6 +41,7 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
 <BaseLayout
   title="追番"
   subtitle="记录正在看的番剧和喜欢的作品"
+  showBanner={false}
   sidebarProps={{
     statItems: [
       { label: '总追番', value: items.length },
@@ -49,6 +54,25 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
     ],
   }}
 >
+  <section class="bangumi-dashboard">
+    <div class="bangumi-page-title">
+      <span class="bangumi-title-icon">▣</span>
+      <h1>追番列表</h1>
+    </div>
+    <div class="bangumi-stat-row">
+      <div class="bangumi-stat-card">
+        <span>总追番</span>
+        <strong>{items.length}</strong>
+        <small>部作品</small>
+      </div>
+      <div class="bangumi-stat-card">
+        <span>平均评分</span>
+        <strong>{averageRating.toFixed(1)}</strong>
+        <small>已评分作品</small>
+      </div>
+    </div>
+  </section>
+
   <section class="feature-toolbar ryu-card" data-api-base={apiBase} data-upload-base={uploadBase}>
     <input id="bangumi-filter" class="input input-bordered rounded-xl" type="search" placeholder="搜索番名、简介、季度..." />
     <select id="bangumi-status" class="select select-bordered rounded-xl">
@@ -94,10 +118,7 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
     })}
   </section>
 
-  <div id="bangumi-empty" class={`empty-feature ryu-card ${items.length ? 'hidden' : ''}`}>
-    <strong>还没有追番数据</strong>
-    <span>去后台“内容中心”里的追番栏目添加作品。</span>
-  </div>
+ 
 
   <script>
     type BangumiItem = {
@@ -181,14 +202,24 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
       const keyword = input?.value.trim().toLowerCase() || ''
       const status = select?.value || ''
       let visibleCount = 0
-      getCards().forEach((card) => {
+      const cards = getCards()
+      cards.forEach((card) => {
         const matchedText = !keyword || (card.dataset.search || '').includes(keyword)
         const matchedStatus = !status || card.dataset.status === status
         const visible = matchedText && matchedStatus
         card.style.display = visible ? '' : 'none'
         if (visible) visibleCount += 1
       })
-      empty?.classList.toggle('hidden', visibleCount > 0)
+      if (!empty) return
+      if (!cards.length) {
+        showEmptyMessage('还没有追番数据', '去后台“内容中心”里的追番栏目添加作品。')
+        return
+      }
+      if (!visibleCount) {
+        showEmptyMessage('没有匹配的追番作品', '换个关键词或状态再试。')
+        return
+      }
+      empty.classList.add('hidden')
     }
 
     function showEmptyMessage(title: string, message: string) {

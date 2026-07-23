@@ -98,10 +98,7 @@ const hostItems = Array.from(new Set(links.map((item) => getHost(item.url)).filt
       })}
     </div>
 
-    <div id="nav-empty" class={`empty-feature ${links.length ? 'hidden' : ''}`}>
-      <strong>还没有导航资源</strong>
-      <span>去后台“内容中心”里的导航栏目添加第一个资源入口。</span>
-    </div>
+    
   </section>
 
   <script>
@@ -190,14 +187,24 @@ const hostItems = Array.from(new Set(links.map((item) => getHost(item.url)).filt
     function applyFilter() {
       const keyword = input?.value.trim().toLowerCase() || ''
       let visibleCount = 0
-      getCards().forEach((card) => {
+      const cards = getCards()
+      cards.forEach((card) => {
         const matchCategory = activeCategory === 'all' || card.dataset.category === activeCategory
         const matchKeyword = !keyword || (card.dataset.search || '').includes(keyword)
         const visible = matchCategory && matchKeyword
         card.hidden = !visible
         if (visible) visibleCount += 1
       })
-      empty?.classList.toggle('hidden', visibleCount > 0)
+      if (!empty) return
+      if (!cards.length) {
+        showEmptyMessage('还没有导航资源', '去后台“内容中心”里的导航栏目添加第一个资源入口。')
+        return
+      }
+      if (!visibleCount) {
+        showEmptyMessage('没有匹配的导航资源', '换个关键词或分类再试。')
+        return
+      }
+      empty.classList.add('hidden')
     }
 
     function showEmptyMessage(title: string, message: string) {

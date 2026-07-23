@@ -172,12 +172,22 @@ const yearItems = Array.from(new Set(albums.map((album) => album.event_date ? ne
     function filterAlbums() {
       const keyword = input?.value.trim().toLowerCase() || ''
       let visibleCount = 0
-      getCards().forEach((card) => {
+      const cards = getCards()
+      cards.forEach((card) => {
         const visible = !keyword || (card.dataset.search || '').includes(keyword)
         card.style.display = visible ? '' : 'none'
         if (visible) visibleCount += 1
       })
-      empty?.classList.toggle('hidden', visibleCount > 0)
+      if (!empty) return
+      if (!cards.length) {
+        showEmptyMessage('还没有相册', '去后台“内容中心”里的相册栏目创建相册并上传照片。')
+        return
+      }
+      if (!visibleCount) {
+        showEmptyMessage('没有匹配的相册', '换个关键词再试。')
+        return
+      }
+      empty.classList.add('hidden')
     }
 
     function showEmptyMessage(title: string, message: string) {

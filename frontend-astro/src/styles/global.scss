@@ -1892,15 +1892,85 @@ body {
   -webkit-line-clamp: 2;
 }
 
+.bangumi-dashboard {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.bangumi-page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bangumi-page-title h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.bangumi-title-icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border: 0.18rem solid oklch(var(--p));
+  border-radius: 0.55rem;
+  color: oklch(var(--p));
+  font-size: 1.25rem;
+  font-weight: 950;
+}
+
+.bangumi-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.bangumi-stat-card {
+  min-width: 12rem;
+  border-radius: 1.05rem;
+  background: oklch(var(--b1) / 0.76);
+  box-shadow: 0 0.25rem 0.7rem rgb(15 23 42 / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.58);
+  padding: 1rem 1.15rem;
+}
+
+.bangumi-stat-card span,
+.bangumi-stat-card small {
+  display: block;
+  color: oklch(var(--bc) / 0.55);
+  font-weight: 800;
+}
+
+.bangumi-stat-card strong {
+  display: block;
+  color: oklch(var(--p));
+  font-size: 2.4rem;
+  font-weight: 950;
+  line-height: 1;
+  margin: 0.45rem 0 0.25rem;
+}
+
 .bangumi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 1.45rem;
 }
 
 .bangumi-card {
   overflow: hidden;
   color: inherit;
+  border: 0;
+  border-radius: 1.05rem;
+  background: oklch(var(--b1) / 0.72);
+  box-shadow: 0 0.45rem 1.2rem rgb(15 23 42 / 0.12);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.bangumi-card:hover {
+  transform: translateY(-0.35rem);
+  box-shadow: 0 0.9rem 2rem rgb(15 23 42 / 0.18);
 }
 
 .bangumi-cover {
@@ -1929,12 +1999,12 @@ body {
 
 .bangumi-cover b {
   position: absolute;
-  left: 0.65rem;
+  left: 0.55rem;
   top: 0.65rem;
   border-radius: 999px;
-  background: rgb(0 0 0 / 0.55);
+  background: oklch(var(--p));
   color: white;
-  padding: 0.28rem 0.65rem;
+  padding: 0.24rem 0.58rem;
   font-size: 0.72rem;
   backdrop-filter: blur(10px);
 }
@@ -1971,10 +2041,10 @@ body {
 
 .bangumi-summary {
   display: -webkit-box;
-  min-height: 3.4rem;
+  min-height: 3rem;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
 }
 
 .bangumi-rating {
