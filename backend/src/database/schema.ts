@@ -188,6 +188,11 @@ export function migrate() {
       original_title TEXT DEFAULT '',
       cover TEXT DEFAULT '',
       url TEXT DEFAULT '',
+      external_id TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      type TEXT DEFAULT '',
+      total_episodes INTEGER DEFAULT 0,
+      play_links TEXT DEFAULT '[]',
       status TEXT DEFAULT 'watching',
       progress TEXT DEFAULT '',
       rating REAL DEFAULT 0,
@@ -321,6 +326,19 @@ export function migrate() {
   } catch {
     // Existing databases already have the column.
   }
+
+  const addBangumiColumn = (column: string, definition: string) => {
+    try {
+      db.prepare(`ALTER TABLE bangumi_items ADD COLUMN ${column} ${definition}`).run()
+    } catch {
+      // Existing databases already have the column.
+    }
+  }
+  addBangumiColumn('external_id', "TEXT DEFAULT ''")
+  addBangumiColumn('source', "TEXT DEFAULT ''")
+  addBangumiColumn('type', "TEXT DEFAULT ''")
+  addBangumiColumn('total_episodes', 'INTEGER DEFAULT 0')
+  addBangumiColumn('play_links', "TEXT DEFAULT '[]'")
 
   const addArticleColumn = (column: string) => {
     try {

@@ -88,6 +88,8 @@ router.put('/admin/navigation/:id', auth, navigationCtrl.update)
 router.delete('/admin/navigation/:id', auth, navigationCtrl.remove)
 
 router.get('/admin/bangumi', auth, bangumiCtrl.list)
+router.get('/admin/bangumi/search', auth, bangumiCtrl.searchSource)
+router.get('/admin/bangumi/source/:id', auth, bangumiCtrl.sourceDetail)
 router.post('/admin/bangumi', auth, bangumiCtrl.create)
 router.put('/admin/bangumi/:id', auth, bangumiCtrl.update)
 router.delete('/admin/bangumi/:id', auth, bangumiCtrl.remove)

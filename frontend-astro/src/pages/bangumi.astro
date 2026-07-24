@@ -42,6 +42,7 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
   title="追番"
   subtitle="记录正在看的番剧和喜欢的作品"
   showBanner={false}
+  showSidebar={false}
   sidebarProps={{
     statItems: [
       { label: '总追番', value: items.length },
@@ -54,7 +55,7 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
     ],
   }}
 >
-  <section class="bangumi-dashboard">
+  <section class="bangumi-dashboard bangumi-movie-head">
     <div class="bangumi-page-title">
       <span class="bangumi-title-icon">▣</span>
       <h1>追番列表</h1>
@@ -73,14 +74,19 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
     </div>
   </section>
 
-  <section class="feature-toolbar ryu-card" data-api-base={apiBase} data-upload-base={uploadBase}>
-    <input id="bangumi-filter" class="input input-bordered rounded-xl" type="search" placeholder="搜索番名、简介、季度..." />
+  <section class="feature-toolbar bangumi-filterbar ryu-card" data-api-base={apiBase} data-upload-base={uploadBase}>
+    <input id="bangumi-filter" class="input input-bordered rounded-xl" type="search" placeholder="搜索番剧..." />
     <select id="bangumi-status" class="select select-bordered rounded-xl">
       <option value="">全部状态</option>
       <option value="watching">追番中</option>
       <option value="done">已看完</option>
       <option value="plan">想看</option>
       <option value="paused">搁置</option>
+    </select>
+    <select id="bangumi-sort" class="select select-bordered rounded-xl">
+      <option value="rating">评分最高</option>
+      <option value="year">年份最新</option>
+      <option value="sort">默认排序</option>
     </select>
   </section>
 
