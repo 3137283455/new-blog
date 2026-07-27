@@ -5,6 +5,9 @@ import { AuthRequest } from '../middleware/auth'
 
 // 根据 Bangumi 规范：使用符合格式的 User-Agent（包含 GitHub 地址/应用名称等）
 const BANGUMI_USER_AGENT = 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)'
+// 将 API 默认接口指向可访问的镜像站，页面基准地址保持为 Bangumi 原站
+const BANGUMI_API_BASE = (process.env.BANGUMI_API_BASE || 'https://api.bangumi.lol').replace(/\/+$/, '')
+const BANGUMI_PAGE_BASE = (process.env.BANGUMI_PAGE_BASE || 'https://bgm.tv').replace(/\/+$/, '')
 
 const selectSql = `
   SELECT id, title, original_title, cover, url, external_id, source, type, total_episodes, play_links, status, progress, rating, season, summary,
@@ -90,6 +93,10 @@ export function list(_req: AuthRequest, res: Response) {
   return success(res, rows)
 }
 
+function stripHtml(value: unknown) {
+  return cleanText(String(value || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' '), LIMITS.summary)
+}
+
 function normalizeBangumiSubject(item: any) {
   const image = item.images?.large || item.images?.common || item.images?.medium || item.images?.small || ''
   const rating = Number(item.rating?.score || 0)
@@ -99,7 +106,7 @@ function normalizeBangumiSubject(item: any) {
     title: item.name_cn || item.name || '',
     original_title: item.name || '',
     cover: image,
-    url: item.id ? `https://bgm.tv/subject/${item.id}` : '',
+    url: item.id ? `${BANGUMI_PAGE_BASE}/subject/${item.id}` : '',
     type: item.type_name || String(item.type || ''),
     total_episodes: Number(item.eps || item.total_episodes || 0),
     rating: Number.isFinite(rating) ? rating : 0,
@@ -108,14 +115,52 @@ function normalizeBangumiSubject(item: any) {
   }
 }
 
-async function fetchBangumiJson(url: string, options: RequestInit = {}) {
+function normalizeAniListSubject(item: any) {
+  const rating = Number(item.averageScore || 0) / 10
+  const date = item.startDate?.year
+    ? [item.startDate.year, item.startDate.month, item.startDate.day].filter(Boolean).join('-')
+    : ''
+  return {
+    external_id: String(item.id || ''),
+    source: 'anilist',
+    title: item.title?.english || item.title?.romaji || item.title?.native || '',
+    original_title: item.title?.native || item.title?.romaji || '',
+    cover: item.coverImage?.large || '',
+    url: item.siteUrl || '',
+    type: item.format || 'ANIME',
+    total_episodes: Number(item.episodes || 0),
+    rating: Number.isFinite(rating) ? rating : 0,
+    season: date,
+    summary: stripHtml(item.description || ''),
+  }
+}
+
+function normalizeTvMazeSubject(item: any) {
+  const show = item.show || item
+  const rating = Number(show.rating?.average || 0)
+  return {
+    external_id: String(show.id || ''),
+    source: 'tvmaze',
+    title: show.name || '',
+    original_title: show.name || '',
+    cover: show.image?.original || show.image?.medium || '',
+    url: show.url || '',
+    type: show.type || '',
+    total_episodes: 0,
+    rating: Number.isFinite(rating) ? rating : 0,
+    season: show.premiered || '',
+    summary: stripHtml(show.summary || ''),
+  }
+}
+
+async function fetchJson(url: string, options: RequestInit = {}) {
   const response = await fetch(url, {
     ...options,
     signal: AbortSignal.timeout(10000),
   })
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    throw new Error(`Bangumi API HTTP ${response.status}: ${text.slice(0, 200)}`)
+    throw new Error(`Source API HTTP ${response.status}: ${text.slice(0, 200)}`)
   }
   return response.json()
 }
@@ -123,7 +168,7 @@ async function fetchBangumiJson(url: string, options: RequestInit = {}) {
 export async function searchSource(req: AuthRequest, res: Response) {
   const query = cleanText(req.query.q, 100)
   const id = cleanText(req.query.id, 40)
-  if (!query && !id) return error(res, '???????? Bangumi ID')
+  if (!query && !id) return error(res, '请输入番剧名称或 Bangumi ID')
 
   const commonHeaders = {
     'User-Agent': BANGUMI_USER_AGENT,
@@ -132,13 +177,13 @@ export async function searchSource(req: AuthRequest, res: Response) {
 
   try {
     if (id) {
-      const subject = await fetchBangumiJson(`https://api.bgm.tv/v0/subjects/${encodeURIComponent(id)}`, { headers: commonHeaders })
+      const subject = await fetchJson(`${BANGUMI_API_BASE}/v0/subjects/${encodeURIComponent(id)}`, { headers: commonHeaders })
       return success(res, [normalizeBangumiSubject(subject)])
     }
 
-    let items: any[] = []
+    const errors: string[] = []
     try {
-      const json = await fetchBangumiJson('https://api.bgm.tv/v0/search/subjects?limit=12', {
+      const json = await fetchJson(`${BANGUMI_API_BASE}/v0/search/subjects?limit=12`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -146,25 +191,72 @@ export async function searchSource(req: AuthRequest, res: Response) {
         },
         body: JSON.stringify({ keyword: query, filter: { type: [2] } }),
       })
-      items = json.data || []
-    } catch (primaryError) {
-      console.warn('Bangumi v0 ??????????:', primaryError)
-      const legacy = await fetchBangumiJson(`https://api.bgm.tv/search/subject/${encodeURIComponent(query)}?type=2&responseGroup=small&max_results=12`, { headers: commonHeaders })
-      items = legacy.list || []
+      const items = (json.data || []).map(normalizeBangumiSubject)
+      if (items.length) return success(res, items)
+    } catch (err) {
+      errors.push(`Bangumi v0: ${(err as Error).message}`)
     }
 
-    return success(res, items.map(normalizeBangumiSubject))
+    try {
+      const legacy = await fetchJson(`${BANGUMI_API_BASE}/search/subject/${encodeURIComponent(query)}?type=2&responseGroup=small&max_results=12`, { headers: commonHeaders })
+      const items = (legacy.list || []).map(normalizeBangumiSubject)
+      if (items.length) return success(res, items)
+    } catch (err) {
+      errors.push(`Bangumi legacy: ${(err as Error).message}`)
+    }
+
+    try {
+      const json = await fetchJson('https://graphql.anilist.co', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          query: `query ($search: String) {
+            Page(perPage: 12) {
+              media(search: $search, type: ANIME) {
+                id
+                title { romaji english native }
+                coverImage { large }
+                description
+                episodes
+                averageScore
+                startDate { year month day }
+                siteUrl
+                format
+              }
+            }
+          }`,
+          variables: { search: query },
+        }),
+      })
+      const items = (json.data?.Page?.media || []).map(normalizeAniListSubject)
+      if (items.length) return success(res, items)
+    } catch (err) {
+      errors.push(`AniList: ${(err as Error).message}`)
+    }
+
+    try {
+      const json = await fetchJson(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`)
+      const items = (json || []).filter((item: any) => {
+        const genres = item.show?.genres || []
+        return genres.includes('Anime') || item.show?.language === 'Japanese'
+      }).map(normalizeTvMazeSubject)
+      if (items.length) return success(res, items)
+    } catch (err) {
+      errors.push(`TVMaze: ${(err as Error).message}`)
+    }
+
+    return error(res, `数据源没有返回结果。${errors.join(' | ')}`, 'SOURCE_EMPTY', 502)
   } catch (err) {
-    console.error('Bangumi ???????:', err)
-    return error(res, '???? Bangumi ???', 'SOURCE_UNAVAILABLE', 502)
+    console.error('数据源检索失败:', err)
+    return error(res, '无法连接番剧数据源', 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
 export async function sourceDetail(req: AuthRequest, res: Response) {
   const id = cleanText(req.params.id, 40)
-  if (!id) return error(res, 'Bangumi ID ????')
+  if (!id) return error(res, 'Bangumi ID 不能为空')
   try {
-    const subject = await fetchBangumiJson(`https://api.bgm.tv/v0/subjects/${encodeURIComponent(id)}`, {
+    const subject = await fetchJson(`${BANGUMI_API_BASE}/v0/subjects/${encodeURIComponent(id)}`, {
       headers: {
         'User-Agent': BANGUMI_USER_AGENT,
         Accept: 'application/json',
@@ -172,8 +264,8 @@ export async function sourceDetail(req: AuthRequest, res: Response) {
     })
     return success(res, normalizeBangumiSubject(subject))
   } catch (err) {
-    console.error('?? Bangumi ????:', err)
-    return error(res, '???? Bangumi ???', 'SOURCE_UNAVAILABLE', 502)
+    console.error('获取 Bangumi 详情失败:', err)
+    return error(res, '无法连接 Bangumi 数据源', 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
