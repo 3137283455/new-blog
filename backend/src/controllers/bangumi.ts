@@ -108,67 +108,72 @@ function normalizeBangumiSubject(item: any) {
   }
 }
 
+async function fetchBangumiJson(url: string, options: RequestInit = {}) {
+  const response = await fetch(url, {
+    ...options,
+    signal: AbortSignal.timeout(10000),
+  })
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`Bangumi API HTTP ${response.status}: ${text.slice(0, 200)}`)
+  }
+  return response.json()
+}
+
 export async function searchSource(req: AuthRequest, res: Response) {
   const query = cleanText(req.query.q, 100)
   const id = cleanText(req.query.id, 40)
-  if (!query && !id) return error(res, '请输入番剧名称或 Bangumi ID')
-  
+  if (!query && !id) return error(res, '???????? Bangumi ID')
+
+  const commonHeaders = {
+    'User-Agent': BANGUMI_USER_AGENT,
+    Accept: 'application/json',
+  }
+
   try {
-    // 公开查询接口只需要准确合规的 User-Agent
-    const commonHeaders = {
-      'User-Agent': BANGUMI_USER_AGENT,
-      'Accept': 'application/json'
-    }
-
     if (id) {
-      const response = await fetch(`https://api.bgm.tv/v0/subjects/${encodeURIComponent(id)}`, {
-        headers: commonHeaders,
+      const subject = await fetchBangumiJson(`https://api.bgm.tv/v0/subjects/${encodeURIComponent(id)}`, { headers: commonHeaders })
+      return success(res, [normalizeBangumiSubject(subject)])
+    }
+
+    let items: any[] = []
+    try {
+      const json = await fetchBangumiJson('https://api.bgm.tv/v0/search/subjects?limit=12', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...commonHeaders,
+        },
+        body: JSON.stringify({ keyword: query, filter: { type: [2] } }),
       })
-      if (!response.ok) {
-        console.error(`Bangumi API ID 查询失败状态码: ${response.status}`)
-        return error(res, 'Bangumi ID 查询失败', 'SOURCE_ERROR', response.status)
-      }
-      return success(res, [normalizeBangumiSubject(await response.json())])
+      items = json.data || []
+    } catch (primaryError) {
+      console.warn('Bangumi v0 ??????????:', primaryError)
+      const legacy = await fetchBangumiJson(`https://api.bgm.tv/search/subject/${encodeURIComponent(query)}?type=2&responseGroup=small&max_results=12`, { headers: commonHeaders })
+      items = legacy.list || []
     }
 
-    const response = await fetch('https://api.bgm.tv/v0/search/subjects?limit=12', {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json', 
-        ...commonHeaders 
-      },
-      body: JSON.stringify({ keyword: query, filter: { type: [2] } }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`Bangumi 搜索接口响应异常 [${response.status}]:`, errorText)
-      return error(res, 'Bangumi 数据源检索失败', 'SOURCE_ERROR', response.status)
-    }
-
-    const json = await response.json()
-    return success(res, (json.data || []).map(normalizeBangumiSubject))
+    return success(res, items.map(normalizeBangumiSubject))
   } catch (err) {
-    console.error('连接 Bangumi API 发生严重异常/网络超时:', err)
-    return error(res, '无法连接 Bangumi 数据源', 'SOURCE_UNAVAILABLE', 502)
+    console.error('Bangumi ???????:', err)
+    return error(res, '???? Bangumi ???', 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
 export async function sourceDetail(req: AuthRequest, res: Response) {
   const id = cleanText(req.params.id, 40)
-  if (!id) return error(res, 'Bangumi ID 不能为空')
+  if (!id) return error(res, 'Bangumi ID ????')
   try {
-    const response = await fetch(`https://api.bgm.tv/v0/subjects/${encodeURIComponent(id)}`, {
+    const subject = await fetchBangumiJson(`https://api.bgm.tv/v0/subjects/${encodeURIComponent(id)}`, {
       headers: {
         'User-Agent': BANGUMI_USER_AGENT,
-        'Accept': 'application/json'
+        Accept: 'application/json',
       },
     })
-    if (!response.ok) return error(res, 'Bangumi ID 查询失败', 'SOURCE_ERROR', response.status)
-    return success(res, normalizeBangumiSubject(await response.json()))
+    return success(res, normalizeBangumiSubject(subject))
   } catch (err) {
-    console.error('获取 Bangumi 详情异常:', err)
-    return error(res, '无法连接 Bangumi 数据源', 'SOURCE_UNAVAILABLE', 502)
+    console.error('?? Bangumi ????:', err)
+    return error(res, '???? Bangumi ???', 'SOURCE_UNAVAILABLE', 502)
   }
 }
 

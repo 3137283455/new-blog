@@ -1,4 +1,4 @@
-import { Router } from 'express'
+﻿import { Router } from 'express'
 import { auth, adminOnly } from '../middleware/auth'
 import * as authCtrl from '../controllers/auth'
 import * as articleCtrl from '../controllers/article'
@@ -20,12 +20,12 @@ import { upload, backupUpload } from '../middleware/upload'
 
 const router = Router()
 
-// 认证
+// 璁よ瘉
 router.post('/auth/login', authCtrl.login)
 router.get('/auth/me', auth, authCtrl.me)
 router.put('/auth/me', auth, authCtrl.updateMe)
 
-// 公开接口
+// 鍏紑鎺ュ彛
 router.get('/articles', articleCtrl.list)
 router.get('/articles/search', articleCtrl.search)
 router.get('/articles/:slug', articleCtrl.detail)
@@ -47,7 +47,7 @@ router.get('/settings/public', settingCtrl.publicSettings)
 router.get('/rss', articleCtrl.rss)
 router.get('/visitors/count', dashboardCtrl.todayCount)
 
-// 文章管理
+// 鏂囩珷绠＄悊
 router.get('/admin/articles', auth, articleCtrl.adminList)
 router.get('/admin/articles/:id', auth, articleCtrl.getById)
 router.post('/admin/articles', auth, articleCtrl.create)
@@ -58,22 +58,22 @@ router.put('/admin/articles/:id/restore', auth, articleCtrl.restore)
 router.delete('/admin/articles/:id/force', auth, articleCtrl.forceDelete)
 router.post('/admin/markdown/preview', auth, markdownCtrl.preview)
 
-// 分类管理
+// 鍒嗙被绠＄悊
 router.post('/admin/categories', auth, categoryCtrl.create)
 router.put('/admin/categories/:id', auth, categoryCtrl.update)
 router.delete('/admin/categories/:id', auth, categoryCtrl.remove)
 
-// 标签管理
+// 鏍囩绠＄悊
 router.post('/admin/tags', auth, categoryCtrl.createTag)
 router.put('/admin/tags/:id', auth, categoryCtrl.updateTag)
 router.delete('/admin/tags/:id', auth, categoryCtrl.removeTag)
 
-// 评论管理
+// 璇勮绠＄悊
 router.get('/admin/comments', auth, commentCtrl.adminList)
 router.put('/admin/comments/:id/status', auth, commentCtrl.updateStatus)
 router.delete('/admin/comments/:id', auth, commentCtrl.remove)
 
-// 页面管理
+// 椤甸潰绠＄悊
 router.get('/admin/pages', auth, pageCtrl.list)
 router.post('/admin/pages', auth, pageCtrl.create)
 router.put('/admin/pages/:id', auth, pageCtrl.update)
@@ -87,12 +87,12 @@ router.post('/admin/navigation', auth, navigationCtrl.create)
 router.put('/admin/navigation/:id', auth, navigationCtrl.update)
 router.delete('/admin/navigation/:id', auth, navigationCtrl.remove)
 
-router.get('/admin/bangumi', bangumiCtrl.list)
-router.get('/admin/bangumi/search', bangumiCtrl.searchSource)
-router.get('/admin/bangumi/source/:id',  bangumiCtrl.sourceDetail)
-router.post('/admin/bangumi', bangumiCtrl.create)
-router.put('/admin/bangumi/:id', bangumiCtrl.update)
-router.delete('/admin/bangumi/:id',bangumiCtrl.remove)
+router.get('/admin/bangumi', auth, bangumiCtrl.list)
+router.get('/admin/bangumi/search', auth, bangumiCtrl.searchSource)
+router.get('/admin/bangumi/source/:id', auth, bangumiCtrl.sourceDetail)
+router.post('/admin/bangumi', auth, bangumiCtrl.create)
+router.put('/admin/bangumi/:id', auth, bangumiCtrl.update)
+router.delete('/admin/bangumi/:id', auth, bangumiCtrl.remove)
 
 router.get('/admin/albums', auth, albumCtrl.list)
 router.post('/admin/albums', auth, albumCtrl.create)
@@ -109,7 +109,7 @@ router.put('/admin/music/playlists/:id', auth, musicCtrl.updatePlaylist)
 router.delete('/admin/music/playlists/:id', auth, musicCtrl.removePlaylist)
 router.put('/admin/music', auth, musicCtrl.replaceAll)
 
-// 媒体管理
+// 濯掍綋绠＄悊
 router.get('/admin/media', auth, mediaCtrl.list)
 router.post('/admin/media/upload', auth, upload.single('file'), mediaCtrl.upload)
 router.delete('/admin/media/:id', auth, mediaCtrl.remove)
@@ -117,12 +117,11 @@ router.put('/admin/media/:id/restore', auth, mediaCtrl.restore)
 router.delete('/admin/media/:id/force', auth, mediaCtrl.forceDelete)
 router.post('/admin/media/cleanup', auth, mediaCtrl.cleanup)
 
-// 仪表盘
-router.get('/admin/dashboard/stats', auth, dashboardCtrl.stats)
+// 浠〃鐩?router.get('/admin/dashboard/stats', auth, dashboardCtrl.stats)
 router.get('/admin/dashboard/charts', auth, dashboardCtrl.charts)
 router.get('/admin/visitors/stats', auth, dashboardCtrl.visitorStats)
 
-// 主题管理
+// 涓婚绠＄悊
 router.get('/admin/themes', auth, themeCtrl.list)
 router.post('/admin/themes/install', auth, themeCtrl.install)
 router.put('/admin/themes/:id/activate', auth, themeCtrl.activate)
@@ -130,16 +129,16 @@ router.post('/admin/themes/:id/preview', auth, themeCtrl.preview)
 router.post('/admin/themes/clear-preview', auth, themeCtrl.clearPreview)
 router.delete('/admin/themes/:id', auth, themeCtrl.remove)
 
-// 插件管理
+// 鎻掍欢绠＄悊
 router.get('/admin/plugins', auth, pluginCtrl.list)
 router.post('/admin/plugins/install', auth, pluginCtrl.install)
 router.put('/admin/plugins/:id/toggle', auth, pluginCtrl.toggle)
 
-// 系统设置
+// 绯荤粺璁剧疆
 router.get('/admin/settings', auth, settingCtrl.list)
 router.put('/admin/settings', auth, settingCtrl.update)
 
-// 备份导出
+// 澶囦唤瀵煎嚭
 router.get('/admin/backup/database', auth, backupCtrl.databaseBackup)
 router.get('/admin/backup/articles', auth, backupCtrl.articlesMarkdown)
 router.get('/admin/backup/manifest', auth, backupCtrl.manifest)
