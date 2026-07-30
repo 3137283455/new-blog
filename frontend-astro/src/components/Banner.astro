@@ -19,7 +19,15 @@ const payload = JSON.stringify(bannerImages)
 <section class="banner relative isolate flex min-h-[46vh] items-center justify-center overflow-hidden px-4 pb-10 pt-20 text-center md:min-h-[50vh]" data-banner-images={payload}>
   <div class="banner-slides absolute inset-0 z-0">
     {bannerImages.map((src, index) => (
-      <img class:list={['banner-slide absolute inset-0 h-full w-full object-cover', index === 0 && 'is-active']} src={src} alt="" />
+      <img
+        class:list={['banner-slide absolute inset-0 h-full w-full object-cover', index === 0 && 'is-active']}
+        src={index === 0 ? src : undefined}
+        data-src={index > 0 ? src : undefined}
+        loading={index === 0 ? 'eager' : 'lazy'}
+        fetchpriority={index === 0 ? 'high' : 'low'}
+        decoding="async"
+        alt=""
+      />
     ))}
   </div>
   <div class="absolute inset-0 z-10 bg-black/45"></div>
@@ -47,6 +55,11 @@ const payload = JSON.stringify(bannerImages)
       window.setInterval(() => {
         slides[index]?.classList.remove('is-active');
         index = (index + 1) % slides.length;
+        const nextSlide = slides[index] as HTMLImageElement | undefined;
+        if (nextSlide?.dataset.src && !nextSlide.src) {
+          nextSlide.src = nextSlide.dataset.src;
+          delete nextSlide.dataset.src;
+        }
         slides[index]?.classList.add('is-active');
       }, 5200);
     });

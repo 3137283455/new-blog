@@ -46,7 +46,12 @@ app.get('/api/health', (_req, res) => {
   })
 })
 
-app.use('/uploads', express.static(config.uploadDir))
+app.use('/uploads', express.static(config.uploadDir, {
+  etag: true,
+  lastModified: true,
+  maxAge: '30d',
+  immutable: true,
+}))
 app.use('/api', routes)
 
 app.use(notFoundHandler)

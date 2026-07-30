@@ -714,17 +714,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <form id="bangumi-form" class="ryu-card grid gap-4 p-5">
             <input type="hidden" name="id" />
             <div>
-              <h2 class="text-2xl font-black">追番管理</h2>
-              <p class="text-sm text-base-content/50">管理前台「追番」页面的番剧海报、进度和评分。</p>
-            </div>
-            <div class="rounded-2xl border border-base-content/10 bg-base-100/60 p-4">
-              <h3 class="font-black">数据源检索与导入</h3>
-              <div class="mt-3 grid gap-2 md:grid-cols-[1fr_auto_auto]">
-                <input id="bangumi-source-query" class="input input-bordered rounded-xl" type="search" placeholder="输入番剧名称或 Bangumi ID" />
-                <button id="bangumi-source-search" class="ryu-btn" type="button">检索</button>
-                <button id="bangumi-source-clear" class="ryu-btn" type="button">清空结果</button>
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-2xl font-black">追番管理</h2>
+                  <p class="text-sm text-base-content/50">管理前台「追番」页面的番剧海报、进度和评分。</p>
+                </div>
+                <button id="bangumi-source-open" class="ryu-btn" type="button">检索番剧</button>
               </div>
-              <div id="bangumi-source-results" class="mt-3 grid gap-3"></div>
             </div>
             <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="番剧标题" required />
             <input class="input input-bordered rounded-xl" name="original_title" maxlength="100" placeholder="原名 / 别名" />
@@ -824,6 +820,78 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       </section>
     </main>
     </section>
+
+    <dialog id="bangumi-source-dialog" class="admin-media-picker">
+      <div class="admin-media-picker-panel bangumi-source-dialog-panel">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h3 class="text-xl font-black">检索番剧</h3>
+            <p class="text-sm text-base-content/50">按番剧名称或 Bangumi ID 检索，点击结果即可导入。</p>
+          </div>
+          <button id="bangumi-source-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+        </div>
+        <div class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <input id="bangumi-source-query" class="input input-bordered rounded-xl" type="search" placeholder="输入番剧名称或 Bangumi ID" />
+          <button id="bangumi-source-search" class="ryu-btn-primary" type="button">开始检索</button>
+        </div>
+        <div id="bangumi-source-results" class="bangumi-source-results mt-4"></div>
+        <div id="bangumi-source-pagination" class="mt-4 hidden items-center justify-between gap-3 border-t border-base-content/10 pt-4">
+          <button id="bangumi-source-prev" class="btn btn-sm rounded-xl" type="button">上一页</button>
+          <span id="bangumi-source-page" class="text-sm font-bold text-base-content/60">第 1 / 1 页</span>
+          <button id="bangumi-source-next" class="btn btn-sm rounded-xl" type="button">下一页</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="navigation-dialog" class="admin-media-picker">
+      <div class="admin-media-picker-panel">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h3 id="navigation-dialog-title" class="text-xl font-black">新增导航</h3>
+          <button id="navigation-dialog-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+        </div>
+        <div id="navigation-form-host"></div>
+      </div>
+    </dialog>
+
+    <dialog id="album-dialog" class="admin-media-picker">
+      <div class="admin-media-picker-panel">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h3 id="album-dialog-title" class="text-xl font-black">新建相册</h3>
+          <button id="album-dialog-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+        </div>
+        <div id="album-form-host"></div>
+      </div>
+    </dialog>
+
+    <dialog id="album-photos-dialog" class="admin-media-picker admin-album-photos-dialog">
+      <div class="admin-media-picker-panel">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 id="album-photos-title" class="text-xl font-black">相册照片</h3>
+            <p id="album-photos-meta" class="text-sm text-base-content/50"></p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <label class="ryu-btn-primary btn-sm cursor-pointer">
+              上传图片
+              <input id="album-photo-bulk-upload" class="hidden" type="file" accept="image/*" />
+            </label>
+            <button id="album-photo-create" class="ryu-btn btn-sm" type="button">从媒体库导入</button>
+            <button id="album-photos-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+          </div>
+        </div>
+        <div id="album-photos-grid" class="admin-photo-grid mt-5"></div>
+      </div>
+    </dialog>
+
+    <dialog id="album-photo-dialog" class="admin-media-picker">
+      <div class="admin-media-picker-panel">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h3 id="album-photo-dialog-title" class="text-xl font-black">照片信息</h3>
+          <button id="album-photo-dialog-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+        </div>
+        <div id="album-photo-form-host"></div>
+      </div>
+    </dialog>
 
     <dialog id="media-picker-dialog" class="admin-media-picker">
       <div class="admin-media-picker-panel">

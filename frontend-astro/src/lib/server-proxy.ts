@@ -35,8 +35,6 @@ export async function proxyToBackend(request: Request, pathname: string) {
   try {
     const response = await fetch(targetUrl, init)
     const headers = new Headers(response.headers)
-    headers.delete('content-length')
-    headers.delete('content-encoding')
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,

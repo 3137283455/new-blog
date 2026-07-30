@@ -6,6 +6,9 @@
     navigation: [],
     bangumi: [],
     albums: [],
+    bangumiSourceItems: [],
+    bangumiSourcePage: 0,
+    activeAlbumId: null,
     mediaPicker: null,
     mediaPickerItems: [],
   };
@@ -189,6 +192,161 @@
     if (active) active.checked = true;
   }
 
+  function setupCollectionDialogs() {
+    const moveForm = (formId, hostId) => {
+      const form = document.getElementById(formId);
+      const host = document.getElementById(hostId);
+      if (!form || !host || form.parentElement === host) return;
+      form.className = 'grid gap-4';
+      host.append(form);
+    };
+    moveForm('navigation-form', 'navigation-form-host');
+    moveForm('album-form', 'album-form-host');
+    moveForm('album-photo-form', 'album-photo-form-host');
+    const photoForm = $('#album-photo-form');
+    if (photoForm && !photoForm.elements.namedItem('id')) {
+      const idField = document.createElement('input');
+      idField.type = 'hidden';
+      idField.name = 'id';
+      photoForm.prepend(idField);
+    }
+
+    const addListHeader = (listId, title, description, buttonId, buttonLabel) => {
+      const list = document.getElementById(listId);
+      const card = list?.closest('.ryu-card');
+      if (!card || card.querySelector(`#${buttonId}`)) return;
+      card.classList.add('admin-collection-panel');
+      const oldTitle = card.querySelector('h3');
+      const header = document.createElement('div');
+      header.className = 'admin-collection-header';
+      header.innerHTML = `
+        <div>
+          <h2>${html(title)}</h2>
+          <p>${html(description)}</p>
+        </div>
+        <button id="${buttonId}" class="ryu-btn-primary" type="button">${html(buttonLabel)}</button>
+      `;
+      oldTitle?.replaceWith(header);
+    };
+    addListHeader('navigation-list', '导航列表', '新增和编辑通过弹窗完成，页面只展示资源列表。', 'navigation-create', '新增导航');
+    addListHeader('albums-list', '相册列表', '点击相册管理其中的全部照片。', 'album-create', '新建相册');
+
+    const photoAlbumSelect = $('#album-photo-form')?.elements.namedItem('album_id');
+    if (photoAlbumSelect) photoAlbumSelect.classList.add('hidden');
+  }
+
+  function openNavigationDialog(item = null) {
+    resetForm('navigation-form');
+    if (item) fill($('#navigation-form'), item, ['id', 'title', 'url', 'category', 'icon', 'avatar', 'sort_order', 'description', 'is_active']);
+    $('#navigation-dialog-title').textContent = item ? '编辑导航' : '新增导航';
+    setPanelMessage('navigation-message', '');
+    $('#navigation-dialog')?.showModal();
+  }
+
+  function openAlbumDialog(item = null) {
+    resetForm('album-form');
+    if (item) fill($('#album-form'), item, ['id', 'title', 'cover', 'event_date', 'location', 'icon', 'sort_order', 'description', 'is_active']);
+    $('#album-dialog-title').textContent = item ? '编辑相册' : '新建相册';
+    setPanelMessage('album-message', '');
+    $('#album-dialog')?.showModal();
+  }
+
+  function activeAlbum() {
+    return state.albums.find((album) => String(album.id) === String(state.activeAlbumId));
+  }
+
+  function renderAlbumPhotos() {
+    const album = activeAlbum();
+    const grid = $('#album-photos-grid');
+    if (!album || !grid) return;
+    const photos = album.photos || [];
+    $('#album-photos-title').textContent = album.title || '相册照片';
+    $('#album-photos-meta').textContent = `${photos.length} 张照片 · ${album.location || '未设置地点'}`;
+    grid.innerHTML = photos.map((photo) => `
+      <article class="admin-photo-card">
+        <img src="${html(photo.image)}" alt="${html(photo.title || album.title || '照片')}" loading="lazy" decoding="async" />
+        <div class="admin-photo-card-body">
+          <strong>${html(photo.title || '未命名照片')}</strong>
+          <small>${html(photo.variant || '1x1')} · 排序 ${Number(photo.sort_order || 0)}</small>
+          <div class="admin-photo-actions">
+            <a class="btn btn-xs rounded-lg" href="${html(photo.image)}" download target="_blank" rel="noopener">下载</a>
+            <button class="btn btn-xs rounded-lg" type="button" data-extra-edit-photo="${photo.id}">编辑</button>
+            <button class="btn btn-xs btn-error rounded-lg" type="button" data-extra-delete-photo="${photo.id}">删除</button>
+          </div>
+        </div>
+      </article>
+    `).join('') || '<div class="admin-collection-empty">这个相册还没有照片，点击“上传图片”添加第一张。</div>';
+  }
+
+  function openAlbumPhotos(albumId) {
+    state.activeAlbumId = Number(albumId);
+    renderAlbumPhotos();
+    $('#album-photos-dialog')?.showModal();
+  }
+
+  function openPhotoDialog(photo = null, image = '') {
+    const form = $('#album-photo-form');
+    resetForm('album-photo-form');
+    form.elements.namedItem('album_id').value = state.activeAlbumId || '';
+    if (photo) fill(form, photo, ['id', 'image', 'title', 'variant', 'sort_order', 'description']);
+    if (image) form.elements.namedItem('image').value = image;
+    updateFieldPreview('album-photo-form', 'image');
+    $('#album-photo-dialog-title').textContent = photo ? '编辑照片信息' : '填写照片信息';
+    setPanelMessage('album-photo-message', '');
+    $('#album-photo-dialog')?.showModal();
+  }
+
+  function renderNavigationCollection() {
+    const list = $('#navigation-list');
+    if (!list) return;
+    list.className = 'admin-collection-grid mt-5';
+    list.innerHTML = state.navigation.map((item) => `
+      <article class="admin-resource-card">
+        <div class="admin-resource-logo">
+          ${item.avatar ? `<img src="${html(item.avatar)}" alt="" loading="lazy" decoding="async" />` : `<span>${html(item.icon || item.title?.slice(0, 1) || 'N')}</span>`}
+        </div>
+        <div class="min-w-0">
+          <strong>${html(item.title)}</strong>
+          <small>${html(item.category || '默认')} · 排序 ${Number(item.sort_order || 0)}${item.is_active ? '' : ' · 已隐藏'}</small>
+          <p>${html(item.description || item.url || '')}</p>
+        </div>
+        <div class="admin-card-actions">
+          <button class="btn btn-xs rounded-lg" type="button" data-extra-move="navigation" data-id="${item.id}" data-direction="up">上移</button>
+          <button class="btn btn-xs rounded-lg" type="button" data-extra-move="navigation" data-id="${item.id}" data-direction="down">下移</button>
+          <button class="btn btn-xs rounded-lg" type="button" data-extra-edit-navigation="${item.id}">编辑</button>
+          <button class="btn btn-xs btn-error rounded-lg" type="button" data-extra-delete-navigation="${item.id}">删除</button>
+        </div>
+      </article>
+    `).join('') || '<div class="admin-collection-empty">还没有导航资源。</div>';
+  }
+
+  function renderAlbumCollection() {
+    const list = $('#albums-list');
+    if (!list) return;
+    list.className = 'admin-album-grid mt-5';
+    list.innerHTML = state.albums.map((album) => `
+      <article class="admin-album-card">
+        <button class="admin-album-open" type="button" data-open-album="${album.id}">
+          <span class="admin-album-cover">
+            ${album.cover ? `<img src="${html(album.cover)}" alt="" loading="lazy" decoding="async" />` : '<span>暂无封面</span>'}
+            <b>${(album.photos || []).length} 张</b>
+          </span>
+          <span class="admin-album-info">
+            <strong>${html(album.icon || '▧')} ${html(album.title)}</strong>
+            <small>${html(album.event_date || '未设置日期')} · ${html(album.location || '未设置地点')}</small>
+            <span>${html(album.description || '点击查看和管理照片')}</span>
+          </span>
+        </button>
+        <div class="admin-card-actions">
+          <button class="btn btn-xs rounded-lg" type="button" data-extra-move="album" data-id="${album.id}" data-direction="up">上移</button>
+          <button class="btn btn-xs rounded-lg" type="button" data-extra-move="album" data-id="${album.id}" data-direction="down">下移</button>
+          <button class="btn btn-xs rounded-lg" type="button" data-extra-edit-album="${album.id}">编辑</button>
+          <button class="btn btn-xs btn-error rounded-lg" type="button" data-extra-delete-album="${album.id}">删除</button>
+        </div>
+      </article>
+    `).join('') || '<div class="admin-collection-empty">还没有相册，点击“新建相册”创建。</div>';
+  }
+
   function parsePlayLinks(value) {
     if (Array.isArray(value)) return value;
     const text = String(value || '').trim();
@@ -227,7 +385,38 @@
       season: item.season || '',
       summary: item.summary || '',
     }, ['external_id', 'title', 'original_title', 'cover', 'url', 'type', 'total_episodes', 'rating', 'season', 'summary']);
-    setPanelMessage('bangumi-message', '已导入数据源信息，可继续编辑播放链接后保存');
+    $('#bangumi-source-dialog')?.close();
+    setPanelMessage('bangumi-message', '已导入番剧信息，可继续编辑播放链接后保存');
+  }
+
+  function renderBangumiSourcePage() {
+    const results = $('#bangumi-source-results');
+    const pagination = $('#bangumi-source-pagination');
+    if (!results || !pagination) return;
+    const pageSize = 3;
+    const totalPages = Math.max(1, Math.ceil(state.bangumiSourceItems.length / pageSize));
+    state.bangumiSourcePage = Math.max(0, Math.min(state.bangumiSourcePage, totalPages - 1));
+    const pageItems = state.bangumiSourceItems.slice(
+      state.bangumiSourcePage * pageSize,
+      (state.bangumiSourcePage + 1) * pageSize,
+    );
+    results.innerHTML = pageItems.map((item) => `
+      <button class="bangumi-source-result" type="button" data-import-bangumi-source="${html(encodeURIComponent(JSON.stringify(item)))}">
+        <span class="bangumi-source-cover">
+          ${item.cover ? `<img src="${html(item.cover)}" alt="" loading="lazy" decoding="async" />` : '<span>暂无封面</span>'}
+        </span>
+        <span class="min-w-0">
+          <strong>${html(item.title || '未命名作品')}</strong>
+          <small>Bangumi ${html(item.external_id || '-')} · ${html(item.type || '未知类型')} · ${html(item.season || '未标日期')} · ${Number(item.rating || 0).toFixed(1)}</small>
+          <span class="bangumi-source-summary">${html(item.summary || '暂无简介')}</span>
+        </span>
+      </button>
+    `).join('') || '<p class="py-10 text-center text-sm text-base-content/45">没有检索到结果</p>';
+    pagination.classList.toggle('hidden', state.bangumiSourceItems.length <= pageSize);
+    pagination.classList.toggle('flex', state.bangumiSourceItems.length > pageSize);
+    $('#bangumi-source-page').textContent = `第 ${state.bangumiSourcePage + 1} / ${totalPages} 页`;
+    $('#bangumi-source-prev').disabled = state.bangumiSourcePage <= 0;
+    $('#bangumi-source-next').disabled = state.bangumiSourcePage >= totalPages - 1;
   }
 
   function selectedExtraIds(type) {
@@ -322,6 +511,7 @@
         </div>
       `).join('') || '<p class="text-base-content/45">暂无导航数据</p>'}
     `;
+    renderNavigationCollection();
   }
 
   async function searchBangumiSource() {
@@ -336,20 +526,9 @@
     try {
       const param = /^\d+$/.test(keyword) ? `id=${encodeURIComponent(keyword)}` : `q=${encodeURIComponent(keyword)}`;
       const json = await api(`/admin/bangumi/search?${param}`);
-      const items = json.data || [];
-      if (!results) return;
-      results.innerHTML = items.map((item) => `
-        <button class="rounded-2xl border border-base-content/10 bg-base-100/70 p-3 text-left transition hover:border-primary" type="button" data-import-bangumi-source="${html(encodeURIComponent(JSON.stringify(item)))}">
-          <div class="flex gap-3">
-            <div class="h-24 w-16 shrink-0 overflow-hidden rounded-xl bg-base-200">${item.cover ? `<img class="h-full w-full object-cover" src="${html(item.cover)}" alt="" />` : ''}</div>
-            <div class="min-w-0">
-              <p class="font-black">${html(item.title || '未命名作品')}</p>
-              <p class="text-xs text-base-content/45">Bangumi ${html(item.external_id || '-')} · ${html(item.type || '未知类型')} · ${html(item.season || '未标日期')} · ${Number(item.rating || 0).toFixed(1)}</p>
-              <p class="mt-1 line-clamp-2 text-sm text-base-content/60">${html(item.summary || '')}</p>
-            </div>
-          </div>
-        </button>
-      `).join('') || '<p class="text-sm text-base-content/45">没有检索到结果</p>';
+      state.bangumiSourceItems = json.data || [];
+      state.bangumiSourcePage = 0;
+      renderBangumiSourcePage();
     } catch (error) {
       if (results) results.innerHTML = `<p class="text-sm text-error">${html(error.message || '数据源检索失败')}</p>`;
     }
@@ -429,6 +608,8 @@
         </div>
       `).join('') || '<p class="text-base-content/45">暂无相册数据</p>'}
     `;
+    renderAlbumCollection();
+    if (state.activeAlbumId) renderAlbumPhotos();
   }
 
   async function loadPanel(panel) {
@@ -462,6 +643,7 @@
       setPanelMessage('navigation-message', '导航已保存');
       resetForm('navigation-form');
       await loadNavigation();
+      $('#navigation-dialog')?.close();
     } catch (error) {
       setPanelMessage('navigation-message', error.message || '导航保存失败', true);
     }
@@ -520,6 +702,7 @@
       setPanelMessage('album-message', '相册已保存');
       resetForm('album-form');
       await loadAlbums();
+      $('#album-dialog')?.close();
     } catch (error) {
       setPanelMessage('album-message', error.message || '相册保存失败', true);
     }
@@ -529,8 +712,9 @@
     event.preventDefault();
     try {
       const fields = event.currentTarget.elements;
-      await api('/admin/album-photos', {
-        method: 'POST',
+      const id = fields.namedItem('id')?.value;
+      await api(id ? `/admin/album-photos/${id}` : '/admin/album-photos', {
+        method: id ? 'PUT' : 'POST',
         body: JSON.stringify({
           album_id: Number(fields.namedItem('album_id').value),
           image: fields.namedItem('image').value.trim(),
@@ -543,6 +727,7 @@
       setPanelMessage('album-photo-message', '照片已添加');
       event.currentTarget.reset();
       await loadAlbums();
+      $('#album-photo-dialog')?.close();
     } catch (error) {
       setPanelMessage('album-photo-message', error.message || '照片添加失败', true);
     }
@@ -585,7 +770,7 @@
     if (target.dataset.resetExtra) resetForm(`${target.dataset.resetExtra}-form`);
     if (target.dataset.extraEditNavigation) {
       const item = state.navigation.find((row) => String(row.id) === target.dataset.extraEditNavigation);
-      if (item) fill($('#navigation-form'), item, ['id', 'title', 'url', 'category', 'icon', 'avatar', 'sort_order', 'description', 'is_active']);
+      if (item) openNavigationDialog(item);
     }
     if (target.dataset.extraDeleteNavigation && confirm('确认删除这个导航吗？')) {
       try {
@@ -611,7 +796,7 @@
     }
     if (target.dataset.extraEditAlbum) {
       const item = state.albums.find((row) => String(row.id) === target.dataset.extraEditAlbum);
-      if (item) fill($('#album-form'), item, ['id', 'title', 'cover', 'event_date', 'location', 'icon', 'sort_order', 'description', 'is_active']);
+      if (item) openAlbumDialog(item);
     }
     if (target.dataset.extraDeleteAlbum && confirm('确认删除这个相册及其照片吗？')) {
       try {
@@ -626,13 +811,35 @@
       try {
         await api(`/admin/album-photos/${target.dataset.extraDeletePhoto}`, { method: 'DELETE' });
         await loadAlbums();
+        renderAlbumPhotos();
         window.notifyAdmin?.('照片已删除');
       } catch (error) {
         window.notifyAdmin?.(error.message || '删除照片失败', true);
       }
     }
+    if (target.dataset.openAlbum) {
+      openAlbumPhotos(target.dataset.openAlbum);
+    }
+    if (target.dataset.extraEditPhoto) {
+      const photo = (activeAlbum()?.photos || []).find((item) => String(item.id) === target.dataset.extraEditPhoto);
+      if (photo) openPhotoDialog(photo);
+    }
   });
 
+  setupCollectionDialogs();
+  $('#navigation-create')?.addEventListener('click', () => openNavigationDialog());
+  $('#navigation-dialog-close')?.addEventListener('click', () => $('#navigation-dialog')?.close());
+  $('#album-create')?.addEventListener('click', () => openAlbumDialog());
+  $('#album-dialog-close')?.addEventListener('click', () => $('#album-dialog')?.close());
+  $('#album-photos-close')?.addEventListener('click', () => $('#album-photos-dialog')?.close());
+  $('#album-photo-dialog-close')?.addEventListener('click', () => $('#album-photo-dialog')?.close());
+  $('#album-photo-create')?.addEventListener('click', () => openPhotoDialog());
+
+  $('#bangumi-source-open')?.addEventListener('click', () => {
+    $('#bangumi-source-dialog')?.showModal();
+    window.setTimeout(() => $('#bangumi-source-query')?.focus(), 0);
+  });
+  $('#bangumi-source-close')?.addEventListener('click', () => $('#bangumi-source-dialog')?.close());
   $('#bangumi-source-search')?.addEventListener('click', searchBangumiSource);
   $('#bangumi-source-query')?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') {
@@ -640,9 +847,13 @@
       searchBangumiSource();
     }
   });
-  $('#bangumi-source-clear')?.addEventListener('click', () => {
-    const results = $('#bangumi-source-results');
-    if (results) results.innerHTML = '';
+  $('#bangumi-source-prev')?.addEventListener('click', () => {
+    state.bangumiSourcePage -= 1;
+    renderBangumiSourcePage();
+  });
+  $('#bangumi-source-next')?.addEventListener('click', () => {
+    state.bangumiSourcePage += 1;
+    renderBangumiSourcePage();
   });
 
   $('#bangumi-cover-upload')?.addEventListener('change', async (event) => {
@@ -687,6 +898,19 @@
       setPanelMessage('album-photo-message', '照片上传成功');
     } catch (error) {
       setPanelMessage('album-photo-message', error.message || '照片上传失败', true);
+    }
+  });
+  $('#album-photo-bulk-upload')?.addEventListener('change', async (event) => {
+    try {
+      const file = event.currentTarget.files?.[0];
+      if (!file || !state.activeAlbumId) return;
+      const image = await upload(file);
+      openPhotoDialog(null, image);
+      const titleField = $('#album-photo-form')?.elements.namedItem('title');
+      if (titleField && !titleField.value) titleField.value = file.name.replace(/\.[^.]+$/, '');
+      event.currentTarget.value = '';
+    } catch (error) {
+      window.notifyAdmin?.(error.message || '照片上传失败', true);
     }
   });
   $('#close-media-picker')?.addEventListener('click', () => {

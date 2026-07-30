@@ -582,7 +582,7 @@ function renderProfile() {
   const form = $('#profile-form');
   if (!form) return;
   form.elements.namedItem('profile_name').value = state.settings.profile_name || state.settings.site_title || '个人博客';
-  form.elements.namedItem('profile_avatar').value = state.settings.profile_avatar || '/profile.png';
+  form.elements.namedItem('profile_avatar').value = state.settings.profile_avatar || '/profile.webp';
   form.elements.namedItem('profile_bio').value = state.settings.profile_bio || state.settings.site_description || '记录技术、生活和长期主义的小站。';
 }
 

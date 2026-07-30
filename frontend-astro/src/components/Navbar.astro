@@ -3,7 +3,7 @@ import { getPublicSettings } from '../lib/api'
 import { resolveUploadUrl } from '../lib/media'
 
 const publicSettings = await getPublicSettings()
-const brandAvatar = resolveUploadUrl(publicSettings.profile_avatar || '/profile.png')
+const brandAvatar = resolveUploadUrl(publicSettings.profile_avatar || '/profile.webp')
 const navItems = [
   { href: '/', label: '首页', icon: '⌂' },
   { href: '/archive', label: '归档', icon: '▣' },
@@ -21,7 +21,7 @@ const pathname = Astro.url.pathname
 <nav class="site-nav fixed left-0 right-0 top-0 z-50">
   <div class="mx-auto flex h-[4.5rem] max-w-blog items-center justify-between px-4 py-3">
     <a href="/" class="brand-pill group">
-      <img class="h-9 w-9 rounded-xl object-cover" src={brandAvatar} alt="个人头像" />
+      <img class="h-9 w-9 rounded-xl object-cover" src={brandAvatar} alt="个人头像" width="36" height="36" fetchpriority="high" decoding="async" />
       <span class="leading-tight">
         <strong class="block text-sm font-black">{publicSettings.profile_name || publicSettings.site_title || '个人博客'}</strong>
         <span class="block text-[11px] text-base-content/50">记录 · 写作 · 分享</span>

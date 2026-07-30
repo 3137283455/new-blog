@@ -19,7 +19,7 @@ const safeIndex = Number.isFinite(currentIndex) ? Math.max(0, Math.min(currentIn
 const track = playlist[safeIndex]
 const collections = Array.from(new Map(playlist.map((item) => [item.playlist, playlist.filter((song) => song.playlist === item.playlist).length])).entries())
 const payload = JSON.stringify(playlist)
-const profileAvatar = resolveAsset(settings.profile_avatar || '/profile.png')
+const profileAvatar = resolveAsset(settings.profile_avatar || '/profile.webp')
 const profileName = settings.profile_name || settings.site_title || '个人博客'
 const profileBio = settings.profile_bio || settings.site_description || '清风的个人博客'
 ---
