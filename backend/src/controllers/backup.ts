@@ -24,6 +24,7 @@ const APP_TABLES = [
   'plugins',
   'navigation_links',
   'bangumi_items',
+  'bangumi_play_sources',
   'albums',
   'album_photos',
   'music_playlists',

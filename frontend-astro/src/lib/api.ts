@@ -93,7 +93,8 @@ export interface BangumiItem {
   source?: string
   type?: string
   total_episodes?: number
-  play_links?: string | Array<{ name?: string; url?: string; remark?: string }>
+  play_links?: string | BangumiPlaySource[]
+  play_sources?: BangumiPlaySource[]
   status?: string
   progress?: string
   rating?: number
@@ -101,6 +102,16 @@ export interface BangumiItem {
   summary?: string
   sort_order?: number
   is_active?: number | boolean
+}
+
+export interface BangumiPlaySource {
+  id?: number
+  bangumi_id?: number
+  name?: string
+  url?: string
+  remark?: string
+  is_default?: number | boolean
+  sort_order?: number
 }
 
 export interface AlbumPhoto {

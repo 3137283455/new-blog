@@ -8,6 +8,7 @@
     albums: [],
     bangumiSourceItems: [],
     bangumiSourcePage: 0,
+    bangumiPlaySources: [],
     activeAlbumId: null,
     mediaPicker: null,
     mediaPickerItems: [],
@@ -366,8 +367,78 @@
     }
   }
 
-  function playLinksToText(value) {
-    return parsePlayLinks(value).map((link) => `${link.name || '播放链接'}|${link.url || ''}${link.remark ? `|${link.remark}` : ''}`).join('\n');
+  function normalizePlaySources(value) {
+    return parsePlayLinks(value)
+      .filter((source) => source?.url)
+      .map((source, index) => ({
+        name: String(source.name || '播放源').trim(),
+        url: String(source.url || '').trim(),
+        remark: String(source.remark || '').trim(),
+        is_default: source.is_default === true || source.is_default === 1,
+        sort_order: Number.isFinite(Number(source.sort_order)) ? Number(source.sort_order) : index,
+      }));
+  }
+
+  function renderBangumiPlaySources() {
+    const list = $('#bangumi-play-source-list');
+    if (!list) return;
+    const sources = [...state.bangumiPlaySources]
+      .map((source, index) => ({ ...source, index }))
+      .sort((a, b) => Number(a.sort_order || 0) - Number(b.sort_order || 0) || a.index - b.index);
+    list.innerHTML = sources.map((source) => `
+      <article class="bangumi-play-source-row">
+        <span class="min-w-0">
+          <strong>${html(source.name || '播放源')}</strong>
+          ${source.is_default ? '<b>默认</b>' : ''}
+          <small title="${html(source.url)}">${html(source.url)}</small>
+          ${source.remark ? `<em>${html(source.remark)}</em>` : ''}
+        </span>
+        <span class="flex shrink-0 gap-1">
+          ${source.is_default
+            ? '<button class="btn btn-xs rounded-lg" type="button" data-unset-play-source-default>取消默认</button>'
+            : '<button class="btn btn-xs rounded-lg" type="button" data-set-play-source-default>设为默认</button>'}
+          <button class="btn btn-xs rounded-lg" type="button" data-edit-play-source>编辑</button>
+          <button class="btn btn-xs btn-error rounded-lg" type="button" data-delete-play-source>删除</button>
+        </span>
+      </article>
+    `).join('') || '<div class="bangumi-play-source-empty">尚未添加播放源，前台将显示“未知”。</div>';
+    list.querySelectorAll('[data-set-play-source-default], [data-unset-play-source-default], [data-edit-play-source], [data-delete-play-source]')
+      .forEach((button) => {
+        const row = button.closest('.bangumi-play-source-row');
+        const sortedIndex = Array.from(list.children).indexOf(row);
+        button.dataset.playSourceIndex = String(sources[sortedIndex]?.index ?? -1);
+      });
+  }
+
+  function openBangumiPlaySourceDialog(index = -1) {
+    const form = $('#bangumi-play-source-form');
+    const dialog = $('#bangumi-play-source-dialog');
+    if (!form || !dialog) return;
+    form.reset();
+    const source = state.bangumiPlaySources[index];
+    form.elements.namedItem('index').value = index >= 0 ? String(index) : '';
+    form.elements.namedItem('name').value = source?.name || '';
+    form.elements.namedItem('url').value = source?.url || '';
+    form.elements.namedItem('remark').value = source?.remark || '';
+    form.elements.namedItem('sort_order').value = String(source?.sort_order ?? state.bangumiPlaySources.length);
+    form.elements.namedItem('is_default').checked = Boolean(source?.is_default);
+    $('#bangumi-play-source-title').textContent = index >= 0 ? '编辑播放源' : '新增播放源';
+    dialog.showModal();
+    window.setTimeout(() => form.elements.namedItem('name')?.focus(), 0);
+  }
+
+  function setBangumiPlaySourceDefault(index, enabled) {
+    state.bangumiPlaySources = state.bangumiPlaySources.map((source, sourceIndex) => ({
+      ...source,
+      is_default: enabled ? sourceIndex === index : (sourceIndex === index ? false : source.is_default),
+    }));
+    renderBangumiPlaySources();
+  }
+
+  function resetBangumiForm() {
+    resetForm('bangumi-form');
+    state.bangumiPlaySources = [];
+    renderBangumiPlaySources();
   }
 
   function fillBangumiSource(item) {
@@ -386,7 +457,7 @@
       summary: item.summary || '',
     }, ['external_id', 'title', 'original_title', 'cover', 'url', 'type', 'total_episodes', 'rating', 'season', 'summary']);
     $('#bangumi-source-dialog')?.close();
-    setPanelMessage('bangumi-message', '已导入番剧信息，可继续编辑播放链接后保存');
+    setPanelMessage('bangumi-message', '已导入番剧信息，可继续添加播放源后保存');
   }
 
   function renderBangumiSourcePage() {
@@ -664,7 +735,7 @@
         source: fields.namedItem('external_id').value.trim() ? 'bangumi' : '',
         type: fields.namedItem('type').value.trim(),
         total_episodes: Number(fields.namedItem('total_episodes').value || 0),
-        play_links: parsePlayLinks(fields.namedItem('play_links').value),
+        play_sources: state.bangumiPlaySources,
         status: fields.namedItem('status').value,
         progress: fields.namedItem('progress').value.trim(),
         rating: Number(fields.namedItem('rating').value || 0),
@@ -675,11 +746,33 @@
       };
       await api(id ? `/admin/bangumi/${id}` : '/admin/bangumi', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
       setPanelMessage('bangumi-message', '追番已保存');
-      resetForm('bangumi-form');
+      resetBangumiForm();
       await loadBangumi();
     } catch (error) {
       setPanelMessage('bangumi-message', error.message || '追番保存失败', true);
     }
+  });
+
+  $('#bangumi-play-source-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const fields = event.currentTarget.elements;
+    const indexValue = fields.namedItem('index').value;
+    const index = indexValue === '' ? -1 : Number(indexValue);
+    const source = {
+      name: fields.namedItem('name').value.trim(),
+      url: fields.namedItem('url').value.trim(),
+      remark: fields.namedItem('remark').value.trim(),
+      is_default: fields.namedItem('is_default').checked,
+      sort_order: Number(fields.namedItem('sort_order').value || 0),
+    };
+    if (!source.name || !source.url) return;
+    if (source.is_default) {
+      state.bangumiPlaySources = state.bangumiPlaySources.map((item) => ({ ...item, is_default: false }));
+    }
+    if (index >= 0) state.bangumiPlaySources[index] = source;
+    else state.bangumiPlaySources.push(source);
+    renderBangumiPlaySources();
+    $('#bangumi-play-source-dialog')?.close();
   });
 
   $('#album-form')?.addEventListener('submit', async (event) => {
@@ -767,7 +860,10 @@
     }
     const panel = target.dataset.panel || target.dataset.panelTab;
     if (panel) loadPanel(panel);
-    if (target.dataset.resetExtra) resetForm(`${target.dataset.resetExtra}-form`);
+    if (target.dataset.resetExtra) {
+      if (target.dataset.resetExtra === 'bangumi') resetBangumiForm();
+      else resetForm(`${target.dataset.resetExtra}-form`);
+    }
     if (target.dataset.extraEditNavigation) {
       const item = state.navigation.find((row) => String(row.id) === target.dataset.extraEditNavigation);
       if (item) openNavigationDialog(item);
@@ -783,7 +879,27 @@
     }
     if (target.dataset.extraEditBangumi) {
       const item = state.bangumi.find((row) => String(row.id) === target.dataset.extraEditBangumi);
-      if (item) fill($('#bangumi-form'), { ...item, play_links: playLinksToText(item.play_links) }, ['id', 'title', 'original_title', 'cover', 'url', 'external_id', 'type', 'total_episodes', 'play_links', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
+      if (item) {
+        fill($('#bangumi-form'), item, ['id', 'title', 'original_title', 'cover', 'url', 'external_id', 'type', 'total_episodes', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
+        state.bangumiPlaySources = normalizePlaySources(item.play_sources || item.play_links);
+        renderBangumiPlaySources();
+      }
+    }
+    if (target.dataset.editPlaySource !== undefined) {
+      openBangumiPlaySourceDialog(Number(target.dataset.playSourceIndex));
+    }
+    if (target.dataset.deletePlaySource !== undefined) {
+      const index = Number(target.dataset.playSourceIndex);
+      if (Number.isInteger(index) && confirm('确认删除这个播放源吗？')) {
+        state.bangumiPlaySources.splice(index, 1);
+        renderBangumiPlaySources();
+      }
+    }
+    if (target.dataset.setPlaySourceDefault !== undefined) {
+      setBangumiPlaySourceDefault(Number(target.dataset.playSourceIndex), true);
+    }
+    if (target.dataset.unsetPlaySourceDefault !== undefined) {
+      setBangumiPlaySourceDefault(Number(target.dataset.playSourceIndex), false);
     }
     if (target.dataset.extraDeleteBangumi && confirm('确认删除这个追番吗？')) {
       try {
@@ -827,6 +943,7 @@
   });
 
   setupCollectionDialogs();
+  renderBangumiPlaySources();
   $('#navigation-create')?.addEventListener('click', () => openNavigationDialog());
   $('#navigation-dialog-close')?.addEventListener('click', () => $('#navigation-dialog')?.close());
   $('#album-create')?.addEventListener('click', () => openAlbumDialog());
@@ -834,6 +951,9 @@
   $('#album-photos-close')?.addEventListener('click', () => $('#album-photos-dialog')?.close());
   $('#album-photo-dialog-close')?.addEventListener('click', () => $('#album-photo-dialog')?.close());
   $('#album-photo-create')?.addEventListener('click', () => openPhotoDialog());
+  $('#bangumi-play-source-create')?.addEventListener('click', () => openBangumiPlaySourceDialog());
+  $('#bangumi-play-source-close')?.addEventListener('click', () => $('#bangumi-play-source-dialog')?.close());
+  $('[data-close-play-source]')?.addEventListener('click', () => $('#bangumi-play-source-dialog')?.close());
 
   $('#bangumi-source-open')?.addEventListener('click', () => {
     $('#bangumi-source-dialog')?.showModal();

@@ -748,7 +748,16 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <input class="input input-bordered rounded-xl" name="season" maxlength="60" placeholder="季度，如 2026 春" />
             <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
             <textarea class="textarea textarea-bordered rounded-xl" name="summary" maxlength="500" placeholder="简介"></textarea>
-            <textarea class="textarea textarea-bordered rounded-xl" name="play_links" rows="4" placeholder="播放链接，每行一个：平台名|https://...&#10;例如：Bilibili|https://www.bilibili.com/bangumi/media/..."></textarea>
+            <section class="bangumi-source-manager">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h3 class="font-black">播放源</h3>
+                  <p class="text-xs text-base-content/45">每个播放源独立管理，可选择一个默认源。</p>
+                </div>
+                <button id="bangumi-play-source-create" class="ryu-btn btn-sm" type="button">新增播放源</button>
+              </div>
+              <div id="bangumi-play-source-list" class="mt-3 grid gap-2"></div>
+            </section>
             <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="is_active" type="checkbox" checked />前台显示</label>
             <div class="flex gap-2">
               <button class="ryu-btn-primary" type="submit">保存追番</button>
@@ -821,14 +830,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     </main>
     </section>
 
-    <dialog id="bangumi-source-dialog" class="admin-media-picker">
+    <dialog id="bangumi-source-dialog" class="admin-media-picker bangumi-source-dialog">
       <div class="admin-media-picker-panel bangumi-source-dialog-panel">
         <div class="flex items-center justify-between gap-3">
           <div>
             <h3 class="text-xl font-black">检索番剧</h3>
             <p class="text-sm text-base-content/50">按番剧名称或 Bangumi ID 检索，点击结果即可导入。</p>
           </div>
-          <button id="bangumi-source-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+          <button id="bangumi-source-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
           <input id="bangumi-source-query" class="input input-bordered rounded-xl" type="search" placeholder="输入番剧名称或 Bangumi ID" />
@@ -843,11 +852,50 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       </div>
     </dialog>
 
+    <dialog id="bangumi-play-source-dialog" class="admin-media-picker bangumi-play-source-dialog">
+      <form id="bangumi-play-source-form" class="admin-media-picker-panel" method="dialog">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 id="bangumi-play-source-title" class="text-xl font-black">新增播放源</h3>
+            <p class="text-sm text-base-content/50">填写平台名称与可访问的播放地址。</p>
+          </div>
+          <button id="bangumi-play-source-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <input name="index" type="hidden" value="" />
+        <div class="grid gap-3">
+          <label class="grid gap-1.5">
+            <span class="text-sm font-bold">播放源名称</span>
+            <input class="input input-bordered rounded-xl" name="name" maxlength="60" placeholder="例如：Bilibili、AGE 动漫、WebDAV" required />
+          </label>
+          <label class="grid gap-1.5">
+            <span class="text-sm font-bold">播放地址</span>
+            <input class="input input-bordered rounded-xl" name="url" maxlength="500" type="url" placeholder="https://..." required />
+          </label>
+          <label class="grid gap-1.5">
+            <span class="text-sm font-bold">备注</span>
+            <input class="input input-bordered rounded-xl" name="remark" maxlength="120" placeholder="例如：1080P、需登录，可选" />
+          </label>
+          <label class="grid gap-1.5">
+            <span class="text-sm font-bold">排序</span>
+            <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" value="0" />
+          </label>
+          <label class="label cursor-pointer justify-start gap-3">
+            <input class="checkbox" name="is_default" type="checkbox" />
+            <span>设为默认播放源</span>
+          </label>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button class="ryu-btn" type="button" data-close-play-source>取消</button>
+          <button class="ryu-btn-primary" type="submit">保存播放源</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="navigation-dialog" class="admin-media-picker">
       <div class="admin-media-picker-panel">
         <div class="mb-4 flex items-center justify-between gap-3">
           <h3 id="navigation-dialog-title" class="text-xl font-black">新增导航</h3>
-          <button id="navigation-dialog-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+          <button id="navigation-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div id="navigation-form-host"></div>
       </div>
@@ -857,7 +905,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       <div class="admin-media-picker-panel">
         <div class="mb-4 flex items-center justify-between gap-3">
           <h3 id="album-dialog-title" class="text-xl font-black">新建相册</h3>
-          <button id="album-dialog-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+          <button id="album-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div id="album-form-host"></div>
       </div>
@@ -876,7 +924,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               <input id="album-photo-bulk-upload" class="hidden" type="file" accept="image/*" />
             </label>
             <button id="album-photo-create" class="ryu-btn btn-sm" type="button">从媒体库导入</button>
-            <button id="album-photos-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+            <button id="album-photos-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
           </div>
         </div>
         <div id="album-photos-grid" class="admin-photo-grid mt-5"></div>
@@ -887,7 +935,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       <div class="admin-media-picker-panel">
         <div class="mb-4 flex items-center justify-between gap-3">
           <h3 id="album-photo-dialog-title" class="text-xl font-black">照片信息</h3>
-          <button id="album-photo-dialog-close" class="btn btn-sm rounded-xl" type="button">关闭</button>
+          <button id="album-photo-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div id="album-photo-form-host"></div>
       </div>
@@ -900,7 +948,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <h3 class="text-xl font-black">选择媒体资源</h3>
             <p id="media-picker-hint" class="text-sm text-base-content/50">从媒体库选择已上传文件。</p>
           </div>
-          <button id="close-media-picker" class="btn btn-sm rounded-xl" type="button">关闭</button>
+          <button id="close-media-picker" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div class="mt-4 grid gap-3 md:grid-cols-[1fr_10rem]">
           <input id="media-picker-search" class="input input-bordered rounded-xl" type="search" placeholder="搜索文件名、路径、类型..." />

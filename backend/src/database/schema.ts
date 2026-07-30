@@ -204,6 +204,18 @@ export function migrate() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS bangumi_play_sources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bangumi_id INTEGER NOT NULL REFERENCES bangumi_items(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      remark TEXT DEFAULT '',
+      is_default INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     -- 相册
     CREATE TABLE IF NOT EXISTS albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -305,6 +317,8 @@ export function migrate() {
       ON navigation_links(is_active, category, sort_order);
     CREATE INDEX IF NOT EXISTS idx_bangumi_public
       ON bangumi_items(is_active, status, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_bangumi_play_sources_item
+      ON bangumi_play_sources(bangumi_id, is_default DESC, sort_order, id);
     CREATE INDEX IF NOT EXISTS idx_albums_public
       ON albums(is_active, sort_order);
     CREATE INDEX IF NOT EXISTS idx_album_photos_album
@@ -339,6 +353,58 @@ export function migrate() {
   addBangumiColumn('type', "TEXT DEFAULT ''")
   addBangumiColumn('total_episodes', 'INTEGER DEFAULT 0')
   addBangumiColumn('play_links', "TEXT DEFAULT '[]'")
+
+  try {
+    const legacyRows = db.prepare(`
+      SELECT id, play_links
+      FROM bangumi_items
+      WHERE play_links IS NOT NULL
+        AND TRIM(play_links) NOT IN ('', '[]')
+        AND NOT EXISTS (
+          SELECT 1 FROM bangumi_play_sources
+          WHERE bangumi_play_sources.bangumi_id = bangumi_items.id
+        )
+    `).all() as Array<{ id: number; play_links: string }>
+    const insertSource = db.prepare(`
+      INSERT INTO bangumi_play_sources
+        (bangumi_id, name, url, remark, is_default, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+    const importLegacySources = db.transaction(() => {
+      for (const row of legacyRows) {
+        let links: any[] = []
+        let defaultAssigned = false
+        try {
+          const parsed = JSON.parse(row.play_links)
+          links = Array.isArray(parsed) ? parsed : []
+        } catch {
+          links = row.play_links.split(/\r?\n/).map((line) => {
+            const [name, url, ...remark] = line.split('|')
+            return { name, url, remark: remark.join('|') }
+          })
+        }
+        links
+          .filter((link) => String(link?.url || '').trim())
+          .slice(0, 20)
+          .forEach((link, index) => {
+            const requestedDefault = Boolean(link?.is_default || link?.isDefault)
+            const isDefault = requestedDefault && !defaultAssigned
+            if (isDefault) defaultAssigned = true
+            insertSource.run(
+              row.id,
+              String(link?.name || '播放源').trim().slice(0, 60),
+              String(link.url).trim().slice(0, 500),
+              String(link?.remark || '').trim().slice(0, 120),
+              isDefault ? 1 : 0,
+              Number.isFinite(Number(link?.sort_order)) ? Math.trunc(Number(link.sort_order)) : index,
+            )
+          })
+      }
+    })
+    importLegacySources()
+  } catch {
+    // Keep startup compatible with partially migrated databases.
+  }
 
   const addArticleColumn = (column: string) => {
     try {

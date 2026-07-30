@@ -1198,6 +1198,7 @@ body {
 .admin-media-picker {
   width: min(58rem, calc(100vw - 2rem));
   max-height: min(42rem, calc(100vh - 2rem));
+  overflow: hidden;
   border: 1px solid var(--neu-border);
   border-radius: 1.25rem;
   background: transparent;
@@ -1211,8 +1212,10 @@ body {
 }
 
 .admin-media-picker-panel {
+  width: 100%;
   max-height: min(42rem, calc(100vh - 2rem));
   overflow: auto;
+  box-sizing: border-box;
   border-radius: 1.25rem;
   background: oklch(var(--b1) / 0.96);
   padding: 1.25rem;
@@ -1225,8 +1228,103 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
 }
 
-.bangumi-source-dialog-panel {
+.bangumi-source-dialog {
   width: min(48rem, calc(100vw - 2rem));
+}
+
+.bangumi-source-dialog-panel {
+  width: 100%;
+}
+
+.bangumi-play-source-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+}
+
+.bangumi-source-manager {
+  border: 1px solid oklch(var(--bc) / 0.1);
+  border-radius: 0.9rem;
+  background: oklch(var(--b2) / 0.35);
+  padding: 0.9rem;
+}
+
+.bangumi-play-source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid oklch(var(--bc) / 0.08);
+  border-radius: 0.75rem;
+  background: oklch(var(--b1) / 0.72);
+  padding: 0.7rem;
+}
+
+.bangumi-play-source-row > span:first-child {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 0.2rem 0.45rem;
+}
+
+.bangumi-play-source-row b {
+  border-radius: 999px;
+  background: oklch(var(--p) / 0.13);
+  color: oklch(var(--p));
+  padding: 0.12rem 0.38rem;
+  font-size: 0.65rem;
+}
+
+.bangumi-play-source-row small,
+.bangumi-play-source-row em {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: oklch(var(--bc) / 0.48);
+  font-size: 0.72rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bangumi-play-source-empty {
+  border: 1px dashed oklch(var(--bc) / 0.14);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  color: oklch(var(--bc) / 0.45);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.admin-dialog-close {
+  display: inline-grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 2.25rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.6rem;
+  background: transparent;
+  color: oklch(var(--bc) / 0.45);
+  font-size: 1.6rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.admin-dialog-close:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.admin-dialog-close:active {
+  transform: scale(0.94);
+}
+
+.admin-dialog-close:focus-visible {
+  outline: 2px solid #ef4444;
+  outline-offset: 2px;
 }
 
 .bangumi-source-results {
@@ -2425,6 +2523,11 @@ body {
   border-radius: 0.85rem;
 }
 
+.bangumi-card-main {
+  display: block;
+  color: inherit;
+}
+
 .bangumi-card-compact .bangumi-info {
   gap: 0.32rem;
   padding: 0.65rem;
@@ -2451,14 +2554,174 @@ body {
   font-weight: 900;
 }
 
+.bangumi-cover i {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.55rem;
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.32);
+  border-radius: 50%;
+  background: rgb(15 23 42 / 0.72);
+  color: white;
+  font-size: 0.68rem;
+  font-style: normal;
+  backdrop-filter: blur(8px);
+}
+
 .bangumi-card-footer {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid oklch(var(--bc) / 0.07);
+}
+
+.bangumi-card-footer > * {
+  display: grid;
+  min-width: 0;
+  min-height: 3rem;
+  place-content: center;
+  gap: 0.12rem;
+  border: 0;
+  border-right: 1px solid oklch(var(--bc) / 0.07);
+  background: transparent;
+  color: inherit;
+  padding: 0.4rem 0.2rem;
+  text-align: center;
+}
+
+.bangumi-card-footer > *:last-child {
+  border-right: 0;
+}
+
+.bangumi-card-footer a,
+.bangumi-card-footer button {
+  cursor: pointer;
+}
+
+.bangumi-card-footer a:hover,
+.bangumi-card-footer button:hover {
+  background: oklch(var(--p) / 0.08);
+  color: oklch(var(--p));
+}
+
+.bangumi-card-footer small {
+  color: oklch(var(--bc) / 0.42);
+  font-size: 0.58rem;
+}
+
+.bangumi-card-footer strong {
+  overflow: hidden;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bangumi-play-dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: min(38rem, calc(100vh - 2rem));
+  overflow: hidden;
+  border: 1px solid oklch(var(--bc) / 0.1);
+  border-radius: 1rem;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.bangumi-play-dialog::backdrop {
+  background: rgb(8 13 24 / 0.58);
+  backdrop-filter: blur(8px);
+}
+
+.bangumi-play-dialog-panel {
+  max-height: min(38rem, calc(100vh - 2rem));
+  overflow-y: auto;
+  border-radius: 1rem;
+  background: oklch(var(--b1) / 0.98);
+  padding: 1.1rem;
+}
+
+.bangumi-play-dialog-panel > header {
   display: flex;
-  align-items: center;
+  align-items: start;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bangumi-play-dialog-panel > header p {
+  color: oklch(var(--p));
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.bangumi-play-dialog-panel > header h2 {
+  margin-top: 0.15rem;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.bangumi-play-dialog-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.bangumi-play-dialog-list a {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 0.8rem;
+  border: 1px solid oklch(var(--bc) / 0.09);
+  border-radius: 0.8rem;
+  background: oklch(var(--b2) / 0.42);
+  color: inherit;
+  padding: 0.8rem 2.5rem 0.8rem 0.85rem;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.bangumi-play-dialog-list a:hover {
+  border-color: oklch(var(--p) / 0.42);
+  background: oklch(var(--p) / 0.08);
+}
+
+.bangumi-play-dialog-list a > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.bangumi-play-dialog-list b {
+  border-radius: 999px;
+  background: oklch(var(--p) / 0.14);
+  color: oklch(var(--p));
+  padding: 0.12rem 0.38rem;
+  font-size: 0.62rem;
+}
+
+.bangumi-play-dialog-list small {
   color: oklch(var(--bc) / 0.48);
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.bangumi-play-dialog-list code {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: oklch(var(--bc) / 0.45);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bangumi-play-dialog-list i {
+  position: absolute;
+  top: 50%;
+  right: 0.9rem;
+  color: oklch(var(--p));
+  font-style: normal;
+  transform: translateY(-50%);
 }
 
 .feature-empty {
