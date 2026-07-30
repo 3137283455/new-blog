@@ -6,8 +6,8 @@ import { AuthRequest } from '../middleware/auth'
 // 根据 Bangumi 规范：使用符合格式的 User-Agent（包含 GitHub 地址/应用名称等）
 const BANGUMI_USER_AGENT = 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)'
 // 将 API 默认接口指向可访问的镜像站，页面基准地址保持为 Bangumi 原站
-const BANGUMI_API_BASE = (process.env.BANGUMI_API_BASE || 'https://api.bangumi.lol').replace(/\/+$/, '')
-const BANGUMI_PAGE_BASE = (process.env.BANGUMI_PAGE_BASE || 'https://bgm.tv').replace(/\/+$/, '')
+const BANGUMI_API_BASE = (process.env.BANGUMI_API_BASE || 'https://bangumi.lol').replace(/\/+$/, '')
+const BANGUMI_PAGE_BASE = (process.env.BANGUMI_PAGE_BASE || 'https://bangumi.lol').replace(/\/+$/, '')
 
 const selectSql = `
   SELECT id, title, original_title, cover, url, external_id, source, type, total_episodes, play_links, status, progress, rating, season, summary,
@@ -61,8 +61,12 @@ function cleanPlayLinks(value: unknown) {
       links = value
         .split(/\r?\n/)
         .map((line) => {
-          const [name, ...urlParts] = line.split('|')
-          return { name: name?.trim() || '播放链接', url: urlParts.join('|').trim() }
+          const [name, url, ...remarkParts] = line.split('|')
+          return {
+            name: name?.trim() || '播放链接',
+            url: url?.trim() || '',
+            remark: remarkParts.join('|').trim(),
+          }
         })
     }
   }

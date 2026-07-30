@@ -29,8 +29,10 @@ DB_PATH=./data/blog.db
 UPLOAD_DIR=./uploads
 MAX_FILE_SIZE=104857600
 MAX_FONT_FILE_SIZE=268435456
-CORS_ORIGIN=http://127.0.0.1:3000
+CORS_ORIGIN=http://127.0.0.1:3002
 ADMIN_PASSWORD=$ADMIN_PASSWORD_VALUE
+BANGUMI_API_BASE=https://bangumi.lol
+BANGUMI_PAGE_BASE=https://bangumi.lol
 EOF
   chmod 600 "$ENV_FILE"
   echo "[deploy] created backend/.env"
@@ -67,8 +69,8 @@ pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save
 
 for attempt in {1..20}; do
-  if curl --fail --silent http://127.0.0.1:3000/api/health >/dev/null; then
-    echo "[deploy] success: http://SERVER_PUBLIC_IP:3000"
+  if curl --fail --silent http://127.0.0.1:3002/api/health >/dev/null; then
+    echo "[deploy] success: http://SERVER_PUBLIC_IP:3002"
     exit 0
   fi
   sleep 1

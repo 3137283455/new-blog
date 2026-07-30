@@ -3,35 +3,55 @@ import BaseLayout from '@layouts/BaseLayout.astro'
 import { getBangumiItems } from '../lib/api'
 import { resolveUploadUrl, uploadBase } from '../lib/media'
 
-const items = await getBangumiItems()
+const items = (await getBangumiItems()).filter((item) => item.is_active !== 0 && item.is_active !== false)
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
-const resolveMedia = (src?: string) => resolveUploadUrl(src || '')
-const normalizeUrl = (url?: string) => {
-  const value = (url || '').trim()
-  if (!value) return '#'
-  if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value
-  return `https://${value}`
-}
+
 const statusText: Record<string, string> = {
   watching: '追番中',
   done: '已看完',
   plan: '想看',
+  planned: '想看',
   paused: '搁置',
+  dropped: '弃番',
 }
+
+const normalizeUrl = (url?: string) => {
+  const value = String(url || '').trim()
+  if (!value) return '#'
+  if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value
+  return `https://${value}`
+}
+
+const parsePlayLinks = (value: unknown) => {
+  if (Array.isArray(value)) return value
+  try {
+    const parsed = JSON.parse(String(value || '[]'))
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const getPrimaryUrl = (item: any) => {
+  const playable = parsePlayLinks(item.play_links).find((link: any) => link?.url)
+  return normalizeUrl(playable?.url || item.url)
+}
+
 const watching = items.filter((item) => item.status === 'watching').length
 const done = items.filter((item) => item.status === 'done').length
 const scoredItems = items.filter((item) => Number(item.rating || 0) > 0)
 const averageRating = scoredItems.length
   ? scoredItems.reduce((sum, item) => sum + Number(item.rating || 0), 0) / scoredItems.length
   : 0
-const statusItems = ['watching', 'done', 'plan', 'paused']
-  .map((status) => ({
-    label: statusText[status],
+const statusItems = Object.entries(statusText)
+  .filter(([status], index, rows) => rows.findIndex(([_, label]) => label === statusText[status]) === index)
+  .map(([status, label]) => ({
+    label,
     value: items.filter((item) => (item.status || 'watching') === status).length,
   }))
   .filter((item) => item.value > 0)
 const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(Boolean)))
-  .slice(0, 12)
+  .slice(0, 10)
   .map((season) => ({
     label: season as string,
     value: items.filter((item) => item.season === season).length,
@@ -42,7 +62,7 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
   title="追番"
   subtitle="记录正在看的番剧和喜欢的作品"
   showBanner={false}
-  showSidebar={false}
+  showSidebar={true}
   sidebarProps={{
     statItems: [
       { label: '总追番', value: items.length },
@@ -50,52 +70,41 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
       { label: '已看完', value: done },
     ],
     sidebarSections: [
-      { title: '追番状态', marker: '▣', tone: 'primary', items: statusItems },
-      { title: '季度', marker: '●', tone: 'secondary', items: seasonItems },
+      { title: '追番状态', marker: '#', tone: 'primary', items: statusItems },
+      { title: '季度', marker: '◇', tone: 'secondary', items: seasonItems },
     ],
   }}
 >
-  <section class="bangumi-dashboard bangumi-movie-head">
-    <div class="bangumi-page-title">
-      <span class="bangumi-title-icon">▣</span>
+  <section class="bangumi-compact-head">
+    <div>
+      <p>Bangumi Collection</p>
       <h1>追番列表</h1>
     </div>
-    <div class="bangumi-stat-row">
-      <div class="bangumi-stat-card">
-        <span>总追番</span>
-        <strong>{items.length}</strong>
-        <small>部作品</small>
-      </div>
-      <div class="bangumi-stat-card">
-        <span>平均评分</span>
-        <strong>{averageRating.toFixed(1)}</strong>
-        <small>已评分作品</small>
-      </div>
+    <div class="bangumi-compact-stats">
+      <span><strong>{items.length}</strong> 部作品</span>
+      <span><strong>{averageRating.toFixed(1)}</strong> 平均评分</span>
     </div>
   </section>
 
   <section class="feature-toolbar bangumi-filterbar ryu-card" data-api-base={apiBase} data-upload-base={uploadBase}>
-    <input id="bangumi-filter" class="input input-bordered rounded-xl" type="search" placeholder="搜索番剧..." />
+    <input id="bangumi-filter" class="input input-bordered rounded-xl" type="search" placeholder="搜索番剧、简介或季度..." />
     <select id="bangumi-status" class="select select-bordered rounded-xl">
       <option value="">全部状态</option>
       <option value="watching">追番中</option>
       <option value="done">已看完</option>
       <option value="plan">想看</option>
       <option value="paused">搁置</option>
-    </select>
-    <select id="bangumi-sort" class="select select-bordered rounded-xl">
-      <option value="rating">评分最高</option>
-      <option value="year">年份最新</option>
-      <option value="sort">默认排序</option>
+      <option value="dropped">弃番</option>
     </select>
   </section>
 
-  <section id="bangumi-grid" class="bangumi-grid">
+  <section id="bangumi-grid" class="bangumi-grid bangumi-grid-compact">
     {items.map((item) => {
-      const href = normalizeUrl(item.url)
+      const href = getPrimaryUrl(item)
+      const links = parsePlayLinks(item.play_links)
       return (
         <a
-          class="bangumi-card ryu-card"
+          class="bangumi-card bangumi-card-compact"
           href={href}
           target={href.startsWith('http') ? '_blank' : undefined}
           rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
@@ -103,20 +112,16 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
           data-status={item.status || 'watching'}
         >
           <div class="bangumi-cover">
-            {item.cover ? <img src={resolveMedia(item.cover)} alt={item.title} loading="lazy" /> : <span>暂无封面</span>}
+            {item.cover ? <img src={resolveUploadUrl(item.cover)} alt={item.title} loading="lazy" /> : <span>暂无封面</span>}
             <b>{statusText[item.status || 'watching'] || item.status}</b>
+            {Number(item.rating || 0) > 0 && <em>★ {Number(item.rating).toFixed(1)}</em>}
           </div>
           <div class="bangumi-info">
-            <h2>{item.title}</h2>
-            {item.original_title && <p class="line-clamp-1">{item.original_title}</p>}
-            <div class="bangumi-meta">
-              <span>{item.season || '未标注季度'}</span>
-              <span>{item.progress || '未标注进度'}</span>
-            </div>
-            <p class="bangumi-summary">{item.summary || '暂无简介'}</p>
-            <div class="bangumi-rating">
-              <span>★ {Number(item.rating || 0).toFixed(1)}</span>
-              <span>{href === '#' ? '未填写链接' : '查看详情'}</span>
+            <h2 title={item.title}>{item.title}</h2>
+            <p class="line-clamp-1">{item.original_title || item.season || '未标注季度'}</p>
+            <div class="bangumi-card-footer">
+              <span>{item.progress || (item.total_episodes ? `共 ${item.total_episodes} 集` : '未标注进度')}</span>
+              <span>{links.length ? `${links.length} 个播放源` : '作品详情'}</span>
             </div>
           </div>
         </a>
@@ -124,7 +129,10 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
     })}
   </section>
 
- 
+  <div id="bangumi-empty" class={`feature-empty ${items.length ? 'hidden' : ''}`}>
+    <strong>暂无追番数据</strong>
+    <span>请先在后台内容中心添加并启用番剧。</span>
+  </div>
 
   <script>
     type BangumiItem = {
@@ -132,26 +140,35 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
       original_title?: string
       cover?: string
       url?: string
+      play_links?: unknown
       status?: string
       progress?: string
+      total_episodes?: number
       rating?: number
       season?: string
       summary?: string
       is_active?: number | boolean
     }
 
-    const toolbar = document.querySelector<HTMLElement>('.feature-toolbar')
+    const toolbar = document.querySelector<HTMLElement>('.bangumi-filterbar')
     const input = document.getElementById('bangumi-filter') as HTMLInputElement | null
     const select = document.getElementById('bangumi-status') as HTMLSelectElement | null
     const grid = document.getElementById('bangumi-grid')
     const empty = document.getElementById('bangumi-empty')
     const apiBase = toolbar?.dataset.apiBase || '/api'
     const uploadBase = toolbar?.dataset.uploadBase || ''
-    const statusText: Record<string, string> = { watching: '追番中', done: '已看完', plan: '想看', paused: '搁置' }
+    const labels: Record<string, string> = {
+      watching: '追番中',
+      done: '已看完',
+      plan: '想看',
+      planned: '想看',
+      paused: '搁置',
+      dropped: '弃番',
+    }
 
-    function escapeHtml(value?: string) {
+    function escapeHtml(value?: unknown) {
       const map: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
-      return String(value || '').replace(/[&<>"']/g, (char) => map[char] || char)
+      return String(value ?? '').replace(/[&<>"']/g, (char) => map[char] || char)
     }
 
     function normalizeUrl(url?: string) {
@@ -161,96 +178,93 @@ const seasonItems = Array.from(new Set(items.map((item) => item.season).filter(B
       return `https://${value}`
     }
 
-    function resolveMedia(src?: string) {
+    function parseLinks(value: unknown) {
+      if (Array.isArray(value)) return value
+      try {
+        const parsed = JSON.parse(String(value || '[]'))
+        return Array.isArray(parsed) ? parsed : []
+      } catch {
+        return []
+      }
+    }
+
+    function mediaUrl(src?: string) {
       if (!src) return ''
-      if (src.startsWith('/uploads/')) return `${uploadBase}${src}`
-      return src
+      return src.startsWith('/uploads/') ? `${uploadBase}${src}` : src
     }
 
     function renderCard(item: BangumiItem) {
-      const href = normalizeUrl(item.url)
-      const title = item.title || '未命名作品'
+      const links = parseLinks(item.play_links) as Array<{ url?: string }>
+      const href = normalizeUrl(links.find((link) => link?.url)?.url || item.url)
       const status = item.status || 'watching'
-      const targetAttrs = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
+      const title = item.title || '未命名作品'
       const cover = item.cover
-        ? `<img src="${escapeHtml(resolveMedia(item.cover))}" alt="${escapeHtml(title)}" loading="lazy" />`
+        ? `<img src="${escapeHtml(mediaUrl(item.cover))}" alt="${escapeHtml(title)}" loading="lazy" />`
         : '<span>暂无封面</span>'
+      const target = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
+      const rating = Number(item.rating || 0)
       const search = `${title} ${item.original_title || ''} ${item.summary || ''} ${item.season || ''}`.toLowerCase()
-
       return `
-        <a class="bangumi-card ryu-card" href="${escapeHtml(href)}"${targetAttrs} data-search="${escapeHtml(search)}" data-status="${escapeHtml(status)}">
+        <a class="bangumi-card bangumi-card-compact" href="${escapeHtml(href)}"${target} data-search="${escapeHtml(search)}" data-status="${escapeHtml(status)}">
           <div class="bangumi-cover">
             ${cover}
-            <b>${escapeHtml(statusText[status] || status)}</b>
+            <b>${escapeHtml(labels[status] || status)}</b>
+            ${rating > 0 ? `<em>★ ${rating.toFixed(1)}</em>` : ''}
           </div>
           <div class="bangumi-info">
-            <h2>${escapeHtml(title)}</h2>
-            ${item.original_title ? `<p class="line-clamp-1">${escapeHtml(item.original_title)}</p>` : ''}
-            <div class="bangumi-meta">
-              <span>${escapeHtml(item.season || '未标注季度')}</span>
-              <span>${escapeHtml(item.progress || '未标注进度')}</span>
-            </div>
-            <p class="bangumi-summary">${escapeHtml(item.summary || '暂无简介')}</p>
-            <div class="bangumi-rating">
-              <span>★ ${Number(item.rating || 0).toFixed(1)}</span>
-              <span>${href === '#' ? '未填写链接' : '查看详情'}</span>
+            <h2 title="${escapeHtml(title)}">${escapeHtml(title)}</h2>
+            <p class="line-clamp-1">${escapeHtml(item.original_title || item.season || '未标注季度')}</p>
+            <div class="bangumi-card-footer">
+              <span>${escapeHtml(item.progress || (item.total_episodes ? `共 ${item.total_episodes} 集` : '未标注进度'))}</span>
+              <span>${links.length ? `${links.length} 个播放源` : '作品详情'}</span>
             </div>
           </div>
         </a>
       `
     }
 
-    function getCards() {
+    function cards() {
       return Array.from(document.querySelectorAll<HTMLElement>('.bangumi-card'))
     }
 
-    function filterBangumi() {
+    function filterCards() {
       const keyword = input?.value.trim().toLowerCase() || ''
       const status = select?.value || ''
-      let visibleCount = 0
-      const cards = getCards()
-      cards.forEach((card) => {
-        const matchedText = !keyword || (card.dataset.search || '').includes(keyword)
-        const matchedStatus = !status || card.dataset.status === status
-        const visible = matchedText && matchedStatus
-        card.style.display = visible ? '' : 'none'
-        if (visible) visibleCount += 1
+      let visible = 0
+      cards().forEach((card) => {
+        const matched = (!keyword || (card.dataset.search || '').includes(keyword))
+          && (!status || card.dataset.status === status)
+        card.style.display = matched ? '' : 'none'
+        if (matched) visible += 1
       })
       if (!empty) return
-      if (!cards.length) {
-        showEmptyMessage('还没有追番数据', '去后台“内容中心”里的追番栏目添加作品。')
-        return
+      empty.classList.toggle('hidden', visible > 0)
+      if (!visible) {
+        empty.innerHTML = cards().length
+          ? '<strong>没有匹配的番剧</strong><span>换个关键词或状态再试。</span>'
+          : '<strong>暂无追番数据</strong><span>请先在后台内容中心添加并启用番剧。</span>'
       }
-      if (!visibleCount) {
-        showEmptyMessage('没有匹配的追番作品', '换个关键词或状态再试。')
-        return
-      }
-      empty.classList.add('hidden')
     }
 
-    function showEmptyMessage(title: string, message: string) {
-      if (!empty) return
-      empty.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span>`
-      empty.classList.remove('hidden')
-    }
-
-    async function refreshBangumi() {
+    async function refresh() {
       try {
         const response = await fetch(`${apiBase}/bangumi`, { cache: 'no-store' })
-        if (!response.ok) throw new Error('追番接口读取失败')
-        if (!grid) return
+        if (!response.ok) throw new Error()
         const json = await response.json()
-        const items = ((json.data || []) as BangumiItem[]).filter((item) => item && item.title && item.is_active !== 0 && item.is_active !== false)
-        grid.innerHTML = items.map(renderCard).join('')
+        const fresh = ((json.data || []) as BangumiItem[])
+          .filter((item) => item?.title && item.is_active !== 0 && item.is_active !== false)
+        if (grid) grid.innerHTML = fresh.map(renderCard).join('')
       } catch {
-        if (!getCards().length) showEmptyMessage('追番数据读取失败', '请确认后端 API 已启动，并且后台“内容中心 / 追番”里作品已启用。')
-      } finally {
-        filterBangumi()
+        if (!cards().length && empty) {
+          empty.innerHTML = '<strong>追番数据读取失败</strong><span>请确认后端 API 已启动。</span>'
+          empty.classList.remove('hidden')
+        }
       }
+      filterCards()
     }
 
-    input?.addEventListener('input', filterBangumi)
-    select?.addEventListener('change', filterBangumi)
-    refreshBangumi()
+    input?.addEventListener('input', filterCards)
+    select?.addEventListener('change', filterCards)
+    refresh()
   </script>
 </BaseLayout>

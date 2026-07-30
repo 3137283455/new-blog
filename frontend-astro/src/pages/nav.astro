@@ -98,7 +98,10 @@ const hostItems = Array.from(new Set(links.map((item) => getHost(item.url)).filt
       })}
     </div>
 
-    
+    <div id="nav-empty" class="feature-empty hidden">
+      <strong>暂无导航资源</strong>
+      <span>请先在后台内容中心添加导航资源。</span>
+    </div>
   </section>
 
   <script>
@@ -192,7 +195,7 @@ const hostItems = Array.from(new Set(links.map((item) => getHost(item.url)).filt
         const matchCategory = activeCategory === 'all' || card.dataset.category === activeCategory
         const matchKeyword = !keyword || (card.dataset.search || '').includes(keyword)
         const visible = matchCategory && matchKeyword
-        card.hidden = !visible
+        card.style.display = visible ? '' : 'none'
         if (visible) visibleCount += 1
       })
       if (!empty) return

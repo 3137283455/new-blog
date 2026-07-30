@@ -2053,6 +2053,168 @@ body {
   gap: 0.5rem;
 }
 
+.bangumi-compact-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0.2rem;
+}
+
+.bangumi-compact-head p {
+  color: oklch(var(--p));
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.bangumi-compact-head h1 {
+  margin: 0.2rem 0 0;
+  font-size: 2rem;
+  font-weight: 950;
+}
+
+.bangumi-compact-stats {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.bangumi-compact-stats span {
+  border: 1px solid oklch(var(--bc) / 0.08);
+  border-radius: 0.75rem;
+  background: oklch(var(--b1) / 0.62);
+  padding: 0.55rem 0.75rem;
+  color: oklch(var(--bc) / 0.58);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.bangumi-compact-stats strong {
+  color: oklch(var(--p));
+  font-size: 1rem;
+}
+
+.bangumi-grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(7.2rem, 1fr));
+  gap: 0.9rem;
+}
+
+.bangumi-card-compact {
+  border: 1px solid oklch(var(--bc) / 0.07);
+  border-radius: 0.85rem;
+}
+
+.bangumi-card-compact .bangumi-info {
+  gap: 0.32rem;
+  padding: 0.65rem;
+}
+
+.bangumi-card-compact .bangumi-info h2 {
+  font-size: 0.9rem;
+}
+
+.bangumi-card-compact .bangumi-info > p {
+  font-size: 0.72rem;
+}
+
+.bangumi-cover em {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.5rem;
+  border-radius: 999px;
+  background: rgb(15 23 42 / 0.78);
+  color: #ffd43b;
+  padding: 0.2rem 0.42rem;
+  font-size: 0.65rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.bangumi-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  color: oklch(var(--bc) / 0.48);
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+.feature-empty {
+  display: grid;
+  min-height: 10rem;
+  place-content: center;
+  gap: 0.45rem;
+  border: 1px dashed oklch(var(--bc) / 0.16);
+  border-radius: 1rem;
+  color: oklch(var(--bc) / 0.5);
+  text-align: center;
+}
+
+.feature-empty strong {
+  color: oklch(var(--bc) / 0.8);
+}
+
+.feature-empty.hidden {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  html,
+  body.admin-body {
+    min-height: 100%;
+    height: auto;
+  }
+
+  body.admin-body {
+    overflow-x: hidden;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+  }
+
+  .admin-shell {
+    display: block;
+    width: min(100% - 1rem, 92rem);
+    height: auto !important;
+    min-height: calc(100dvh - 1rem);
+    margin: 0.5rem auto;
+    overflow: visible !important;
+  }
+
+  .admin-sidebar {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .admin-main {
+    display: block;
+    min-height: auto;
+    margin-top: 0.75rem;
+    overflow: visible !important;
+  }
+
+  .admin-main > * + * {
+    margin-top: 0.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .bangumi-compact-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bangumi-compact-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bangumi-grid-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+  }
+}
+
 .album-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));

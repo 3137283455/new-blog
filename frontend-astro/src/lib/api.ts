@@ -89,6 +89,11 @@ export interface BangumiItem {
   original_title?: string
   cover?: string
   url?: string
+  external_id?: string
+  source?: string
+  type?: string
+  total_episodes?: number
+  play_links?: string | Array<{ name?: string; url?: string; remark?: string }>
   status?: string
   progress?: string
   rating?: number

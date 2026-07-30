@@ -29,7 +29,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         HOST: '0.0.0.0',
-        PORT: 3000,
+        PORT: 3002,
         API_BASE_INTERNAL: 'http://127.0.0.1:3001',
       },
       error_file: '../logs/frontend-error.log',

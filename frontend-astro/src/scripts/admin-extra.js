@@ -198,8 +198,12 @@
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return text.split(/\r?\n/).map((line) => {
-        const [name, ...urlParts] = line.split('|');
-        return { name: name?.trim() || '播放链接', url: urlParts.join('|').trim() };
+        const [name, url, ...remarkParts] = line.split('|');
+        return {
+          name: name?.trim() || '播放链接',
+          url: url?.trim() || '',
+          remark: remarkParts.join('|').trim(),
+        };
       }).filter((link) => link.url);
     }
   }
@@ -576,7 +580,7 @@
       await moveExtra(target.dataset.extraMove, target.dataset.id, target.dataset.direction);
       return;
     }
-    const panel = target.dataset.panel;
+    const panel = target.dataset.panel || target.dataset.panelTab;
     if (panel) loadPanel(panel);
     if (target.dataset.resetExtra) resetForm(`${target.dataset.resetExtra}-form`);
     if (target.dataset.extraEditNavigation) {

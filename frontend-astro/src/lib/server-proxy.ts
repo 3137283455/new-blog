@@ -1,3 +1,5 @@
+import { Readable } from 'node:stream'
+
 const INTERNAL_ORIGIN = process.env.API_BASE_INTERNAL || 'http://127.0.0.1:3001'
 
 function forwardedHeaders(request: Request) {
@@ -5,6 +7,8 @@ function forwardedHeaders(request: Request) {
   headers.delete('host')
   headers.delete('connection')
   headers.delete('content-length')
+  headers.delete('transfer-encoding')
+  headers.delete('expect')
   headers.set('x-forwarded-host', request.headers.get('host') || '')
   headers.set('x-forwarded-proto', new URL(request.url).protocol.replace(':', ''))
   return headers
@@ -22,8 +26,10 @@ export async function proxyToBackend(request: Request, pathname: string) {
     signal: request.signal,
   }
   if (!['GET', 'HEAD'].includes(request.method)) {
-    init.body = request.body
-    init.duplex = 'half'
+    if (request.body) {
+      init.body = Readable.fromWeb(request.body as any) as any
+      init.duplex = 'half'
+    }
   }
 
   try {
@@ -37,6 +43,7 @@ export async function proxyToBackend(request: Request, pathname: string) {
       headers,
     })
   } catch (cause) {
+    console.error(`[proxy] ${request.method} ${pathname} -> ${targetUrl}`, cause)
     return Response.json({
       success: false,
       code: 'BACKEND_UNAVAILABLE',
