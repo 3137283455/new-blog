@@ -10,6 +10,7 @@ const state = {
   mediaTrashMode: false,
   music: [],
   musicPlaylists: [],
+  activeMusicPlaylistName: '',
   comments: [],
   pages: [],
   pagesTrashMode: false,
@@ -211,11 +212,13 @@ async function loadSettings() {
   state.settings = Object.fromEntries(rows.map((item) => [item.key, parseSetting(item)]));
   state.fontLibrary = Array.isArray(state.settings.font_library) ? state.settings.font_library : [];
   try {
-    const musicJson = await request('/admin/music');
+    const [musicJson, playlistJson] = await Promise.all([
+      request('/admin/music'),
+      request('/admin/music/playlists'),
+    ]);
     if (Array.isArray(musicJson.data) && musicJson.data.length) {
       state.music = musicJson.data;
     }
-    const playlistJson = await request('/admin/music/playlists');
     state.musicPlaylists = playlistJson.data || [];
   } catch (error) {
     console.warn(error);
@@ -489,21 +492,24 @@ function renderMusicPlaylists() {
   const list = $('#music-playlist-list');
   if (!list) return;
   list.innerHTML = (state.musicPlaylists || []).map((playlist) => `
-    <div class="flex flex-wrap items-center gap-3 rounded-2xl bg-base-100/65 p-3">
-      <div class="h-12 w-12 overflow-hidden rounded-xl bg-base-200">
-        ${playlist.cover ? `<img class="h-full w-full object-cover" src="${escapeHtml(playlist.cover)}" alt="" />` : ''}
-      </div>
-      <div class="min-w-0 flex-1">
-        <p class="truncate font-black">${escapeHtml(playlist.name)}</p>
-        <p class="text-xs text-base-content/45">${Number(playlist.track_count || 0)} 首歌 · 排序 ${Number(playlist.sort_order || 0)} ${playlist.is_active ? '' : '· 已停用'}</p>
-        ${playlist.description ? `<p class="mt-1 line-clamp-1 text-sm text-base-content/60">${escapeHtml(playlist.description)}</p>` : ''}
-      </div>
-      <div class="flex flex-wrap gap-2">
+    <article class="admin-playlist-card">
+      <button class="admin-playlist-open" type="button" data-open-music-playlist="${escapeHtml(playlist.name)}">
+        <span class="admin-playlist-cover">
+          ${playlist.cover ? `<img src="${escapeHtml(playlist.cover)}" alt="" loading="lazy" decoding="async" />` : '<span>♪</span>'}
+          <b>${Number(playlist.track_count || 0)} 首</b>
+        </span>
+        <span class="admin-playlist-info">
+          <strong>${escapeHtml(playlist.name)}</strong>
+          <small>${playlist.is_active ? '前台启用' : '已停用'} · 排序 ${Number(playlist.sort_order || 0)}</small>
+          <span>${escapeHtml(playlist.description || '点击管理这个歌单中的歌曲')}</span>
+        </span>
+      </button>
+      <div class="admin-card-actions">
         <button class="btn btn-xs rounded-lg" type="button" data-edit-music-playlist="${playlist.id}">编辑</button>
         <button class="btn btn-xs btn-error rounded-lg" type="button" data-delete-music-playlist="${playlist.id}">删除</button>
       </div>
-    </div>
-  `).join('') || '<p class="text-base-content/45">暂无歌单，保存歌曲时会自动创建默认歌单。</p>';
+    </article>
+  `).join('') || '<div class="admin-collection-empty">还没有歌单，点击“新建歌单”创建。</div>';
 }
 
 function musicPlaylistName(song) {
@@ -515,55 +521,105 @@ function renderMusic() {
   const filter = $('#music-playlist-filter');
   const summary = $('#music-summary');
   if (!list) return;
-  const playlists = Array.from(new Set(state.music.map(musicPlaylistName).filter(Boolean)));
-  const selected = filter?.value || '';
-  if (filter) {
-    const previous = filter.value;
-    filter.innerHTML = '<option value="">全部歌单</option>' + playlists.map((name) => (
-      `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
-    )).join('');
-    filter.value = playlists.includes(previous) ? previous : selected;
-  }
-  const datalist = $('#music-playlist-options');
-  if (datalist) {
-    datalist.innerHTML = playlists.map((name) => `<option value="${escapeHtml(name)}"></option>`).join('');
-  }
+  const selected = state.activeMusicPlaylistName || filter?.value || '';
+  if (filter) filter.value = selected;
   const visibleSongs = state.music
     .map((song, index) => ({ ...song, index }))
     .filter((song) => !selected || musicPlaylistName(song) === selected);
   if (summary) {
-    const playlistCount = state.musicPlaylists?.length || playlists.length;
-    summary.textContent = `${visibleSongs.length} 首歌 / ${playlistCount} 个歌单`;
+    summary.textContent = `${visibleSongs.length} 首歌`;
   }
   const batchToolbar = visibleSongs.length ? `
-    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-base-content/10 bg-base-100/50 p-3">
-      <p class="text-sm text-base-content/55">勾选歌曲后可批量移除，保存配置后生效</p>
+    <div class="admin-track-batch">
+      <p>勾选歌曲后可批量移除</p>
       <button class="btn btn-sm btn-error rounded-xl" type="button" data-batch-remove-music>批量移除</button>
     </div>
   ` : '';
   list.innerHTML = batchToolbar + visibleSongs.map((song) => `
-    <div class="flex flex-wrap items-center gap-3 rounded-2xl bg-base-100/65 p-3">
+    <article class="admin-track-row">
       <input class="checkbox checkbox-sm checkbox-primary shrink-0" type="checkbox" value="${song.index}" data-music-select aria-label="选择 ${escapeHtml(song.title)}" />
-      <div class="h-14 w-14 overflow-hidden rounded-xl bg-base-200">
-        ${song.cover ? `<img class="h-full w-full object-cover" src="${escapeHtml(song.cover)}" alt="" />` : ''}
-      </div>
-      <div class="min-w-0 flex-1">
-        <p class="truncate font-black">${escapeHtml(song.title)}</p>
-        <p class="truncate text-sm text-base-content/50">${escapeHtml(song.artist || '未知歌手')} · ${escapeHtml(musicPlaylistName(song))}</p>
-        <p class="mt-1 text-xs text-base-content/45">${song.lyrics ? '已填写歌词' : '未填写歌词'} · <a class="link" href="/music/${song.index}" target="_blank">详情页</a></p>
-        <audio class="mt-2 w-full" src="${escapeHtml(song.url)}" controls preload="none"></audio>
-      </div>
-      <div class="flex flex-wrap gap-2">
+      <span class="admin-track-cover">
+        ${song.cover ? `<img src="${escapeHtml(song.cover)}" alt="" loading="lazy" decoding="async" />` : '<span>♪</span>'}
+      </span>
+      <span class="admin-track-info">
+        <strong>${escapeHtml(song.title)}</strong>
+        <small>${escapeHtml(song.artist || '未知歌手')} · ${song.lyrics ? '有歌词' : '无歌词'}</small>
+        <audio src="${escapeHtml(song.url)}" controls preload="none"></audio>
+      </span>
+      <div class="admin-card-actions">
         <button class="btn btn-xs rounded-lg" data-edit-song="${song.index}">编辑</button>
         <button class="btn btn-xs rounded-lg" data-move-song="${song.index}" data-direction="up">上移</button>
         <button class="btn btn-xs rounded-lg" data-move-song="${song.index}" data-direction="down">下移</button>
         <button class="btn btn-xs btn-error rounded-lg" data-remove-song="${song.index}">移除</button>
       </div>
-    </div>
-  `).join('') || '<p class="text-base-content/45">暂无音乐，请先上传或填写地址。</p>';
+    </article>
+  `).join('') || '<div class="admin-collection-empty">这个歌单还没有歌曲，点击“新增歌曲”添加。</div>';
 }
 
-function batchRemoveMusic() {
+function syncMusicPlaylistOptions(selectedName = '') {
+  const field = $('#music-form')?.elements.namedItem('playlist');
+  if (!field) return;
+  const playlists = state.musicPlaylists || [];
+  field.innerHTML = playlists.map((playlist) => (
+    `<option value="${escapeHtml(playlist.name)}">${escapeHtml(playlist.name)}</option>`
+  )).join('');
+  const fallback = state.activeMusicPlaylistName || playlists[0]?.name || '';
+  field.value = playlists.some((playlist) => playlist.name === selectedName) ? selectedName : fallback;
+}
+
+function openMusicTracks(name) {
+  const playlist = state.musicPlaylists.find((item) => item.name === name);
+  if (!playlist) return;
+  state.activeMusicPlaylistName = playlist.name;
+  $('#music-tracks-dialog-title').textContent = playlist.name;
+  renderMusic();
+  $('#music-tracks-dialog')?.showModal();
+}
+
+function openMusicTrackDialog(index = -1) {
+  const form = $('#music-form');
+  const dialog = $('#music-track-dialog');
+  if (!form || !dialog) return;
+  form.reset();
+  delete form.dataset.editingIndex;
+  const song = index >= 0 ? state.music[index] : null;
+  syncMusicPlaylistOptions(song ? musicPlaylistName(song) : state.activeMusicPlaylistName);
+  if (song) {
+    form.dataset.editingIndex = String(index);
+    form.elements.namedItem('title').value = song.title || '';
+    form.elements.namedItem('artist').value = song.artist || '';
+    form.elements.namedItem('playlist').value = musicPlaylistName(song);
+    form.elements.namedItem('url').value = song.url || '';
+    form.elements.namedItem('cover').value = song.cover || '';
+    form.elements.namedItem('lyrics').value = song.lyrics || '';
+  }
+  $('#music-track-dialog-title').textContent = song ? '编辑歌曲' : '新增歌曲';
+  window.updateAdminFieldPreview?.('music-form', 'url');
+  window.updateAdminFieldPreview?.('music-form', 'cover');
+  dialog.showModal();
+  window.setTimeout(() => form.elements.namedItem('title')?.focus(), 0);
+}
+
+function openMusicPlaylistDialog(playlist = null) {
+  const form = $('#music-playlist-form');
+  const dialog = $('#music-playlist-dialog');
+  if (!form || !dialog) return;
+  resetMusicPlaylistForm(false);
+  if (playlist) {
+    form.elements.namedItem('id').value = playlist.id;
+    form.elements.namedItem('name').value = playlist.name || '';
+    form.elements.namedItem('description').value = playlist.description || '';
+    form.elements.namedItem('cover').value = playlist.cover || '';
+    form.elements.namedItem('sort_order').value = playlist.sort_order || 0;
+    form.elements.namedItem('is_active').checked = playlist.is_active !== 0;
+  }
+  $('#music-playlist-dialog-title').textContent = playlist ? '编辑歌单' : '新建歌单';
+  window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
+  dialog.showModal();
+  window.setTimeout(() => form.elements.namedItem('name')?.focus(), 0);
+}
+
+async function batchRemoveMusic() {
   const indexes = Array.from(document.querySelectorAll('[data-music-select]:checked'))
     .map((input) => Number(input.value))
     .filter(Number.isInteger)
@@ -575,7 +631,7 @@ function batchRemoveMusic() {
   if (!window.confirm(`确认从配置中移除 ${indexes.length} 首歌曲吗？保存配置后生效。`)) return;
   indexes.forEach((index) => state.music.splice(index, 1));
   renderMusic();
-  $('#music-message').textContent = `已移除 ${indexes.length} 首歌曲，记得保存配置`;
+  await saveMusic();
 }
 
 function renderProfile() {
@@ -1248,15 +1304,18 @@ async function addMusic(event) {
   const isEditing = Number.isInteger(editingIndex) && editingIndex >= 0;
   if (isEditing) {
     state.music[editingIndex] = { ...state.music[editingIndex], ...song };
-    delete event.currentTarget.dataset.editingIndex;
   } else {
     state.music.push(song);
+    event.currentTarget.dataset.editingIndex = String(state.music.length - 1);
   }
+  renderMusic();
+  const saved = await saveMusic();
+  if (!saved) return;
+  delete event.currentTarget.dataset.editingIndex;
   event.currentTarget.reset();
   window.updateAdminFieldPreview?.('music-form', 'url');
   window.updateAdminFieldPreview?.('music-form', 'cover');
-  renderMusic();
-  $('#music-message').textContent = isEditing ? '歌曲已更新，记得保存音乐' : '已加入列表，记得保存音乐';
+  $('#music-track-dialog')?.close();
 }
 
 async function saveMusic() {
@@ -1272,9 +1331,11 @@ async function saveMusic() {
     renderMusic();
     $('#music-message').textContent = '音乐已保存';
     notify('音乐已保存');
+    return true;
   } catch (error) {
     $('#music-message').textContent = error.message || '音乐保存失败';
     notify(error.message || '音乐保存失败', true);
+    return false;
   }
 }
 
@@ -1283,6 +1344,9 @@ async function saveMusicPlaylist(event) {
   const form = event.currentTarget;
   const fields = form.elements;
   const id = fields.namedItem('id').value;
+  const previousName = id
+    ? state.musicPlaylists.find((playlist) => String(playlist.id) === String(id))?.name || ''
+    : '';
   const payload = {
     name: fields.namedItem('name').value.trim(),
     description: fields.namedItem('description').value.trim(),
@@ -1301,38 +1365,44 @@ async function saveMusicPlaylist(event) {
     });
     $('#music-playlist-message').textContent = id ? '歌单已更新' : '歌单已创建';
     notify(id ? '歌单已更新' : '歌单已创建');
-    resetMusicPlaylistForm();
-    const playlistJson = await request('/admin/music/playlists');
+    resetMusicPlaylistForm(false);
+    const [musicJson, playlistJson] = await Promise.all([
+      request('/admin/music'),
+      request('/admin/music/playlists'),
+    ]);
+    state.music = musicJson.data || [];
     state.musicPlaylists = playlistJson.data || [];
+    if (previousName && state.activeMusicPlaylistName === previousName) {
+      state.activeMusicPlaylistName = payload.name;
+      $('#music-tracks-dialog-title').textContent = payload.name;
+    }
     renderMusicPlaylists();
     renderMusic();
+    $('#music-playlist-dialog')?.close();
   } catch (error) {
     $('#music-playlist-message').textContent = error.message || '歌单保存失败';
     notify(error.message || '歌单保存失败', true);
   }
 }
 
-function resetMusicPlaylistForm() {
+function resetMusicPlaylistForm(openDialog = true) {
   const form = $('#music-playlist-form');
   if (!form) return;
   form.reset();
   form.elements.namedItem('id').value = '';
   form.elements.namedItem('is_active').checked = true;
+  $('#music-playlist-dialog-title').textContent = '新建歌单';
+  $('#music-playlist-message').textContent = '';
   window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
+  if (openDialog) {
+    $('#music-playlist-dialog')?.showModal();
+    window.setTimeout(() => form.elements.namedItem('name')?.focus(), 0);
+  }
 }
 
 function editMusicPlaylist(id) {
-  const form = $('#music-playlist-form');
   const playlist = state.musicPlaylists.find((item) => String(item.id) === String(id));
-  if (!form || !playlist) return;
-  form.elements.namedItem('id').value = playlist.id;
-  form.elements.namedItem('name').value = playlist.name || '';
-  form.elements.namedItem('description').value = playlist.description || '';
-  form.elements.namedItem('cover').value = playlist.cover || '';
-  form.elements.namedItem('sort_order').value = playlist.sort_order || 0;
-  form.elements.namedItem('is_active').checked = playlist.is_active !== 0;
-  window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
-  $('#music-playlist-message').textContent = '正在编辑歌单';
+  if (playlist) openMusicPlaylistDialog(playlist);
 }
 
 async function deleteMusicPlaylist(id) {
@@ -1345,6 +1415,10 @@ async function deleteMusicPlaylist(id) {
     ]);
     state.music = musicJson.data || [];
     state.musicPlaylists = playlistJson.data || [];
+    if (state.activeMusicPlaylistName && !state.musicPlaylists.some((playlist) => playlist.name === state.activeMusicPlaylistName)) {
+      state.activeMusicPlaylistName = '';
+      $('#music-tracks-dialog')?.close();
+    }
     renderMusic();
     renderMusicPlaylists();
     $('#music-playlist-message').textContent = '歌单已删除，歌曲已保留';
@@ -1968,7 +2042,13 @@ $('#music-form').addEventListener('submit', addMusic);
 $('#save-music').addEventListener('click', saveMusic);
 $('#music-playlist-filter')?.addEventListener('change', renderMusic);
 $('#music-playlist-form')?.addEventListener('submit', saveMusicPlaylist);
-$('#reset-music-playlist')?.addEventListener('click', resetMusicPlaylistForm);
+$('#reset-music-playlist')?.addEventListener('click', () => resetMusicPlaylistForm(true));
+$('#music-playlist-dialog-close')?.addEventListener('click', () => $('#music-playlist-dialog')?.close());
+$('#cancel-music-playlist')?.addEventListener('click', () => $('#music-playlist-dialog')?.close());
+$('#music-tracks-dialog-close')?.addEventListener('click', () => $('#music-tracks-dialog')?.close());
+$('#create-music-track')?.addEventListener('click', () => openMusicTrackDialog());
+$('#music-track-dialog-close')?.addEventListener('click', () => $('#music-track-dialog')?.close());
+$('#cancel-music-track')?.addEventListener('click', () => $('#music-track-dialog')?.close());
 $('#music-audio-upload').addEventListener('change', (event) => {
   const file = event.currentTarget.files?.[0];
   if (file) uploadMusicField(file, 'url');
@@ -1976,6 +2056,19 @@ $('#music-audio-upload').addEventListener('change', (event) => {
 $('#music-cover-upload').addEventListener('change', (event) => {
   const file = event.currentTarget.files?.[0];
   if (file) uploadMusicField(file, 'cover');
+});
+$('#music-playlist-cover-upload')?.addEventListener('change', async (event) => {
+  const file = event.currentTarget.files?.[0];
+  if (!file) return;
+  try {
+    const media = await uploadFile(file);
+    $('#music-playlist-form').elements.namedItem('cover').value = media.url;
+    window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
+    $('#music-playlist-message').textContent = '封面上传成功';
+    await loadMedia();
+  } catch (error) {
+    $('#music-playlist-message').textContent = error.message || '封面上传失败';
+  }
 });
 $('#articles-table').addEventListener('click', (event) => {
   const edit = event.target.closest('[data-edit]');
@@ -2002,52 +2095,50 @@ $('#media-grid').addEventListener('click', async (event) => {
   if (restore) restoreMedia(restore.dataset.restoreMedia);
   if (forceDelete) forceDeleteMedia(forceDelete.dataset.forceDeleteMedia);
 });
-$('#music-list').addEventListener('click', (event) => {
+$('#music-list').addEventListener('click', async (event) => {
   const batchRemove = event.target.closest('[data-batch-remove-music]');
   const edit = event.target.closest('[data-edit-song]');
   const move = event.target.closest('[data-move-song]');
   const remove = event.target.closest('[data-remove-song]');
   if (batchRemove) {
-    batchRemoveMusic();
+    await batchRemoveMusic();
     return;
   }
   if (edit) {
     const index = Number(edit.dataset.editSong);
-    const song = state.music[index];
-    const form = $('#music-form');
-    if (!song || !form) return;
-    form.dataset.editingIndex = String(index);
-    form.elements.namedItem('title').value = song.title || '';
-    form.elements.namedItem('artist').value = song.artist || '';
-    form.elements.namedItem('playlist').value = song.playlist || song.collection || '默认歌单';
-    form.elements.namedItem('url').value = song.url || '';
-    form.elements.namedItem('cover').value = song.cover || '';
-    form.elements.namedItem('lyrics').value = song.lyrics || '';
-    window.updateAdminFieldPreview?.('music-form', 'url');
-    window.updateAdminFieldPreview?.('music-form', 'cover');
-    $('#music-message').textContent = '正在编辑歌曲，修改后点击添加到播放列表';
+    if (!state.music[index]) return;
+    openMusicTrackDialog(index);
     return;
   }
   if (move) {
     const index = Number(move.dataset.moveSong);
-    const nextIndex = move.dataset.direction === 'up' ? index - 1 : index + 1;
-    if (nextIndex < 0 || nextIndex >= state.music.length) return;
+    const playlistName = musicPlaylistName(state.music[index] || {});
+    const playlistIndexes = state.music
+      .map((song, songIndex) => ({ song, songIndex }))
+      .filter((entry) => musicPlaylistName(entry.song) === playlistName)
+      .map((entry) => entry.songIndex);
+    const position = playlistIndexes.indexOf(index);
+    const nextPosition = move.dataset.direction === 'up' ? position - 1 : position + 1;
+    if (position < 0 || nextPosition < 0 || nextPosition >= playlistIndexes.length) return;
+    const nextIndex = playlistIndexes[nextPosition];
     const current = state.music[index];
     state.music[index] = state.music[nextIndex];
     state.music[nextIndex] = current;
     renderMusic();
-    $('#music-message').textContent = '顺序已调整，记得保存配置';
+    $('#music-message').textContent = '顺序已调整，请保存排序';
     return;
   }
   if (remove) {
     state.music.splice(Number(remove.dataset.removeSong), 1);
     renderMusic();
-    $('#music-message').textContent = '已移除，记得保存配置';
+    await saveMusic();
   }
 });
 $('#music-playlist-list')?.addEventListener('click', (event) => {
+  const open = event.target.closest('[data-open-music-playlist]');
   const edit = event.target.closest('[data-edit-music-playlist]');
   const del = event.target.closest('[data-delete-music-playlist]');
+  if (open) openMusicTracks(open.dataset.openMusicPlaylist);
   if (edit) editMusicPlaylist(edit.dataset.editMusicPlaylist);
   if (del) deleteMusicPlaylist(del.dataset.deleteMusicPlaylist);
 });

@@ -389,88 +389,15 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       </section>
 
       <section id="music-panel" class="admin-panel hidden">
-        <div class="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
-          <form id="music-form" class="ryu-card grid gap-4 p-5">
+        <div class="ryu-card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 class="text-2xl font-black">音乐组件</h2>
-              <p class="text-sm text-base-content/50">上传音乐和封面，保存为全站播放列表。</p>
+              <h2 class="text-2xl font-black">歌单列表</h2>
+              <p class="text-sm text-base-content/50">点击歌单管理歌曲，新增和修改均在弹窗中完成。</p>
             </div>
-            <label class="form-control">
-              <span class="label-text">歌曲名</span>
-              <input class="input input-bordered rounded-xl" name="title" required />
-            </label>
-            <label class="form-control">
-              <span class="label-text">歌手</span>
-              <input class="input input-bordered rounded-xl" name="artist" placeholder="未知歌手" />
-            </label>
-            <label class="form-control">
-              <span class="label-text">音乐地址</span>
-              <input class="input input-bordered rounded-xl mb-3" name="playlist" placeholder="合集 / 歌单名，默认歌单" />
-              <div class="join w-full">
-                <input class="input join-item input-bordered w-full rounded-l-xl" name="url" placeholder="/uploads/..." required />
-                <button class="btn join-item" type="button" data-pick-media data-target-form="music-form" data-target-field="url" data-media-type="audio">选择</button>
-                <label class="btn join-item rounded-r-xl">
-                  上传
-                  <input id="music-audio-upload" class="hidden" type="file" accept="audio/*" />
-                </label>
-              </div>
-            </label>
-            <label class="form-control">
-              <span class="label-text">封面地址</span>
-              <div class="join w-full">
-                <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="/uploads/..." />
-                <button class="btn join-item" type="button" data-pick-media data-target-form="music-form" data-target-field="cover" data-media-type="image">选择</button>
-                <label class="btn join-item rounded-r-xl">
-                  上传
-                  <input id="music-cover-upload" class="hidden" type="file" accept="image/*" />
-                </label>
-              </div>
-            </label>
-            <label class="form-control">
-              <span class="label-text">歌词</span>
-              <textarea class="textarea textarea-bordered min-h-36 rounded-xl" name="lyrics" placeholder="支持逐行歌词，也可以粘贴 LRC 文本"></textarea>
-            </label>
-            <button class="ryu-btn-primary" type="submit">添加到播放列表</button>
-            <p id="music-message" class="min-h-6 text-sm"></p>
-          </form>
-          <div class="ryu-card p-5">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-xl font-black">歌单管理</h3>
-              <button class="ryu-btn btn-sm" type="button" id="reset-music-playlist">新建歌单</button>
-            </div>
-            <form id="music-playlist-form" class="mt-4 grid gap-3">
-              <input type="hidden" name="id" />
-              <input class="input input-bordered rounded-xl" name="name" placeholder="歌单名称" required />
-              <input class="input input-bordered rounded-xl" name="description" placeholder="歌单描述" />
-              <div class="join w-full">
-                <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="歌单封面 /uploads/..." />
-                <button class="btn join-item" type="button" data-pick-media data-target-form="music-playlist-form" data-target-field="cover" data-media-type="image">选择</button>
-              </div>
-              <div class="grid gap-3 md:grid-cols-[1fr_auto]">
-                <input class="input input-bordered rounded-xl" name="sort_order" type="number" placeholder="排序" />
-                <label class="label cursor-pointer justify-start gap-2 rounded-xl bg-base-100/60 px-3">
-                  <input class="checkbox checkbox-sm" name="is_active" type="checkbox" checked />
-                  启用
-                </label>
-              </div>
-              <button class="ryu-btn-primary" type="submit">保存歌单</button>
-              <p id="music-playlist-message" class="min-h-6 text-sm"></p>
-            </form>
-            <div id="music-playlist-list" class="mt-4 grid gap-2"></div>
+            <button class="ryu-btn-primary" type="button" id="reset-music-playlist">新建歌单</button>
           </div>
-          <div class="ryu-card p-5">
-            <div class="flex items-center justify-between gap-3">
-              <h3 class="text-xl font-black">播放列表</h3>
-              <button id="save-music" class="ryu-btn-primary btn-sm">保存配置</button>
-            </div>
-            <div class="mt-4 grid gap-3 md:grid-cols-[1fr_auto]">
-              <select id="music-playlist-filter" class="select select-bordered rounded-xl">
-                <option value="">全部歌单</option>
-              </select>
-              <span id="music-summary" class="inline-flex items-center rounded-xl bg-base-200/70 px-3 text-sm text-base-content/60">0 首歌</span>
-            </div>
-            <div id="music-list" class="mt-4 grid gap-3"></div>
-          </div>
+          <div id="music-playlist-list" class="admin-playlist-grid mt-5"></div>
         </div>
       </section>
 
@@ -938,6 +865,128 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <button id="album-photo-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
         <div id="album-photo-form-host"></div>
+      </div>
+    </dialog>
+
+    <dialog id="music-playlist-dialog" class="admin-media-picker admin-music-form-dialog">
+      <div class="admin-media-picker-panel">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 id="music-playlist-dialog-title" class="text-xl font-black">新建歌单</h3>
+            <p class="text-sm text-base-content/50">设置歌单名称、封面与前台状态。</p>
+          </div>
+          <button id="music-playlist-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <form id="music-playlist-form" class="grid gap-3">
+          <input type="hidden" name="id" />
+          <label class="form-control">
+            <span class="label-text">歌单名称</span>
+            <input class="input input-bordered rounded-xl" name="name" placeholder="歌单名称" required />
+          </label>
+          <label class="form-control">
+            <span class="label-text">歌单描述</span>
+            <input class="input input-bordered rounded-xl" name="description" placeholder="简要介绍这个歌单" />
+          </label>
+          <label class="form-control">
+            <span class="label-text">歌单封面</span>
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="/uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="music-playlist-form" data-target-field="cover" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="music-playlist-cover-upload" class="hidden" type="file" accept="image/*" /></label>
+            </div>
+          </label>
+          <div class="grid gap-3 md:grid-cols-[1fr_auto]">
+            <label class="form-control">
+              <span class="label-text">排序</span>
+              <input class="input input-bordered rounded-xl" name="sort_order" type="number" placeholder="0" />
+            </label>
+            <label class="label mt-6 cursor-pointer justify-start gap-2 rounded-xl bg-base-100/60 px-3">
+              <input class="checkbox checkbox-sm" name="is_active" type="checkbox" checked />
+              前台启用
+            </label>
+          </div>
+          <div class="mt-2 flex justify-end gap-2">
+            <button class="ryu-btn" id="cancel-music-playlist" type="button">取消</button>
+            <button class="ryu-btn-primary" type="submit">保存歌单</button>
+          </div>
+          <p id="music-playlist-message" class="min-h-6 text-sm"></p>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="music-tracks-dialog" class="admin-media-picker admin-music-tracks-dialog">
+      <div class="admin-media-picker-panel">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p class="text-xs font-black uppercase text-primary">Playlist Tracks</p>
+            <h3 id="music-tracks-dialog-title" class="text-xl font-black">歌单歌曲</h3>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="create-music-track" class="ryu-btn-primary btn-sm" type="button">新增歌曲</button>
+            <button id="music-tracks-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
+          </div>
+        </div>
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <span id="music-summary" class="text-sm text-base-content/55">0 首歌</span>
+          <button id="save-music" class="ryu-btn btn-sm" type="button">保存排序</button>
+        </div>
+        <select id="music-playlist-filter" class="hidden" aria-hidden="true">
+          <option value="">全部歌单</option>
+        </select>
+        <div id="music-list" class="admin-track-list mt-4"></div>
+        <p id="music-message" class="mt-3 min-h-6 text-sm"></p>
+      </div>
+    </dialog>
+
+    <dialog id="music-track-dialog" class="admin-media-picker admin-music-form-dialog">
+      <div class="admin-media-picker-panel">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 id="music-track-dialog-title" class="text-xl font-black">新增歌曲</h3>
+            <p class="text-sm text-base-content/50">支持上传音频、封面并填写 LRC 歌词。</p>
+          </div>
+          <button id="music-track-dialog-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
+        </div>
+        <form id="music-form" class="grid gap-4">
+          <label class="form-control">
+            <span class="label-text">歌曲名</span>
+            <input class="input input-bordered rounded-xl" name="title" required />
+          </label>
+          <div class="grid gap-3 md:grid-cols-2">
+            <label class="form-control">
+              <span class="label-text">歌手</span>
+              <input class="input input-bordered rounded-xl" name="artist" placeholder="未知歌手" />
+            </label>
+            <label class="form-control">
+              <span class="label-text">所属歌单</span>
+              <select class="select select-bordered rounded-xl" name="playlist" required></select>
+            </label>
+          </div>
+          <label class="form-control">
+            <span class="label-text">音乐地址</span>
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="url" placeholder="/uploads/..." required />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="music-form" data-target-field="url" data-media-type="audio">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="music-audio-upload" class="hidden" type="file" accept="audio/*" /></label>
+            </div>
+          </label>
+          <label class="form-control">
+            <span class="label-text">封面地址</span>
+            <div class="join w-full">
+              <input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="/uploads/..." />
+              <button class="btn join-item" type="button" data-pick-media data-target-form="music-form" data-target-field="cover" data-media-type="image">选择</button>
+              <label class="btn join-item rounded-r-xl">上传<input id="music-cover-upload" class="hidden" type="file" accept="image/*" /></label>
+            </div>
+          </label>
+          <label class="form-control">
+            <span class="label-text">歌词</span>
+            <textarea class="textarea textarea-bordered min-h-36 rounded-xl" name="lyrics" placeholder="支持逐行歌词，也可以粘贴 LRC 文本"></textarea>
+          </label>
+          <div class="flex justify-end gap-2">
+            <button id="cancel-music-track" class="ryu-btn" type="button">取消</button>
+            <button class="ryu-btn-primary" type="submit">保存歌曲</button>
+          </div>
+        </form>
       </div>
     </dialog>
 

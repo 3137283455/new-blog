@@ -111,10 +111,18 @@ export function updatePlaylist(req: AuthRequest, res: Response) {
 
 export function removePlaylist(req: AuthRequest, res: Response) {
   const id = Number(req.params.id)
-  const playlist = db.prepare('SELECT id FROM music_playlists WHERE id = ?').get(id)
+  const playlist = db.prepare('SELECT id, name FROM music_playlists WHERE id = ?').get(id) as { id: number; name: string } | undefined
   if (!playlist) return error(res, '歌单不存在', 'NOT_FOUND', 404)
-  db.prepare('UPDATE music_tracks SET playlist_id = NULL WHERE playlist_id = ?').run(id)
-  const result = db.prepare('DELETE FROM music_playlists WHERE id = ?').run(id)
+  const remove = db.transaction(() => {
+    const detached = db.prepare('UPDATE music_tracks SET playlist_id = NULL WHERE playlist_id = ?').run(id)
+    const result = db.prepare('DELETE FROM music_playlists WHERE id = ?').run(id)
+    if (detached.changes) {
+      const fallback = ensurePlaylist('默认歌单')
+      db.prepare('UPDATE music_tracks SET playlist_id = ? WHERE playlist_id IS NULL').run(fallback?.id || null)
+    }
+    return result
+  })
+  const result = remove()
   if (result.changes === 0) return error(res, '歌单不存在', 'NOT_FOUND', 404)
   return success(res, null, '歌单已删除，歌曲已保留')
 }

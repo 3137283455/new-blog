@@ -1553,6 +1553,170 @@ body {
   padding: 0.65rem 0.85rem;
 }
 
+.admin-playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.admin-playlist-card {
+  overflow: hidden;
+  border: 1px solid oklch(var(--bc) / 0.09);
+  border-radius: 0.95rem;
+  background: oklch(var(--b1) / 0.7);
+}
+
+.admin-playlist-open {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+}
+
+.admin-playlist-cover {
+  position: relative;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  place-items: center;
+  background: oklch(var(--b2));
+  color: oklch(var(--p));
+  font-size: 2rem;
+}
+
+.admin-playlist-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.admin-playlist-open:hover .admin-playlist-cover img {
+  transform: scale(1.035);
+}
+
+.admin-playlist-cover b {
+  position: absolute;
+  right: 0.65rem;
+  bottom: 0.65rem;
+  border-radius: 999px;
+  background: rgb(10 18 32 / 0.72);
+  color: white;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.72rem;
+}
+
+.admin-playlist-info {
+  display: block;
+  padding: 0.85rem;
+}
+
+.admin-playlist-info strong,
+.admin-track-info strong {
+  display: block;
+  overflow: hidden;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-playlist-info small,
+.admin-track-info small {
+  display: block;
+  margin-top: 0.2rem;
+  color: oklch(var(--bc) / 0.45);
+  font-size: 0.72rem;
+}
+
+.admin-playlist-info > span {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 0.45rem;
+  color: oklch(var(--bc) / 0.58);
+  font-size: 0.8rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.admin-playlist-card .admin-card-actions {
+  padding: 0.65rem 0.85rem;
+}
+
+.admin-music-form-dialog {
+  width: min(42rem, calc(100vw - 1rem));
+}
+
+.admin-music-tracks-dialog {
+  width: min(68rem, calc(100vw - 1rem));
+}
+
+.admin-music-tracks-dialog .admin-media-picker-panel {
+  display: flex;
+  height: min(42rem, calc(100vh - 2rem));
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.admin-track-list {
+  display: grid;
+  min-height: 0;
+  overflow-y: auto;
+  flex: 1;
+  gap: 0.7rem;
+  overscroll-behavior: contain;
+}
+
+.admin-track-batch,
+.admin-track-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border: 1px solid oklch(var(--bc) / 0.08);
+  border-radius: 0.85rem;
+  background: oklch(var(--b1) / 0.68);
+  padding: 0.75rem;
+}
+
+.admin-track-batch {
+  justify-content: space-between;
+}
+
+.admin-track-batch p {
+  color: oklch(var(--bc) / 0.52);
+  font-size: 0.8rem;
+}
+
+.admin-track-cover {
+  display: grid;
+  width: 3.6rem;
+  height: 3.6rem;
+  flex: 0 0 3.6rem;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 0.7rem;
+  background: oklch(var(--b2));
+  color: oklch(var(--p));
+  font-size: 1.25rem;
+}
+
+.admin-track-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-track-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-track-info audio {
+  width: min(100%, 28rem);
+  height: 2rem;
+  margin-top: 0.45rem;
+}
+
 .admin-album-photos-dialog {
   width: min(72rem, calc(100vw - 1rem));
 }
@@ -1641,6 +1805,20 @@ body {
   .bangumi-source-cover {
     width: 4rem;
     height: 5.5rem;
+  }
+
+  .admin-playlist-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-track-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .admin-track-row .admin-card-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 
