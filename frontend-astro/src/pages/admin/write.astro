@@ -1323,13 +1323,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         const selected = value.slice(start, end)
         const enclosing = inlineFontRangeAt(value, start, end)
 
-        if (enclosing && (start === end || selected.includes('<span') || selected.includes('</span>'))) {
-          textarea.setRangeText(enclosing.text, enclosing.start, enclosing.end, 'select')
-          setMessage('已移除局部字体')
-        } else if (selected) {
+        if (selected) {
           const cleaned = unwrapInlineFont(selected)
           textarea.setRangeText(cleaned, start, end, 'select')
           setMessage(cleaned === selected ? '选中内容没有局部字体标签' : '已移除选中内容的局部字体')
+        } else if (enclosing) {
+          textarea.setRangeText(unwrapInlineFont(value.slice(enclosing.start, enclosing.end)), enclosing.start, enclosing.end, 'select')
+          setMessage('已移除局部字体')
         } else {
           setMessage('请选中内容，或把光标放在已有局部字体文字中')
           textarea.focus()
@@ -1361,7 +1361,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           return
         }
 
-        const cleanSelected = selected.replace(/<span\s+data-font="[^"]+"(?:\s+data-font-url="[^"]+")?>([\s\S]*?)<\/span>/g, '$1')
+        const cleanSelected = unwrapInlineFont(selected)
         if (!font.family) {
           textarea.setRangeText(cleanSelected, start, end, 'select')
           setMessage('已移除选中文字的局部字体')

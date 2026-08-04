@@ -55,7 +55,27 @@
   }
 
   function unwrapInlineFont(value) {
-    return String(value || '').replace(/<span\s+data-font="[^"]+"(?:\s+data-font-url="[^"]+")?>([\s\S]*?)<\/span>/g, '$1')
+    const source = String(value || '')
+    const tagPattern = /<span\b[^>]*>|<\/span\s*>/gi
+    const stack = []
+    let output = ''
+    let cursor = 0
+    let match
+
+    while ((match = tagPattern.exec(source))) {
+      output += source.slice(cursor, match.index)
+      if (/^<span\b/i.test(match[0])) {
+        const isFontSpan = /\bdata-font\s*=\s*(?:"[^"]*"|'[^']*')/i.test(match[0])
+        stack.push(isFontSpan)
+        if (!isFontSpan) output += match[0]
+      } else {
+        const isFontSpan = stack.pop()
+        if (!isFontSpan) output += match[0]
+      }
+      cursor = tagPattern.lastIndex
+    }
+
+    return output + source.slice(cursor)
   }
 
   function inlineFontRangeAt(value, start, end) {
