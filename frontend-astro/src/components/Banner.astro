@@ -15,6 +15,11 @@ const normalizedImages = images
 const bannerImages = (normalizedImages.length ? normalizedImages : ['/home.webp']).map(resolveUploadUrl)
 const payload = JSON.stringify(bannerImages)
 const dateLabel = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
+const titleWeight = Array.from(title).reduce((sum, character) => {
+  if (/\s/.test(character)) return sum + 0.25
+  return sum + (/^[\x00-\x7F]$/.test(character) ? 0.55 : 1)
+}, 0)
+const titleSize = titleWeight > 12 ? 'is-very-long' : titleWeight > 5 ? 'is-long' : 'is-short'
 ---
 
 <section class="editorial-hero" data-banner-images={payload}>
@@ -37,7 +42,7 @@ const dateLabel = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeri
 
   <div class="editorial-hero-content">
     <p class="editorial-eyebrow"><span></span>{dateLabel}</p>
-    <h1>{title}</h1>
+    <h1 class:list={['editorial-hero-title', titleSize]}>{title}</h1>
     {subtitle && <p class="editorial-deck">{subtitle}</p>}
     <div class="editorial-hero-actions">
       <a href="#latest">开始阅读 <span>↓</span></a>

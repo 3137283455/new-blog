@@ -22,13 +22,13 @@ const commentsEnabled = publicSettings.enable_comments !== false
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 ---
 
-<BaseLayout title={article.title} subtitle={article.excerpt || ''}>
+<BaseLayout title={article.title} subtitle={article.excerpt || ''} showSidebar={false}>
   {fontFaces && <style set:html={fontFaces} />}
 
   <div class="article-reading-layout">
     <div class="article-reading-main">
-      <BaseCard class="p-6 md:p-10">
-        <header class="mb-10 border-b border-base-content/10 pb-8 text-center">
+      <BaseCard class="article-content-card p-6 md:p-10">
+        <header class="article-content-head mb-10 border-b border-base-content/10 pb-8 text-center">
           <div class="mb-4 flex flex-wrap justify-center gap-2">
             {article.category_name && <span class="badge badge-primary badge-outline">{article.category_name}</span>}
             <span class="badge badge-ghost">{formatDate(article.published_at || article.created_at)}</span>
@@ -42,29 +42,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
       </BaseCard>
 
-      <BaseCard class="p-5">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-2xl font-black">评论</h2>
-          <button id="reload-comments" class="ryu-btn btn-sm" data-article-id={article.id}>刷新评论</button>
-        </div>
-        <div id="comments-list" class="mt-5 grid gap-3"></div>
-        {commentsEnabled ? (
-          <form id="comment-form" class="mt-5 grid gap-3" data-article-id={article.id}>
-            <div class="grid gap-3 md:grid-cols-2">
-              <input class="input input-bordered rounded-xl" name="author_name" maxlength="40" placeholder="昵称" required />
-              <input class="input input-bordered rounded-xl" name="author_email" type="email" maxlength="120" placeholder="邮箱，可选" />
-            </div>
-            <input class="input input-bordered rounded-xl" name="author_url" maxlength="200" placeholder="个人网站，可选" />
-            <textarea class="textarea textarea-bordered min-h-28 rounded-xl" name="content" maxlength="2000" placeholder="写下你的评论..." required></textarea>
-            <div class="flex items-center gap-3">
-              <button class="ryu-btn-primary" type="submit">提交评论</button>
-              <p id="comment-message" class="text-sm text-base-content/50"></p>
-            </div>
-          </form>
-        ) : (
-          <p class="mt-5 rounded-2xl bg-base-100/65 p-4 text-sm text-base-content/55">站点当前已关闭评论提交。</p>
-        )}
-      </BaseCard>
     </div>
 
     <aside class="article-reading-side" aria-label="文章侧栏">
@@ -83,11 +60,66 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     </aside>
   </div>
 
-  <div class="article-floating-actions" aria-label="文章操作">
-    <button id="share-button" type="button" title="分享文章" aria-label="分享文章">分享</button>
-    <button id="back-top-button" type="button" title="回到顶部" aria-label="回到顶部">顶部</button>
+  <div class="article-action-wrap">
+    <div class="article-action-dock" aria-label="文章操作">
+      <button id="comment-button" type="button" title="查看评论" aria-label={`查看评论，共 ${article.comment_count || 0} 条`}>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 9.2 9.2 0 0 1-3.3-.6L4 20l1.5-4A7.4 7.4 0 0 1 4 11.5 7.5 7.5 0 0 1 12 4a7.5 7.5 0 0 1 8 7.5Z"></path><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"></path></svg>
+        <span>评论</span><small data-comment-count>{article.comment_count || 0}</small>
+      </button>
+      <button id="share-button" type="button" title="分享文章" aria-label="分享文章">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"></path></svg>
+        <span>分享</span>
+      </button>
+      <button id="back-top-button" type="button" title="回到顶部" aria-label="回到顶部">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6-6 6 6M12 4v16"></path></svg>
+        <span>顶部</span>
+      </button>
+    </div>
     <p id="interaction-message" aria-live="polite"></p>
   </div>
+
+  <dialog id="comment-dialog" class="article-comment-dialog" aria-labelledby="comment-dialog-title">
+    <div class="article-comment-panel">
+      <header class="article-comment-head">
+        <div>
+          <p>DISCUSSION</p>
+          <h2 id="comment-dialog-title">评论 <span data-comment-count>{article.comment_count || 0}</span></h2>
+        </div>
+        <div class="article-comment-head-actions">
+          <button id="reload-comments" type="button" data-article-id={article.id} title="刷新评论" aria-label="刷新评论">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5"></path><path d="M18.2 15.8A7 7 0 1 1 19 9l1 2"></path></svg>
+          </button>
+          <button id="close-comments" type="button" title="关闭评论" aria-label="关闭评论">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="article-comment-scroll">
+        <div id="comments-list" class="article-comment-list"></div>
+        {commentsEnabled ? (
+          <form id="comment-form" class="article-comment-form" data-article-id={article.id}>
+            <div class="article-comment-form-title">
+              <h3>留下你的想法</h3>
+              <p>友善交流，认真表达。</p>
+            </div>
+            <div class="article-comment-fields">
+              <label><span>昵称 *</span><input name="author_name" maxlength="40" placeholder="怎么称呼你" required /></label>
+              <label><span>邮箱</span><input name="author_email" type="email" maxlength="120" placeholder="不会公开，可选" /></label>
+            </div>
+            <label><span>个人网站</span><input name="author_url" maxlength="200" placeholder="https://，可选" /></label>
+            <label><span>评论内容 *</span><textarea name="content" maxlength="2000" placeholder="写下你的评论…" required></textarea></label>
+            <div class="article-comment-submit">
+              <p id="comment-message" aria-live="polite"></p>
+              <button type="submit">发布评论 <span>↗</span></button>
+            </div>
+          </form>
+        ) : (
+          <p class="article-comments-disabled">站点当前已关闭评论提交。</p>
+        )}
+      </div>
+    </div>
+  </dialog>
 
   <script is:inline define:vars={{ apiBase }}>
     const articleId =
@@ -96,6 +128,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     const commentsList = document.getElementById('comments-list')
     const commentMessage = document.getElementById('comment-message')
     const interactionMessage = document.getElementById('interaction-message')
+    const commentDialog = document.getElementById('comment-dialog')
+    const commentButton = document.getElementById('comment-button')
+    let commentsLoaded = false
 
     function escapeHtml(value) {
       const map = {
@@ -110,20 +145,30 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
     async function loadComments() {
       if (!articleId || !commentsList) return
+      commentsList.innerHTML = '<div class="article-comment-loading"><span></span><p>正在载入评论…</p></div>'
       try {
         const res = await fetch(`${apiBase}/articles/${articleId}/comments`, { cache: 'no-store' })
         const json = await res.json().catch(() => ({}))
         if (!res.ok || json.success === false) throw new Error(json.message || '评论读取失败')
         const comments = json.data || []
-        commentsList.innerHTML = comments.map((comment) => `
-          <div class="rounded-2xl bg-base-100/65 p-4">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <strong>${escapeHtml(comment.author_name)}</strong>
-              <span class="text-xs text-base-content/45">${new Date(comment.created_at).toLocaleString('zh-CN')}</span>
+        document.querySelectorAll('[data-comment-count]').forEach((element) => {
+          element.textContent = String(comments.length)
+        })
+        commentButton?.setAttribute('aria-label', `查看评论，共 ${comments.length} 条`)
+        commentsList.innerHTML = comments.map((comment, index) => `
+          <article class="article-comment-item">
+            <div class="article-comment-avatar">${escapeHtml(String(comment.author_name || '?').slice(0, 1).toUpperCase())}</div>
+            <div>
+              <header>
+                <strong>${escapeHtml(comment.author_name)}</strong>
+                <span>${new Date(comment.created_at).toLocaleString('zh-CN')}</span>
+              </header>
+              <p>${escapeHtml(comment.content)}</p>
             </div>
-            <p class="mt-2 text-sm">${escapeHtml(comment.content)}</p>
-          </div>
-        `).join('') || '<p class="text-base-content/45">暂无评论，来坐第一排。</p>'
+            <small>${String(index + 1).padStart(2, '0')}</small>
+          </article>
+        `).join('') || '<div class="article-comment-empty"><span>✦</span><strong>还没有评论</strong><p>来坐第一排，留下第一个想法。</p></div>'
+        commentsLoaded = true
       } catch (error) {
         commentsList.innerHTML = `<p class="rounded-2xl bg-error/10 p-4 text-sm text-error">${escapeHtml(error instanceof Error ? error.message : '评论读取失败')}</p>`
       }
@@ -156,6 +201,20 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       }
     })
 
+    commentButton?.addEventListener('click', () => {
+      commentDialog?.showModal()
+      document.body.classList.add('comment-dialog-open')
+      if (!commentsLoaded) loadComments()
+    })
+    const closeCommentDialog = () => {
+      commentDialog?.close()
+      document.body.classList.remove('comment-dialog-open')
+    }
+    document.getElementById('close-comments')?.addEventListener('click', closeCommentDialog)
+    commentDialog?.addEventListener('click', (event) => {
+      if (event.target === commentDialog) closeCommentDialog()
+    })
+    commentDialog?.addEventListener('close', () => document.body.classList.remove('comment-dialog-open'))
     document.getElementById('reload-comments')?.addEventListener('click', loadComments)
     const tocLinks = Array.from(document.querySelectorAll('.article-toc-link'))
     const tocTargets = tocLinks
@@ -193,6 +252,5 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     })
     window.addEventListener('scroll', setActiveToc, { passive: true })
     setActiveToc()
-    loadComments()
   </script>
 </BaseLayout>
