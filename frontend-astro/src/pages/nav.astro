@@ -6,255 +6,206 @@ import { resolveUploadUrl, uploadBase } from '../lib/media'
 const links = (await getNavigationLinks()).filter((item) => item.is_active !== 0 && item.is_active !== false)
 const categories = Array.from(new Set(links.map((item) => item.category || '常用'))).filter(Boolean)
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
-
 const normalizeUrl = (url: string) => {
   const value = (url || '').trim()
   if (!value) return '#'
   if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value
   return `https://${value}`
 }
-
 const getHost = (url: string) => {
-  try {
-    return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
+  try { return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '') } catch { return url }
 }
-
-const resolveMedia = (src?: string) => {
-  return resolveUploadUrl(src || '')
-}
-
-const categoryItems = categories.map((category) => ({
-  label: category,
-  value: links.filter((item) => (item.category || '常用') === category).length,
-}))
-const hostItems = Array.from(new Set(links.map((item) => getHost(item.url)).filter(Boolean)))
-  .slice(0, 10)
-  .map((label) => ({ label }))
 ---
 
-<BaseLayout
-  title="导航"
-  subtitle="常用资源导航"
-  showBanner={false}
-  sidebarProps={{
-    statItems: [
-      { label: '资源', value: links.length },
-      { label: '分类', value: categories.length },
-      { label: '外链', value: links.filter((item) => normalizeUrl(item.url).startsWith('http')).length },
-    ],
-    sidebarSections: [
-      { title: '资源分类', marker: '#', tone: 'primary', items: categoryItems },
-      { title: '站点域名', marker: '@', tone: 'secondary', items: hostItems },
-    ],
-  }}
->
-  <section class="nav-board" data-api-base={apiBase} data-upload-base={uploadBase}>
-    <div class="nav-search-row">
-      <label class="nav-search-box">
-        <span>⌕</span>
-        <input id="nav-filter" type="search" placeholder="搜索资源..." autocomplete="off" />
+<BaseLayout title="导航" subtitle="你的每日网络起点" showBanner={false} showSidebar={false} wide hideFooter>
+  <section class="start-page" data-api-base={apiBase} data-upload-base={uploadBase}>
+    <header class="start-hero">
+      <div class="start-greeting">
+        <p id="start-date">今天</p>
+        <h1><span id="start-greeting">你好</span>，准备去哪里？</h1>
+        <p>搜索互联网，或者从收藏的站点继续出发。</p>
+      </div>
+      <time id="start-clock" class="start-clock" aria-label="当前时间">--:--</time>
+    </header>
+
+    <form id="web-search" class="web-search" role="search">
+      <button id="search-engine-trigger" class="search-engine-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span id="search-engine-mark">B</span><span id="search-engine-name">Bing</span><small>⌄</small>
+      </button>
+      <div id="search-engine-menu" class="search-engine-menu" role="listbox" hidden>
+        <button type="button" data-engine="bing" data-mark="B" data-name="Bing" data-url="https://www.bing.com/search?q=">Bing <small>国际搜索</small></button>
+        <button type="button" data-engine="baidu" data-mark="百" data-name="百度" data-url="https://www.baidu.com/s?wd=">百度 <small>中文搜索</small></button>
+        <button type="button" data-engine="google" data-mark="G" data-name="Google" data-url="https://www.google.com/search?q=">Google <small>全球搜索</small></button>
+        <button type="button" data-engine="duck" data-mark="D" data-name="DuckDuckGo" data-url="https://duckduckgo.com/?q=">DuckDuckGo <small>隐私搜索</small></button>
+      </div>
+      <label>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+        <input id="web-search-input" type="search" placeholder="搜索互联网" autocomplete="off" />
       </label>
-      <a class="nav-edit-button" href="/admin">编辑</a>
-    </div>
+      <button class="web-search-submit" type="submit" aria-label="搜索">搜索 <span>↗</span></button>
+    </form>
 
-    <div id="nav-category-pills" class="nav-category-pills" aria-label="导航分类">
-      <button class="is-active" type="button" data-nav-category="all">全部</button>
-      {categories.map((category) => (
-        <button type="button" data-nav-category={category.toLowerCase()}>{category}</button>
-      ))}
-    </div>
+    <section id="recent-section" class="start-recent" hidden>
+      <header><p><span></span>最近访问</p><button id="clear-recents" type="button">清除</button></header>
+      <div id="recent-links" class="recent-links"></div>
+    </section>
 
-    <div id="nav-grid" class="nav-resource-grid">
-      {links.map((item) => {
-        const href = normalizeUrl(item.url)
-        const avatar = resolveMedia(item.avatar)
-        const category = item.category || '常用'
-        const host = getHost(item.url)
-        return (
-          <a
-            class="nav-resource-card"
-            href={href}
-            target={href.startsWith('http') ? '_blank' : undefined}
-            rel={href.startsWith('http') ? 'noopener noreferrer' : undefined}
-            data-category={category.toLowerCase()}
-            data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()}
-          >
-            <span class="nav-resource-main">
-              <span class="nav-resource-icon">
-                {avatar ? <img src={avatar} alt={item.title} loading="lazy" /> : <b>{item.icon || item.title.slice(0, 1)}</b>}
-              </span>
-              <span class="nav-resource-title">
-                <strong>{item.title}</strong>
-                <small>{host}</small>
-              </span>
-            </span>
-            <span class="nav-resource-badge">{item.icon || category}</span>
-            <span class="nav-resource-desc">{item.description || item.url}</span>
-          </a>
-        )
-      })}
-    </div>
+    <section class="bookmark-board">
+      <header class="bookmark-toolbar">
+        <div>
+          <p class="bookmark-eyebrow">YOUR BOOKMARKS</p>
+          <h2>常用站点 <span id="visible-count">{links.length}</span></h2>
+        </div>
+        <label class="bookmark-filter">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+          <input id="nav-filter" type="search" placeholder="筛选站点" autocomplete="off" />
+          <kbd>/</kbd>
+        </label>
+        <div class="bookmark-actions">
+          <button id="favorites-filter" type="button" aria-pressed="false"><span>☆</span> 收藏</button>
+          <button id="density-toggle" type="button" aria-label="切换显示密度" title="切换显示密度">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
+          </button>
+          <a href="/admin" title="管理导航">管理 <span>↗</span></a>
+        </div>
+      </header>
 
-    <div id="nav-empty" class="feature-empty hidden">
-      <strong>暂无导航资源</strong>
-      <span>请先在后台内容中心添加导航资源。</span>
-    </div>
+      <div id="nav-category-pills" class="bookmark-categories" aria-label="导航分类">
+        <button class="is-active" type="button" data-nav-category="all">全部 <small>{links.length}</small></button>
+        {categories.map((category) => (
+          <button type="button" data-nav-category={category.toLowerCase()}>{category} <small>{links.filter((item) => (item.category || '常用') === category).length}</small></button>
+        ))}
+      </div>
+
+      <div id="nav-grid" class="bookmark-grid">
+        {links.map((item, index) => {
+          const href = normalizeUrl(item.url)
+          const avatar = resolveUploadUrl(item.avatar || '')
+          const category = item.category || '常用'
+          const host = getHost(item.url)
+          return (
+            <article class="bookmark-card" data-id={String(item.id)} data-category={category.toLowerCase()} data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()} style={`--delay:${Math.min(index, 12) * 28}ms`}>
+              <a class="bookmark-card-link" href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} data-track-recent>
+                <span class="bookmark-icon">{avatar && <img src={avatar} alt="" loading="lazy" onerror="this.remove()" />}<b>{item.icon || item.title.slice(0, 1)}</b></span>
+                <span class="bookmark-copy"><strong>{item.title}</strong><small>{item.description || host}</small></span>
+                <span class="bookmark-arrow">↗</span>
+              </a>
+              <button class="bookmark-star" type="button" aria-label={`收藏 ${item.title}`} aria-pressed="false" title="收藏">☆</button>
+              <span class="bookmark-category">{category}</span>
+            </article>
+          )
+        })}
+      </div>
+
+      <div id="nav-empty" class="bookmark-empty" hidden>
+        <span>⌕</span><strong>没有找到匹配的站点</strong><p>换个关键词或分类试试。</p>
+      </div>
+    </section>
+
+    <footer class="start-footer">
+      <span>按 <kbd>/</kbd> 筛选站点</span><span><kbd>Enter</kbd> 打开第一个结果</span><span>{links.length} 个站点 · 数据来自博客后台</span>
+    </footer>
   </section>
 
   <script>
-    type NavItem = {
-      title?: string
-      url?: string
-      description?: string
-      category?: string
-      icon?: string
-      avatar?: string
-      is_active?: number | boolean
-    }
-
-    const board = document.querySelector<HTMLElement>('.nav-board')
-    const input = document.getElementById('nav-filter') as HTMLInputElement | null
+    type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; is_active?: number | boolean }
+    type RecentItem = { id: string; title: string; href: string; icon: string; visitedAt: number }
+    const board = document.querySelector<HTMLElement>('.start-page')
     const grid = document.getElementById('nav-grid')
+    const input = document.getElementById('nav-filter') as HTMLInputElement | null
     const pillsWrap = document.getElementById('nav-category-pills')
     const empty = document.getElementById('nav-empty')
+    const count = document.getElementById('visible-count')
+    const favoritesButton = document.getElementById('favorites-filter') as HTMLButtonElement | null
     const apiBase = board?.dataset.apiBase || '/api'
-    const uploadBase = board?.dataset.uploadBase || ''
+    const mediaBase = board?.dataset.uploadBase || ''
+    const FAVORITES_KEY = 'boke-nav-favorites-v1'
+    const RECENTS_KEY = 'boke-nav-recents-v1'
     let activeCategory = 'all'
+    let favoritesOnly = false
 
-    function normalizeUrl(url?: string) {
-      const value = String(url || '').trim()
-      if (!value) return '#'
-      if (/^(https?:|mailto:|tel:|#|\/)/i.test(value)) return value
-      return `https://${value}`
+    const escapeHtml = (value?: string) => String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] || char))
+    const normalizeUrl = (url?: string) => { const value = String(url || '').trim(); if (!value) return '#'; return /^(https?:|mailto:|tel:|#|\/)/i.test(value) ? value : `https://${value}` }
+    const getHost = (url?: string) => { try { return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '') } catch { return url || '' } }
+    const resolveMedia = (src?: string) => src?.startsWith('/uploads/') ? `${mediaBase}${src}` : (src || '')
+    const readStorage = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback } }
+    const getFavorites = () => new Set(readStorage<string[]>(FAVORITES_KEY, []))
+
+    function updateClock() {
+      const now = new Date()
+      const hour = now.getHours()
+      const greeting = hour < 6 ? '夜深了' : hour < 11 ? '早上好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好'
+      const clock = document.getElementById('start-clock')
+      const greetingEl = document.getElementById('start-greeting')
+      const date = document.getElementById('start-date')
+      if (clock) clock.textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+      if (greetingEl) greetingEl.textContent = greeting
+      if (date) date.textContent = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })
     }
 
-    function getHost(url?: string) {
-      try {
-        return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '')
-      } catch {
-        return url || ''
+    function initWebSearch() {
+      const form = document.getElementById('web-search') as HTMLFormElement | null
+      const webInput = document.getElementById('web-search-input') as HTMLInputElement | null
+      const trigger = document.getElementById('search-engine-trigger') as HTMLButtonElement | null
+      const menu = document.getElementById('search-engine-menu')
+      const mark = document.getElementById('search-engine-mark')
+      const name = document.getElementById('search-engine-name')
+      let searchUrl = 'https://www.bing.com/search?q='
+      const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-engine]'))
+      const choose = (option: HTMLButtonElement) => {
+        searchUrl = option.dataset.url || searchUrl
+        if (mark) mark.textContent = option.dataset.mark || 'B'
+        if (name) name.textContent = option.dataset.name || 'Bing'
+        localStorage.setItem('boke-search-engine', option.dataset.engine || 'bing')
+        menu?.setAttribute('hidden', '')
+        trigger?.setAttribute('aria-expanded', 'false')
+        webInput?.focus()
       }
+      choose(options.find((item) => item.dataset.engine === localStorage.getItem('boke-search-engine')) || options[0])
+      if (window.matchMedia('(min-width: 761px)').matches) requestAnimationFrame(() => webInput?.focus())
+      trigger?.addEventListener('click', () => { const willOpen = menu?.hasAttribute('hidden'); menu?.toggleAttribute('hidden', !willOpen); trigger.setAttribute('aria-expanded', String(willOpen)) })
+      options.forEach((option) => option.addEventListener('click', () => choose(option)))
+      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (query) location.href = `${searchUrl}${encodeURIComponent(query)}` })
+      document.addEventListener('click', (event) => { if (!form?.contains(event.target as Node)) { menu?.setAttribute('hidden', ''); trigger?.setAttribute('aria-expanded', 'false') } })
     }
 
-    function resolveMedia(src?: string) {
-      if (!src) return ''
-      if (src.startsWith('/uploads/')) return `${uploadBase}${src}`
-      return src
-    }
-
-    function escapeHtml(value?: string) {
-      const map: Record<string, string> = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-      }
-      return String(value || '').replace(/[&<>"']/g, (char) => map[char] || char)
-    }
-
-    function renderCard(item: NavItem) {
-      const href = normalizeUrl(item.url)
-      const host = getHost(item.url)
-      const category = item.category || '常用'
-      const avatar = resolveMedia(item.avatar)
-      const title = item.title || host || '未命名资源'
-      const targetAttrs = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
-      const icon = avatar
-        ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(title)}" loading="lazy" />`
-        : `<b>${escapeHtml(item.icon || title.slice(0, 1))}</b>`
+    function renderCard(item: NavItem, index: number) {
+      const href = normalizeUrl(item.url); const host = getHost(item.url); const category = item.category || '常用'; const avatar = resolveMedia(item.avatar); const title = item.title || host || '未命名资源'
+      const icon = `${avatar ? `<img src="${escapeHtml(avatar)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}<b>${escapeHtml(item.icon || title.slice(0, 1))}</b>`
+      const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
       const search = `${title} ${item.description || ''} ${category} ${host} ${item.url || ''}`.toLowerCase()
-
-      return `
-        <a class="nav-resource-card" href="${escapeHtml(href)}"${targetAttrs} data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}">
-          <span class="nav-resource-main">
-            <span class="nav-resource-icon">${icon}</span>
-            <span class="nav-resource-title">
-              <strong>${escapeHtml(title)}</strong>
-              <small>${escapeHtml(host)}</small>
-            </span>
-          </span>
-          <span class="nav-resource-badge">${escapeHtml(item.icon || category)}</span>
-          <span class="nav-resource-desc">${escapeHtml(item.description || item.url || '')}</span>
-        </a>
-      `
+      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span></article>`
     }
 
-    function getCards() {
-      return Array.from(document.querySelectorAll<HTMLElement>('.nav-resource-card'))
-    }
-
+    function getCards() { return Array.from(document.querySelectorAll<HTMLElement>('.bookmark-card')) }
+    function updateFavoriteState() { const favorites = getFavorites(); getCards().forEach((card) => { const active = favorites.has(card.dataset.id || ''); const button = card.querySelector<HTMLButtonElement>('.bookmark-star'); card.classList.toggle('is-favorite', active); if (button) { button.textContent = active ? '★' : '☆'; button.setAttribute('aria-pressed', String(active)) } }) }
     function applyFilter() {
-      const keyword = input?.value.trim().toLowerCase() || ''
-      let visibleCount = 0
-      const cards = getCards()
-      cards.forEach((card) => {
-        const matchCategory = activeCategory === 'all' || card.dataset.category === activeCategory
-        const matchKeyword = !keyword || (card.dataset.search || '').includes(keyword)
-        const visible = matchCategory && matchKeyword
-        card.style.display = visible ? '' : 'none'
-        if (visible) visibleCount += 1
-      })
-      if (!empty) return
-      if (!cards.length) {
-        showEmptyMessage('还没有导航资源', '去后台“内容中心”里的导航栏目添加第一个资源入口。')
-        return
-      }
-      if (!visibleCount) {
-        showEmptyMessage('没有匹配的导航资源', '换个关键词或分类再试。')
-        return
-      }
-      empty.classList.add('hidden')
+      const keyword = input?.value.trim().toLowerCase() || ''; const favorites = getFavorites(); let visible = 0
+      getCards().forEach((card) => { const show = (activeCategory === 'all' || card.dataset.category === activeCategory) && (!keyword || (card.dataset.search || '').includes(keyword)) && (!favoritesOnly || favorites.has(card.dataset.id || '')); card.hidden = !show; if (show) visible += 1 })
+      if (count) count.textContent = String(visible)
+      empty?.toggleAttribute('hidden', visible > 0)
     }
-
-    function showEmptyMessage(title: string, message: string) {
-      if (!empty) return
-      empty.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span>`
-      empty.classList.remove('hidden')
-    }
-
-    function bindPills() {
-      Array.from(document.querySelectorAll<HTMLButtonElement>('[data-nav-category]')).forEach((button) => {
-        button.addEventListener('click', () => {
-          activeCategory = button.dataset.navCategory || 'all'
-          Array.from(document.querySelectorAll<HTMLButtonElement>('[data-nav-category]')).forEach((item) => item.classList.toggle('is-active', item === button))
-          applyFilter()
-        })
+    function bindCards() {
+      updateFavoriteState()
+      getCards().forEach((card) => {
+        card.querySelector('.bookmark-star')?.addEventListener('click', () => { const favorites = getFavorites(); const id = card.dataset.id || ''; favorites.has(id) ? favorites.delete(id) : favorites.add(id); localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); updateFavoriteState(); applyFilter() })
+        card.querySelector('[data-track-recent]')?.addEventListener('click', () => { const link = card.querySelector<HTMLAnchorElement>('.bookmark-card-link'); const title = card.querySelector('strong')?.textContent || ''; const icon = card.querySelector('.bookmark-icon')?.textContent?.trim() || title.slice(0, 1); const recents = readStorage<RecentItem[]>(RECENTS_KEY, []).filter((item) => item.id !== card.dataset.id); recents.unshift({ id: card.dataset.id || title, title, href: link?.href || '#', icon, visitedAt: Date.now() }); localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, 6))) })
       })
     }
-
-    function renderCategories(links: NavItem[]) {
-      const categories = Array.from(new Set(links.map((item) => item.category || '常用'))).filter(Boolean)
-      if (!pillsWrap) return
-      pillsWrap.innerHTML = [
-        '<button class="is-active" type="button" data-nav-category="all">全部</button>',
-        ...categories.map((category) => `<button type="button" data-nav-category="${escapeHtml(category.toLowerCase())}">${escapeHtml(category)}</button>`),
-      ].join('')
-      activeCategory = 'all'
-      bindPills()
-    }
+    function bindPills() { document.querySelectorAll<HTMLButtonElement>('[data-nav-category]').forEach((button) => button.addEventListener('click', () => { activeCategory = button.dataset.navCategory || 'all'; document.querySelectorAll('[data-nav-category]').forEach((item) => item.classList.toggle('is-active', item === button)); applyFilter() })) }
+    function renderCategories(items: NavItem[]) { if (!pillsWrap) return; const cats = Array.from(new Set(items.map((item) => item.category || '常用'))); pillsWrap.innerHTML = `<button class="is-active" type="button" data-nav-category="all">全部 <small>${items.length}</small></button>${cats.map((category) => `<button type="button" data-nav-category="${escapeHtml(category.toLowerCase())}">${escapeHtml(category)} <small>${items.filter((item) => (item.category || '常用') === category).length}</small></button>`).join('')}`; activeCategory = 'all'; bindPills() }
+    function renderRecents() { const section = document.getElementById('recent-section'); const wrap = document.getElementById('recent-links'); const recents = readStorage<RecentItem[]>(RECENTS_KEY, []); if (!section || !wrap) return; section.hidden = !recents.length; wrap.innerHTML = recents.map((item) => `<a href="${escapeHtml(item.href)}"><b>${escapeHtml(item.icon || item.title.slice(0, 1))}</b><span>${escapeHtml(item.title)}</span></a>`).join('') }
 
     async function refreshNavigation() {
-      try {
-        const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' })
-        if (!response.ok) throw new Error('导航接口读取失败')
-        const json = await response.json()
-        const links = ((json.data || []) as NavItem[]).filter((item) => item && item.title && item.url && item.is_active !== 0 && item.is_active !== false)
-        if (!grid) return
-        grid.innerHTML = links.map(renderCard).join('')
-        renderCategories(links)
-        applyFilter()
-      } catch {
-        if (getCards().length) applyFilter()
-        else showEmptyMessage('导航资源读取失败', '请确认后端 API 已启动，并且后台“内容中心 / 导航”里资源已启用。')
-      }
+      try { const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const items = ((json.data || []) as NavItem[]).filter((item) => item?.title && item?.url && item.is_active !== 0 && item.is_active !== false); if (!grid) return; grid.innerHTML = items.map(renderCard).join(''); renderCategories(items); bindCards(); applyFilter() } catch { bindCards(); applyFilter() }
     }
 
+    updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); renderRecents(); bindPills(); bindCards(); applyFilter(); refreshNavigation()
     input?.addEventListener('input', applyFilter)
-    bindPills()
-    refreshNavigation()
+    favoritesButton?.addEventListener('click', () => { favoritesOnly = !favoritesOnly; favoritesButton.classList.toggle('is-active', favoritesOnly); favoritesButton.setAttribute('aria-pressed', String(favoritesOnly)); applyFilter() })
+    document.getElementById('density-toggle')?.addEventListener('click', () => { const compact = grid?.classList.toggle('is-compact') || false; localStorage.setItem('boke-nav-compact', String(compact)) })
+    if (localStorage.getItem('boke-nav-compact') === 'true') grid?.classList.add('is-compact')
+    document.getElementById('clear-recents')?.addEventListener('click', () => { localStorage.removeItem(RECENTS_KEY); renderRecents() })
+    document.addEventListener('keydown', (event) => { if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && document.activeElement === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click() })
   </script>
 </BaseLayout>

@@ -10,6 +10,8 @@ interface Props {
   subtitle?: string
   showSidebar?: boolean
   showBanner?: boolean
+  wide?: boolean
+  hideFooter?: boolean
   sidebarProps?: Record<string, unknown>
 }
 
@@ -18,6 +20,8 @@ const {
   subtitle = '',
   showSidebar = true,
   showBanner = true,
+  wide = false,
+  hideFooter = false,
   sidebarProps = {},
 } = Astro.props
 
@@ -45,6 +49,7 @@ const mergedSidebarProps = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f2ea" />
     <meta name="description" content={subtitle || siteTitle} />
     <title>{title} - {siteTitle}</title>
     <script is:inline define:vars={{ apiBase }}>
@@ -52,6 +57,7 @@ const mergedSidebarProps = {
       const storedTheme = localStorage.getItem('theme') || 'boke-green';
       document.documentElement.setAttribute('data-theme', storedTheme);
       document.documentElement.setAttribute('data-theme-type', themeTypes[storedTheme] || 'light');
+      window.__PUBLIC_API_BASE__ = apiBase;
     </script>
   </head>
   <body class="flex min-h-screen flex-col bg-[var(--banner-wave-bg)]">
@@ -59,7 +65,7 @@ const mergedSidebarProps = {
     <Navbar />
     {showBanner && <Banner title={title} subtitle={subtitle} images={bannerImages} />}
 
-    <div class={`page-content-animate mx-auto w-full max-w-blog flex-grow ${showBanner ? 'mt-5' : 'mt-24'}`}>
+    <div class:list={['page-content-animate mx-auto w-full flex-grow', wide ? 'max-w-wide' : 'max-w-blog', showBanner ? 'mt-7' : 'mt-24']}>
       <div class={`grid grid-cols-1 gap-4 px-4 pb-4 ${showSidebar ? 'md:grid-cols-5 lg:grid-cols-4' : ''}`}>
         <main class={`order-1 flex flex-col gap-4 ${showSidebar ? 'md:order-2 md:col-span-4 lg:col-span-3' : ''}`}>
           <slot />
@@ -72,14 +78,19 @@ const mergedSidebarProps = {
       </div>
     </div>
 
-    <footer class="mx-auto w-full max-w-blog px-4 pb-8 pt-4 text-center text-sm text-base-content/50">
-      <div class="flex flex-wrap justify-center gap-3">
-        <span>© 2026 {siteTitle}</span>
-        <span>运行 <strong id="site-uptime">--</strong></span>
-        <span>今日访客 <strong id="visitor-today">--</strong></span>
-        <span>累计访客 <strong id="visitor-total">--</strong></span>
-      </div>
-    </footer>
+    {!hideFooter && (
+      <footer class="site-footer mx-auto w-full max-w-blog px-4 pb-10 pt-8">
+        <div>
+          <a href="/" class="site-footer-brand">{siteTitle}</a>
+          <p>记录所想，分享所见。</p>
+        </div>
+        <div class="site-footer-meta">
+          <span>© 2026</span>
+          <span>已运行 <strong id="site-uptime">--</strong></span>
+          <span>今日 <strong id="visitor-today">--</strong> · 累计 <strong id="visitor-total">--</strong></span>
+        </div>
+      </footer>
+    )}
     <script is:inline>
       const siteStart = new Date('2026-01-01T00:00:00+08:00').getTime();
       const uptimeEl = document.getElementById('site-uptime');
@@ -93,7 +104,7 @@ const mergedSidebarProps = {
       }
       updateUptime();
       setInterval(updateUptime, 60000);
-      fetch(`${apiBase}/visitors/count`, { cache: 'no-store' })
+      fetch(`${window.__PUBLIC_API_BASE__ || '/api'}/visitors/count`, { cache: 'no-store' })
         .then((res) => res.json())
         .then((json) => {
           const todayEl = document.getElementById('visitor-today');

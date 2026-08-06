@@ -1,6 +1,5 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
-import BaseCard from '@components/BaseCard.astro'
 import { formatDate, getArticles } from '@/lib/api'
 
 const { articles, pagination } = await getArticles({ page: 1, pageSize: 10 })
@@ -20,6 +19,7 @@ const categories = Array.from(
 )
 const tags = Array.from(new Set(articles.flatMap((post) => post.tags?.map((tag) => tag.name) || [])))
 const covers = ['/image1.webp', '/image2.webp', '/image3.webp']
+const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
 ---
 
 <BaseLayout
@@ -27,80 +27,74 @@ const covers = ['/image1.webp', '/image2.webp', '/image3.webp']
   subtitle="记录技术、生活与灵感的个人空间"
   sidebarProps={{ totalPosts: pagination?.total || articles.length, totalViews, totalComments, categories, tags }}
 >
-  <section class="grid gap-4 md:grid-cols-4">
-    {[
-      { href: '/archive', icon: '▣', title: '归档', desc: '按时间回看' },
-      { href: '/search', icon: '⌕', title: '搜索', desc: '快速定位文章' },
-      { href: '/admin/write', icon: '✎', title: '写作', desc: '进入独立写作台' },
-      { href: '#latest', icon: '✦', title: '最新', desc: '继续向下阅读' },
-    ].map((item) => (
-      <a href={item.href} class="quick-card ryu-card group p-4 transition hover:-translate-y-1">
-        <div class="mb-3 grid h-11 w-11 place-items-center rounded-2xl bg-primary/10 text-xl text-primary shadow-neu-in">{item.icon}</div>
-        <h3 class="font-black group-hover:text-primary">{item.title}</h3>
-        <p class="text-sm text-base-content/50">{item.desc}</p>
-      </a>
-    ))}
+  <section class="home-utility" aria-label="快捷入口">
+    <div class="home-utility-copy">
+      <span class="section-number">01</span>
+      <p>今天想看点什么？</p>
+    </div>
+    <nav>
+      <a href="/archive"><span>浏览归档</span><small>{pagination?.total || articles.length} 篇文章</small></a>
+      <a href="/search"><span>搜索内容</span><small>Ctrl / ⌘ K</small></a>
+      <a href="/nav"><span>网址导航</span><small>浏览器首页</small></a>
+      <a href="/admin/write"><span>开始写作</span><small>新建草稿</small></a>
+    </nav>
   </section>
 
   {featured && (
-    <BaseCard class="featured-post overflow-hidden p-0">
-      <a href={`/article/${featured.slug}`} class="grid md:grid-cols-5">
-        <div class="relative min-h-56 md:col-span-2">
-          <img class="absolute inset-0 h-full w-full object-cover" src="/image1.webp" alt="" />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent"></div>
-          <div class="absolute bottom-4 left-4 flex flex-wrap gap-2">
-            {featured.is_pinned && <span class="badge badge-warning">置顶</span>}
-            {featured.is_recommended && <span class="badge badge-secondary">推荐</span>}
-          </div>
-        </div>
-        <div class="p-6 md:col-span-3 md:p-8">
-          <div class="mb-3 flex flex-wrap gap-2">
-            {featured.category_name && <span class="badge badge-primary badge-outline">{featured.category_name}</span>}
-            {featured.tags?.slice(0, 3).map((tag) => <span class="badge badge-ghost">{tag.name}</span>)}
-          </div>
-          <h2 class="text-3xl font-black leading-tight hover:text-primary md:text-4xl">{featured.title}</h2>
-          {featured.excerpt && <p class="mt-4 text-base-content/70">{featured.excerpt}</p>}
-          <div class="mt-6 flex flex-wrap justify-between gap-3 text-sm text-base-content/50">
-            <span>{formatDate(featured.published_at || featured.created_at)}</span>
-            <span>{featured.view_count || 0} 阅读 · {featured.comment_count || 0} 评论</span>
-          </div>
-        </div>
+    <article class="home-featured">
+      <a href={`/article/${featured.slug}`} class="home-featured-media">
+        <img src="/image1.webp" alt="" />
+        <span>本期推荐</span>
       </a>
-    </BaseCard>
+      <div class="home-featured-content">
+        <p class="article-kicker">
+          <span>{featured.category_name || '随笔'}</span>
+          <time>{formatDate(featured.published_at || featured.created_at)}</time>
+        </p>
+        <h2><a href={`/article/${featured.slug}`}>{featured.title}</a></h2>
+        {featured.excerpt && <p class="article-excerpt">{featured.excerpt}</p>}
+        <div class="article-footer">
+          <span>{readingTime(`${featured.title}${featured.excerpt || ''}`)} 分钟阅读</span>
+          <span>{featured.view_count || 0} 次浏览</span>
+          <a href={`/article/${featured.slug}`}>继续阅读 <b>↗</b></a>
+        </div>
+      </div>
+    </article>
   )}
 
-  <section id="latest" class="flex flex-col gap-4">
-    <div class="flex items-center justify-between">
-      <h2 class="text-2xl font-black">最新文章</h2>
-      <a class="btn btn-sm btn-ghost rounded-xl" href="/archive">全部归档</a>
+  <section id="latest" class="home-latest">
+    <header class="section-heading">
+      <div><span class="section-number">02</span><div><p>Latest notes</p><h2>最近更新</h2></div></div>
+      <a href="/archive">查看全部 <span>↗</span></a>
+    </header>
+
+    <div class="home-post-grid">
+      {regularArticles.map((post, index) => (
+        <article class:list={['home-post', index === 0 && 'is-wide']}>
+          <a href={`/article/${post.slug}`} class="home-post-cover">
+            <img src={covers[(index + 1) % covers.length]} alt="" loading="lazy" decoding="async" />
+            <span>{String(index + 1).padStart(2, '0')}</span>
+          </a>
+          <div class="home-post-body">
+            <p class="article-kicker"><span>{post.category_name || '随笔'}</span><time>{formatDate(post.published_at || post.created_at)}</time></p>
+            <h3><a href={`/article/${post.slug}`}>{post.title}</a></h3>
+            {post.excerpt && <p class="article-excerpt">{post.excerpt}</p>}
+            <div class="article-footer">
+              <span>{readingTime(`${post.title}${post.excerpt || ''}`)} 分钟</span>
+              <span>{post.view_count || 0} 浏览 · {post.comment_count || 0} 评论</span>
+            </div>
+          </div>
+        </article>
+      ))}
     </div>
 
-    {regularArticles.map((post, index) => (
-      <BaseCard class="post-card overflow-hidden p-0">
-        <a href={`/article/${post.slug}`} class="grid md:grid-cols-[220px_1fr]">
-          <div class="relative min-h-44">
-            <img class="absolute inset-0 h-full w-full object-cover transition duration-500 hover:scale-105" src={covers[index % covers.length]} alt="" />
-          </div>
-          <div class="p-5">
-            <div class="mb-3 flex flex-wrap gap-2">
-              {post.category_name && <span class="badge badge-primary badge-outline">{post.category_name}</span>}
-              {post.tags?.slice(0, 3).map((tag) => <span class="badge badge-ghost">{tag.name}</span>)}
-            </div>
-            <h3 class="text-2xl font-black leading-tight hover:text-primary">{post.title}</h3>
-            {post.excerpt && <p class="mt-3 line-clamp-2 text-base-content/70">{post.excerpt}</p>}
-            <div class="mt-5 flex flex-wrap justify-between gap-3 text-sm text-base-content/50">
-              <span>{formatDate(post.published_at || post.created_at)}</span>
-              <span>{post.view_count || 0} 阅读 · {post.like_count || 0} 喜欢 · {post.comment_count || 0} 评论</span>
-            </div>
-          </div>
-        </a>
-      </BaseCard>
-    ))}
-
     {articles.length === 0 && (
-      <BaseCard>
-        <p class="text-center text-base-content/50">还没有发布文章。</p>
-      </BaseCard>
+      <div class="home-empty">
+        <span>空白页</span>
+        <h2>第一篇故事还在路上</h2>
+        <p>从一个念头开始，把它写下来。</p>
+        <a href="/admin/write">开始写作</a>
+      </div>
     )}
   </section>
 </BaseLayout>

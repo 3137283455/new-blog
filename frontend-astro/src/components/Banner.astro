@@ -14,57 +14,64 @@ const normalizedImages = images
   .filter(Boolean)
 const bannerImages = (normalizedImages.length ? normalizedImages : ['/home.webp']).map(resolveUploadUrl)
 const payload = JSON.stringify(bannerImages)
+const dateLabel = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date())
 ---
 
-<section class="banner relative isolate flex min-h-[46vh] items-center justify-center overflow-hidden px-4 pb-10 pt-20 text-center md:min-h-[50vh]" data-banner-images={payload}>
-  <div class="banner-slides absolute inset-0 z-0">
+<section class="editorial-hero" data-banner-images={payload}>
+  <div class="banner-slides" aria-hidden="true">
     {bannerImages.map((src, index) => (
       <img
-        class:list={['banner-slide absolute inset-0 h-full w-full object-cover', index === 0 && 'is-active']}
+        class:list={['banner-slide', index === 0 && 'is-active']}
         src={index === 0 ? src : undefined}
         data-src={index > 0 ? src : undefined}
         loading={index === 0 ? 'eager' : 'lazy'}
         fetchpriority={index === 0 ? 'high' : 'low'}
         decoding="async"
         alt=""
+        data-fallback-src="/home.webp"
       />
     ))}
   </div>
-  <div class="absolute inset-0 z-10 bg-black/45"></div>
-  <div class="banner-wave absolute inset-x-0 bottom-[-1px] z-20 h-24"></div>
+  <div class="editorial-hero-shade"></div>
+  <div class="editorial-hero-grain"></div>
 
-  <div class="relative z-30 mx-auto w-full max-w-blog text-white">
-    <div class="mx-auto max-w-4xl animate-fade-in-up">
-      <p class="mb-4 inline-flex rounded-full bg-white/15 px-4 py-2 text-sm font-bold uppercase tracking-normal backdrop-blur-md">
-        Personal Publishing
-      </p>
-      <h1 class="text-5xl font-black leading-none drop-shadow-lg md:text-7xl">{title}</h1>
-      {subtitle && <p class="mx-auto mt-5 max-w-2xl text-lg text-white/90 drop-shadow">{subtitle}</p>}
+  <div class="editorial-hero-content">
+    <p class="editorial-eyebrow"><span></span>{dateLabel}</p>
+    <h1>{title}</h1>
+    {subtitle && <p class="editorial-deck">{subtitle}</p>}
+    <div class="editorial-hero-actions">
+      <a href="#latest">开始阅读 <span>↓</span></a>
+      <a href="/nav" class="is-quiet">打开导航 <span>↗</span></a>
     </div>
+  </div>
+
+  <div class="editorial-hero-index" aria-hidden="true">
+    <span>VOL.</span>
+    <strong>{String(new Date().getMonth() + 1).padStart(2, '0')}</strong>
   </div>
 </section>
 
 <script>
   function initBannerCarousel() {
     document.querySelectorAll<HTMLElement>('[data-banner-images]').forEach((banner) => {
-      if (banner.dataset.ready === 'true') return;
-      banner.dataset.ready = 'true';
-      const slides = Array.from(banner.querySelectorAll<HTMLElement>('.banner-slide'));
-      if (slides.length <= 1) return;
-      let index = 0;
+      if (banner.dataset.ready === 'true') return
+      banner.dataset.ready = 'true'
+      const slides = Array.from(banner.querySelectorAll<HTMLImageElement>('.banner-slide'))
+      if (slides.length <= 1 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+      let index = 0
       window.setInterval(() => {
-        slides[index]?.classList.remove('is-active');
-        index = (index + 1) % slides.length;
-        const nextSlide = slides[index] as HTMLImageElement | undefined;
+        slides[index]?.classList.remove('is-active')
+        index = (index + 1) % slides.length
+        const nextSlide = slides[index]
         if (nextSlide?.dataset.src && !nextSlide.src) {
-          nextSlide.src = nextSlide.dataset.src;
-          delete nextSlide.dataset.src;
+          nextSlide.src = nextSlide.dataset.src
+          delete nextSlide.dataset.src
         }
-        slides[index]?.classList.add('is-active');
-      }, 5200);
-    });
+        nextSlide?.classList.add('is-active')
+      }, 6400)
+    })
   }
 
-  document.addEventListener('DOMContentLoaded', initBannerCarousel);
-  document.addEventListener('astro:page-load', initBannerCarousel);
+  document.addEventListener('DOMContentLoaded', initBannerCarousel)
+  document.addEventListener('astro:page-load', initBannerCarousel)
 </script>
