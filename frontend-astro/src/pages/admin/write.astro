@@ -981,7 +981,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       // @ts-nocheck
       const API_BASE = document.body.dataset.apiBase || '/api'
       const tokenKey = 'boke_admin_token'
-      const token = localStorage.getItem(tokenKey) || ''
+      let token = localStorage.getItem(tokenKey) || ''
+      if (!token) location.replace('/admin')
       const params = new URLSearchParams(location.search)
       let articleId = params.get('id') || ''
       let articles = []
@@ -1199,6 +1200,12 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           throw new Error(`无法连接后端 API（${API_BASE}），请确认 Express 服务已启动且代理配置正常`)
         }
         const json = await res.json().catch(() => ({}))
+        if (res.status === 401) {
+          localStorage.removeItem(tokenKey)
+          token = ''
+          location.replace('/admin')
+          throw new Error('登录已失效，请重新登录')
+        }
         if (!res.ok || json.success === false) throw new Error(json.message || `请求失败（HTTP ${res.status}）`)
         return json
       }
