@@ -253,6 +253,22 @@ async function loadComments() {
   renderComments();
 }
 
+async function replyComment(id) {
+  const comment = state.comments.find((item) => String(item.id) === String(id));
+  const content = window.prompt(`回复 ${comment?.author_name || '这条评论'}：`);
+  if (!content?.trim()) return;
+  try {
+    await request(`/admin/comments/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ content: content.trim() }),
+    });
+    await loadComments();
+    notify('回复已发布');
+  } catch (error) {
+    notify(error.message || '回复失败', true);
+  }
+}
+
 async function loadThemes() {
   const json = await request('/admin/themes');
   state.themes = json.data || [];
@@ -834,6 +850,7 @@ function renderComments() {
           <p class="mt-2 text-sm">${escapeHtml(comment.content)}</p>
         </div>
         <div class="flex flex-wrap gap-2">
+          <button class="btn btn-xs rounded-lg" data-reply-comment="${comment.id}">回复</button>
           <button class="btn btn-xs rounded-lg" data-comment-status="${comment.id}" data-status="approved">通过</button>
           <button class="btn btn-xs rounded-lg" data-comment-status="${comment.id}" data-status="spam">垃圾</button>
           <button class="btn btn-xs btn-error rounded-lg" data-delete-comment="${comment.id}">删除</button>
@@ -2165,8 +2182,10 @@ $('#pages-list').addEventListener('click', (event) => {
   if (forceDelete) forceDeletePage(forceDelete.dataset.forceDeletePage);
 });
 $('#comments-list').addEventListener('click', (event) => {
+  const reply = event.target.closest('[data-reply-comment]');
   const status = event.target.closest('[data-comment-status]');
   const del = event.target.closest('[data-delete-comment]');
+  if (reply) replyComment(reply.dataset.replyComment);
   if (status) updateCommentStatus(status.dataset.commentStatus, status.dataset.status);
   if (del) deleteComment(del.dataset.deleteComment);
 });

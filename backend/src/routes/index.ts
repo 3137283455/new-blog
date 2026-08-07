@@ -70,6 +70,7 @@ router.delete('/admin/tags/:id', auth, categoryCtrl.removeTag)
 
 // 璇勮绠＄悊
 router.get('/admin/comments', auth, commentCtrl.adminList)
+router.post('/admin/comments/:id/reply', auth, commentCtrl.adminReply)
 router.put('/admin/comments/:id/status', auth, commentCtrl.updateStatus)
 router.delete('/admin/comments/:id', auth, commentCtrl.remove)
 
@@ -83,6 +84,8 @@ router.delete('/admin/pages/:id', auth, pageCtrl.remove)
 
 // 导航、追番、相册
 router.get('/admin/navigation', auth, navigationCtrl.list)
+router.post('/admin/navigation/import', auth, navigationCtrl.importMany)
+router.put('/admin/navigation/reorder', auth, navigationCtrl.reorder)
 router.post('/admin/navigation', auth, navigationCtrl.create)
 router.put('/admin/navigation/:id', auth, navigationCtrl.update)
 router.delete('/admin/navigation/:id', auth, navigationCtrl.remove)
@@ -121,7 +124,8 @@ router.put('/admin/media/:id/restore', auth, mediaCtrl.restore)
 router.delete('/admin/media/:id/force', auth, mediaCtrl.forceDelete)
 router.post('/admin/media/cleanup', auth, mediaCtrl.cleanup)
 
-// 浠〃鐩?router.get('/admin/dashboard/stats', auth, dashboardCtrl.stats)
+// 仪表盘
+router.get('/admin/dashboard/stats', auth, dashboardCtrl.stats)
 router.get('/admin/dashboard/charts', auth, dashboardCtrl.charts)
 router.get('/admin/visitors/stats', auth, dashboardCtrl.visitorStats)
 

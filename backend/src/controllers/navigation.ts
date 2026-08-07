@@ -64,6 +64,55 @@ export function create(req: AuthRequest, res: Response) {
   return success(res, null, '导航已创建')
 }
 
+export function importMany(req: AuthRequest, res: Response) {
+  const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 500) : []
+  if (!items.length) return error(res, '没有可导入的书签')
+  const existingUrls = new Set(
+    (db.prepare('SELECT url FROM navigation_links').all() as Array<{ url: string }>).map((row) => row.url.trim().toLowerCase()),
+  )
+  const insert = db.prepare(`
+    INSERT INTO navigation_links (title, url, description, category, icon, avatar, sort_order, is_active)
+    VALUES (?, ?, ?, ?, ?, '', ?, 1)
+  `)
+  let imported = 0
+  let skipped = 0
+  const transaction = db.transaction(() => {
+    items.forEach((item: any, index: number) => {
+      const title = cleanText(item?.title, LIMITS.title)
+      const url = cleanText(item?.url, LIMITS.url)
+      const key = url.toLowerCase()
+      if (!title || !url || !isSafeLink(url) || existingUrls.has(key)) {
+        skipped += 1
+        return
+      }
+      insert.run(
+        title,
+        url,
+        cleanText(item?.description, LIMITS.description),
+        cleanText(item?.category, LIMITS.category) || '导入书签',
+        cleanText(item?.icon, LIMITS.icon),
+        index,
+      )
+      existingUrls.add(key)
+      imported += 1
+    })
+  })
+  transaction()
+  return success(res, { imported, skipped }, `已导入 ${imported} 个书签`)
+}
+
+export function reorder(req: AuthRequest, res: Response) {
+  const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number) : []
+  if (!ids.length || ids.length > 1000 || ids.some((id: number) => !Number.isInteger(id) || id <= 0)) {
+    return error(res, '排序数据无效')
+  }
+  if (new Set(ids).size !== ids.length) return error(res, '排序数据包含重复项目')
+  const update = db.prepare("UPDATE navigation_links SET sort_order = ?, updated_at = datetime('now') WHERE id = ?")
+  const transaction = db.transaction(() => ids.forEach((id: number, index: number) => update.run(index, id)))
+  transaction()
+  return success(res, null, '导航排序已更新')
+}
+
 export function update(req: AuthRequest, res: Response) {
   const { title, url, description, category, icon, avatar, sort_order, is_active } = req.body
   if (title !== undefined && !cleanText(title, LIMITS.title)) return error(res, '标题不能为空')

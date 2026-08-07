@@ -20,9 +20,30 @@ const titleFontStyle = fontFamilyStyle(article.title_font_family, 'var(--font-ti
 const bodyFontStyle = fontFamilyStyle(article.body_font_family, 'var(--font-body)')
 const commentsEnabled = publicSettings.enable_comments !== false
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
+const articleUrl = new URL(Astro.url.pathname, Astro.url.origin).href
+const articleImage = article.cover_image || (Array.isArray(publicSettings.banner_images) ? publicSettings.banner_images[0] : '/home.webp')
+const structuredData = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: article.title,
+  description: article.excerpt || '',
+  image: new URL(articleImage || '/home.webp', Astro.url.origin).href,
+  datePublished: article.published_at || article.created_at,
+  dateModified: article.updated_at || article.published_at || article.created_at,
+  mainEntityOfPage: articleUrl,
+  author: { '@type': 'Person', name: publicSettings.profile_name || publicSettings.site_title || '博主' },
+}).replace(/</g, '\\u003c')
 ---
 
-<BaseLayout title={article.title} subtitle={article.excerpt || ''} showSidebar={false}>
+<BaseLayout
+  title={article.title}
+  subtitle={article.excerpt || ''}
+  showSidebar={false}
+  image={articleImage}
+  pageType="article"
+  publishedTime={article.published_at || article.created_at}
+>
+  <script is:inline type="application/ld+json" set:html={structuredData}></script>
   {fontFaces && <style set:html={fontFaces} />}
 
   <div class="article-reading-layout">
@@ -41,6 +62,39 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
         <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
       </BaseCard>
+
+      {(article.previous || article.next || article.related?.length) && (
+        <section class="article-discovery" aria-label="继续阅读">
+          {(article.previous || article.next) && (
+            <div class="article-neighbors">
+              {article.previous ? (
+                <a href={`/article/${article.previous.slug}`}>
+                  <span>← 上一篇</span><strong>{article.previous.title}</strong>
+                </a>
+              ) : <div></div>}
+              {article.next && (
+                <a class="is-next" href={`/article/${article.next.slug}`}>
+                  <span>下一篇 →</span><strong>{article.next.title}</strong>
+                </a>
+              )}
+            </div>
+          )}
+          {article.related?.length ? (
+            <div class="article-related">
+              <header><div><p>KEEP READING</p><h2>相关推荐</h2></div><span>{article.related.length} 篇</span></header>
+              <div>
+                {article.related.map((post, index) => (
+                  <a href={`/article/${post.slug}`}>
+                    <small>{String(index + 1).padStart(2, '0')}</small>
+                    <strong>{post.title}</strong>
+                    <span>{post.category_name || '文章'} · {post.view_count || 0} 阅读</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </section>
+      )}
 
     </div>
 
@@ -99,9 +153,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         <div id="comments-list" class="article-comment-list"></div>
         {commentsEnabled ? (
           <form id="comment-form" class="article-comment-form" data-article-id={article.id}>
+            <input name="parent_id" type="hidden" value="" />
             <div class="article-comment-form-title">
               <h3>留下你的想法</h3>
               <p>友善交流，认真表达。</p>
+            </div>
+            <div id="comment-reply-context" class="article-comment-reply-context" hidden>
+              <p>正在回复 <strong id="comment-reply-name"></strong></p>
+              <button id="cancel-comment-reply" type="button">取消回复</button>
             </div>
             <div class="article-comment-fields">
               <label><span>昵称 *</span><input name="author_name" maxlength="40" placeholder="怎么称呼你" required /></label>
@@ -130,6 +189,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     const interactionMessage = document.getElementById('interaction-message')
     const commentDialog = document.getElementById('comment-dialog')
     const commentButton = document.getElementById('comment-button')
+    const commentForm = document.getElementById('comment-form')
+    const replyContext = document.getElementById('comment-reply-context')
+    const replyName = document.getElementById('comment-reply-name')
     let commentsLoaded = false
 
     function escapeHtml(value) {
@@ -147,16 +209,17 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       if (!articleId || !commentsList) return
       commentsList.innerHTML = '<div class="article-comment-loading"><span></span><p>正在载入评论…</p></div>'
       try {
-        const res = await fetch(`${apiBase}/articles/${articleId}/comments`, { cache: 'no-store' })
+        const res = await fetch(`${apiBase}/articles/${articleId}/comments?pageSize=100`, { cache: 'no-store' })
         const json = await res.json().catch(() => ({}))
         if (!res.ok || json.success === false) throw new Error(json.message || '评论读取失败')
         const comments = json.data || []
+        const totalComments = Number(json.pagination?.total ?? comments.length)
         document.querySelectorAll('[data-comment-count]').forEach((element) => {
-          element.textContent = String(comments.length)
+          element.textContent = String(totalComments)
         })
-        commentButton?.setAttribute('aria-label', `查看评论，共 ${comments.length} 条`)
-        commentsList.innerHTML = comments.map((comment, index) => `
-          <article class="article-comment-item">
+        commentButton?.setAttribute('aria-label', `查看评论，共 ${totalComments} 条`)
+        const renderComment = (comment, depth = 0, index = 0) => `
+          <article class="article-comment-item${depth ? ' is-reply' : ''}" style="--comment-depth:${Math.min(depth, 3)}">
             <div class="article-comment-avatar">${escapeHtml(String(comment.author_name || '?').slice(0, 1).toUpperCase())}</div>
             <div>
               <header>
@@ -164,10 +227,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
                 <span>${new Date(comment.created_at).toLocaleString('zh-CN')}</span>
               </header>
               <p>${escapeHtml(comment.content)}</p>
+              <button class="article-comment-reply" type="button" data-reply-id="${Number(comment.id)}" data-reply-name="${escapeHtml(comment.author_name)}">回复</button>
             </div>
             <small>${String(index + 1).padStart(2, '0')}</small>
           </article>
-        `).join('') || '<div class="article-comment-empty"><span>✦</span><strong>还没有评论</strong><p>来坐第一排，留下第一个想法。</p></div>'
+          ${(comment.children || []).map((child, childIndex) => renderComment(child, depth + 1, childIndex)).join('')}
+        `
+        commentsList.innerHTML = comments.map((comment, index) => renderComment(comment, 0, index)).join('') || '<div class="article-comment-empty"><span>✦</span><strong>还没有评论</strong><p>来坐第一排，留下第一个想法。</p></div>'
         commentsLoaded = true
       } catch (error) {
         commentsList.innerHTML = `<p class="rounded-2xl bg-error/10 p-4 text-sm text-error">${escapeHtml(error instanceof Error ? error.message : '评论读取失败')}</p>`
@@ -194,12 +260,32 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         if (commentMessage) commentMessage.textContent = json.message || '已提交'
         if (json.success) {
           form.reset()
+          clearReply()
           await loadComments()
         }
       } catch {
         if (commentMessage) commentMessage.textContent = '网络异常，评论提交失败'
       }
     })
+
+    function clearReply() {
+      const parentField = commentForm?.elements?.namedItem('parent_id')
+      if (parentField) parentField.value = ''
+      if (replyContext) replyContext.hidden = true
+      if (replyName) replyName.textContent = ''
+    }
+
+    commentsList?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-reply-id]')
+      if (!button || !commentForm) return
+      const parentField = commentForm.elements.namedItem('parent_id')
+      if (parentField) parentField.value = button.dataset.replyId || ''
+      if (replyName) replyName.textContent = button.dataset.replyName || ''
+      if (replyContext) replyContext.hidden = false
+      commentForm.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      commentForm.elements.namedItem('content')?.focus()
+    })
+    document.getElementById('cancel-comment-reply')?.addEventListener('click', clearReply)
 
     commentButton?.addEventListener('click', () => {
       commentDialog?.showModal()

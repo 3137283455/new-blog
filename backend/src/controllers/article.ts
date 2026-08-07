@@ -216,11 +216,43 @@ export function detail(req: AuthRequest, res: Response) {
     WHERE at2.article_id = ?
   `).all(article.id)
 
+  const publishedAt = article.published_at || article.created_at
+  const publicWhere = "status = 'published' AND visibility = 'public' AND deleted_at IS NULL"
+  const previous = db.prepare(`
+    SELECT id, title, slug, excerpt, published_at, created_at
+    FROM articles
+    WHERE ${publicWhere} AND id != ? AND COALESCE(published_at, created_at) < ?
+    ORDER BY COALESCE(published_at, created_at) DESC LIMIT 1
+  `).get(article.id, publishedAt)
+  const next = db.prepare(`
+    SELECT id, title, slug, excerpt, published_at, created_at
+    FROM articles
+    WHERE ${publicWhere} AND id != ? AND COALESCE(published_at, created_at) > ?
+    ORDER BY COALESCE(published_at, created_at) ASC LIMIT 1
+  `).get(article.id, publishedAt)
+  const related = db.prepare(`
+    SELECT a.id, a.title, a.slug, a.excerpt, a.view_count, a.published_at, a.created_at,
+           c.name AS category_name,
+           (CASE WHEN a.category_id = ? THEN 3 ELSE 0 END + COUNT(DISTINCT shared.tag_id)) AS relevance
+    FROM articles a
+    LEFT JOIN categories c ON a.category_id = c.id
+    LEFT JOIN article_tags shared ON shared.article_id = a.id
+      AND shared.tag_id IN (SELECT tag_id FROM article_tags WHERE article_id = ?)
+    WHERE ${publicWhere.replace(/\b(status|visibility|deleted_at)\b/g, 'a.$1')} AND a.id != ?
+    GROUP BY a.id
+    HAVING relevance > 0
+    ORDER BY relevance DESC, a.view_count DESC, COALESCE(a.published_at, a.created_at) DESC
+    LIMIT 3
+  `).all(article.category_id || 0, article.id, article.id)
+
   return success(res, {
     ...article,
     is_pinned: !!article.is_pinned,
     is_recommended: !!article.is_recommended,
     tags,
+    previous,
+    next,
+    related,
   })
 }
 

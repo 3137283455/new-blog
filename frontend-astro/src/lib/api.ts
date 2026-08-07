@@ -14,6 +14,7 @@ export interface Article {
   slug: string
   content_html?: string
   excerpt?: string
+  cover_image?: string
   title_font_family?: string
   title_font_url?: string
   body_font_family?: string
@@ -25,9 +26,25 @@ export interface Article {
   comment_count?: number
   published_at?: string | null
   created_at: string
+  updated_at?: string
   is_pinned?: boolean
   is_recommended?: boolean
   tags?: { id: number; name: string }[]
+  previous?: ArticleSummary | null
+  next?: ArticleSummary | null
+  related?: ArticleSummary[]
+}
+
+export interface ArticleSummary {
+  id: number
+  title: string
+  slug: string
+  excerpt?: string
+  category_name?: string
+  view_count?: number
+  published_at?: string | null
+  created_at: string
+  updated_at?: string
 }
 
 export interface MusicTrack {

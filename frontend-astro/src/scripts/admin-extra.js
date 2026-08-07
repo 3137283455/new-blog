@@ -225,12 +225,24 @@
           <h2>${html(title)}</h2>
           <p>${html(description)}</p>
         </div>
-        <button id="${buttonId}" class="ryu-btn-primary" type="button">${html(buttonLabel)}</button>
+        <div class="admin-collection-header-actions">
+          <button id="${buttonId}" class="ryu-btn-primary" type="button">${html(buttonLabel)}</button>
+        </div>
       `;
       oldTitle?.replaceWith(header);
     };
     addListHeader('navigation-list', '导航列表', '新增和编辑通过弹窗完成，页面只展示资源列表。', 'navigation-create', '新增导航');
     addListHeader('albums-list', '相册列表', '点击相册管理其中的全部照片。', 'album-create', '新建相册');
+
+    const navigationHeader = $('#navigation-list')?.closest('.ryu-card')?.querySelector('.admin-collection-header');
+    if (navigationHeader && !$('#navigation-import')) {
+      const actions = navigationHeader.querySelector('button')?.parentElement || navigationHeader;
+      actions.insertAdjacentHTML('afterbegin', `
+        <button id="navigation-import" class="btn btn-sm rounded-xl" type="button">导入书签</button>
+        <button id="navigation-export" class="btn btn-sm rounded-xl" type="button">导出书签</button>
+        <input id="navigation-import-file" type="file" accept=".html,.htm,text/html" hidden />
+      `);
+    }
 
     const photoAlbumSelect = $('#album-photo-form')?.elements.namedItem('album_id');
     if (photoAlbumSelect) photoAlbumSelect.classList.add('hidden');
@@ -302,7 +314,8 @@
     if (!list) return;
     list.className = 'admin-collection-grid mt-5';
     list.innerHTML = state.navigation.map((item) => `
-      <article class="admin-resource-card">
+      <article class="admin-resource-card" draggable="true" data-navigation-drag-id="${item.id}">
+        <span class="admin-drag-handle" title="拖拽排序" aria-hidden="true">⋮⋮</span>
         <div class="admin-resource-logo">
           ${item.avatar ? `<img src="${html(item.avatar)}" alt="" loading="lazy" decoding="async" />` : `<span>${html(item.icon || item.title?.slice(0, 1) || 'N')}</span>`}
         </div>
@@ -319,6 +332,98 @@
         </div>
       </article>
     `).join('') || '<div class="admin-collection-empty">还没有导航资源。</div>';
+  }
+
+  async function saveNavigationOrder() {
+    const ids = Array.from($('#navigation-list')?.querySelectorAll('[data-navigation-drag-id]') || [])
+      .map((item) => Number(item.dataset.navigationDragId));
+    if (!ids.length) return;
+    try {
+      await api('/admin/navigation/reorder', { method: 'PUT', body: JSON.stringify({ ids }) });
+      await loadNavigation();
+      window.notifyAdmin?.('导航排序已保存');
+    } catch (error) {
+      await loadNavigation().catch(() => {});
+      window.notifyAdmin?.(error.message || '保存排序失败', true);
+    }
+  }
+
+  function setupNavigationDrag() {
+    const list = $('#navigation-list');
+    if (!list || list.dataset.dragReady) return;
+    list.dataset.dragReady = 'true';
+    list.addEventListener('dragstart', (event) => {
+      const card = event.target.closest('[data-navigation-drag-id]');
+      if (!card) return;
+      card.classList.add('is-dragging');
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', card.dataset.navigationDragId || '');
+    });
+    list.addEventListener('dragover', (event) => {
+      const dragging = list.querySelector('.is-dragging');
+      const target = event.target.closest('[data-navigation-drag-id]');
+      if (!dragging || !target || dragging === target) return;
+      event.preventDefault();
+      const bounds = target.getBoundingClientRect();
+      const before = event.clientY < bounds.top + bounds.height / 2;
+      list.insertBefore(dragging, before ? target : target.nextElementSibling);
+    });
+    list.addEventListener('drop', (event) => {
+      if (!list.querySelector('.is-dragging')) return;
+      event.preventDefault();
+      saveNavigationOrder();
+    });
+    list.addEventListener('dragend', () => list.querySelector('.is-dragging')?.classList.remove('is-dragging'));
+  }
+
+  function bookmarkCategory(anchor) {
+    let node = anchor.parentElement;
+    while (node) {
+      if (node.tagName === 'DL') {
+        const heading = node.previousElementSibling;
+        if (heading?.tagName === 'H3' && heading.textContent?.trim()) return heading.textContent.trim();
+      }
+      node = node.parentElement;
+    }
+    return '导入书签';
+  }
+
+  async function importNavigationBookmarks(file) {
+    const source = await file.text();
+    const documentHtml = new DOMParser().parseFromString(source, 'text/html');
+    const items = Array.from(documentHtml.querySelectorAll('a[href]')).slice(0, 500).map((anchor) => ({
+      title: anchor.textContent?.trim() || anchor.getAttribute('href'),
+      url: anchor.getAttribute('href'),
+      category: bookmarkCategory(anchor),
+      icon: '◇',
+    }));
+    if (!items.length) throw new Error('没有从文件中识别到书签');
+    const json = await api('/admin/navigation/import', { method: 'POST', body: JSON.stringify({ items }) });
+    await loadNavigation();
+    window.notifyAdmin?.(`已导入 ${json.data?.imported || 0} 个，跳过 ${json.data?.skipped || 0} 个`);
+  }
+
+  function exportNavigationBookmarks() {
+    const groups = new Map();
+    state.navigation.forEach((item) => {
+      const category = item.category || '默认';
+      if (!groups.has(category)) groups.set(category, []);
+      groups.get(category).push(item);
+    });
+    const body = Array.from(groups.entries()).map(([category, items]) => `
+      <DT><H3>${html(category)}</H3>
+      <DL><p>
+        ${items.map((item) => `<DT><A HREF="${html(item.url)}">${html(item.title)}</A>${item.description ? `<DD>${html(item.description)}` : ''}`).join('\n')}
+      </DL><p>
+    `).join('\n');
+    const content = `<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>博客导航书签</TITLE>\n<H1>博客导航书签</H1>\n<DL><p>${body}</DL><p>`;
+    const url = URL.createObjectURL(new Blob([content], { type: 'text/html;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `blog-navigation-${new Date().toISOString().slice(0, 10)}.html`;
+    link.click();
+    URL.revokeObjectURL(url);
+    window.notifyAdmin?.('导航书签已导出');
   }
 
   function renderAlbumCollection() {
@@ -943,8 +1048,22 @@
   });
 
   setupCollectionDialogs();
+  setupNavigationDrag();
   renderBangumiPlaySources();
   $('#navigation-create')?.addEventListener('click', () => openNavigationDialog());
+  $('#navigation-import')?.addEventListener('click', () => $('#navigation-import-file')?.click());
+  $('#navigation-export')?.addEventListener('click', exportNavigationBookmarks);
+  $('#navigation-import-file')?.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await importNavigationBookmarks(file);
+    } catch (error) {
+      window.notifyAdmin?.(error.message || '导入书签失败', true);
+    } finally {
+      event.target.value = '';
+    }
+  });
   $('#navigation-dialog-close')?.addEventListener('click', () => $('#navigation-dialog')?.close());
   $('#album-create')?.addEventListener('click', () => openAlbumDialog());
   $('#album-dialog-close')?.addEventListener('click', () => $('#album-dialog')?.close());

@@ -114,7 +114,7 @@ export function create(req: AuthRequest, res: Response) {
   if (!article) return error(res, '文章不存在', 'NOT_FOUND', 404)
   const parentId = parent_id ? Number(parent_id) : null
   if (parentId) {
-    const parent = db.prepare('SELECT id FROM comments WHERE id = ? AND article_id = ?').get(parentId, articleId)
+    const parent = db.prepare("SELECT id FROM comments WHERE id = ? AND article_id = ? AND status = 'approved'").get(parentId, articleId)
     if (!parent) return error(res, '回复的评论不存在', 'NOT_FOUND', 404)
   }
 
@@ -169,6 +169,32 @@ export function adminList(req: AuthRequest, res: Response) {
   const { total } = db.prepare(`SELECT COUNT(*) as total FROM comments c WHERE ${where}`).get(...params) as any
 
   return success(res, comments, '获取成功', paginationResult(page, pageSize, total))
+}
+
+export function adminReply(req: AuthRequest, res: Response) {
+  const parentId = Number(req.params.id)
+  const safeContent = cleanText(req.body?.content)
+  if (!Number.isInteger(parentId) || parentId <= 0) return error(res, '评论不存在', 'NOT_FOUND', 404)
+  if (!safeContent) return error(res, '回复内容不能为空')
+  if (safeContent.length > COMMENT_LIMITS.content) return error(res, `回复不能超过 ${COMMENT_LIMITS.content} 个字符`)
+
+  const parent = db.prepare('SELECT id, article_id, status FROM comments WHERE id = ?').get(parentId) as any
+  if (!parent) return error(res, '评论不存在', 'NOT_FOUND', 404)
+  if (parent.status === 'spam') return error(res, '请先将评论通过审核后再回复')
+  const profile = db.prepare("SELECT value FROM settings WHERE key = 'profile_name'").get() as any
+  const siteTitle = db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get() as any
+  const authorName = cleanText(profile?.value || siteTitle?.value || '站长').slice(0, COMMENT_LIMITS.author)
+
+  const publishReply = db.transaction(() => {
+    if (parent.status === 'pending') db.prepare("UPDATE comments SET status = 'approved' WHERE id = ?").run(parentId)
+    db.prepare(`
+      INSERT INTO comments (article_id, parent_id, author_name, author_email, author_url, content, status, ip, user_agent)
+      VALUES (?, ?, ?, '', '', ?, 'approved', '', 'admin-reply')
+    `).run(Number(parent.article_id), parentId, authorName, safeContent)
+  })
+  publishReply()
+  refreshArticleCommentCount(Number(parent.article_id))
+  return success(res, null, '回复已发布')
 }
 
 export function updateStatus(req: AuthRequest, res: Response) {
