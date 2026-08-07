@@ -186,7 +186,7 @@ async function loadDashboard() {
 async function loadArticles() {
   const status = $('#status-filter').value;
   const trashed = $('#trash-filter')?.checked;
-  const qs = new URLSearchParams({ page: '1', pageSize: '30' });
+  const qs = new URLSearchParams({ page: '1', pageSize: '30', summary: 'true' });
   if (status) qs.set('status', status);
   if (trashed) qs.set('trashed', 'true');
   const json = await request(`/admin/articles?${qs.toString()}`);
