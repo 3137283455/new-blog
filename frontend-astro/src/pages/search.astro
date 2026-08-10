@@ -5,10 +5,28 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 ---
 
 <BaseLayout title="搜索" subtitle="搜索站内文章">
-  <div class="ryu-card p-5" data-api-base={apiBase}>
-    <label class="input input-bordered flex items-center gap-2 rounded-2xl">
-      <input id="search-input" type="search" class="grow" placeholder="输入关键词，搜索标题、正文、标签、分类..." />
+  <div class="ryu-card search-workbench p-5" data-api-base={apiBase}>
+    <header class="search-workbench-head">
+      <div><p>DISCOVER</p><h2>找到想读的内容</h2></div>
+      <button id="search-random" type="button">随机阅读 ↗</button>
+    </header>
+    <label class="input input-bordered search-main-input flex items-center gap-2 rounded-2xl">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+      <input id="search-input" type="search" class="grow" placeholder="输入关键词，搜索标题、正文、标签、分类..." autocomplete="off" />
+      <kbd>/</kbd>
     </label>
+    <div class="search-tools">
+      <div class="search-sort" aria-label="搜索排序">
+        <button class="is-active" type="button" data-search-sort="latest">最新</button>
+        <button type="button" data-search-sort="popular">热门</button>
+        <button type="button" data-search-sort="oldest">最早</button>
+      </div>
+      <span id="search-summary" aria-live="polite">输入关键词开始搜索</span>
+    </div>
+    <section id="search-history" class="search-history" hidden>
+      <header><span>最近搜索</span><button id="clear-search-history" type="button">清除</button></header>
+      <div id="search-history-list"></div>
+    </section>
     <div id="search-results" class="mt-4 flex flex-col gap-3" aria-live="polite"></div>
     <button id="search-more" class="ryu-btn mt-4 hidden" type="button">加载更多</button>
   </div>
@@ -18,10 +36,16 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     const input = document.getElementById('search-input') as HTMLInputElement | null
     const results = document.getElementById('search-results')
     const moreButton = document.getElementById('search-more') as HTMLButtonElement | null
+    const summary = document.getElementById('search-summary')
+    const historySection = document.getElementById('search-history')
+    const historyList = document.getElementById('search-history-list')
     const apiBase = box?.dataset.apiBase || '/api'
+    const SEARCH_HISTORY_KEY = 'boke-search-history-v1'
     let currentQuery = ''
     let currentPage = 1
+    let currentSort = 'latest'
     let hasMore = false
+    let searchController: AbortController | null = null
 
     function escapeHtml(value: unknown) {
       const map: Record<string, string> = {
@@ -60,30 +84,63 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       moreButton?.classList.toggle('hidden', !visible)
     }
 
+    function getSearchHistory() {
+      try {
+        const history = JSON.parse(localStorage.getItem(SEARCH_HISTORY_KEY) || '[]')
+        return Array.isArray(history) ? history.slice(0, 8) : []
+      } catch {
+        return []
+      }
+    }
+
+    function renderSearchHistory() {
+      if (!historySection || !historyList) return
+      const history = getSearchHistory()
+      historySection.hidden = history.length === 0
+      historyList.innerHTML = history.map((query: string) => `<button type="button" data-history-query="${escapeHtml(query)}">${escapeHtml(query)}</button>`).join('')
+    }
+
+    function rememberSearch(query: string) {
+      const history = getSearchHistory().filter((item: string) => item.toLowerCase() !== query.toLowerCase())
+      history.unshift(query)
+      try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history.slice(0, 8))) } catch {}
+      renderSearchHistory()
+    }
+
     async function search(query: string, page = 1, append = false) {
       if (!results) return
       if (!query.trim()) {
         results.innerHTML = ''
+        if (summary) summary.textContent = '输入关键词开始搜索'
         setMoreVisible(false)
         return
       }
       currentQuery = query.trim()
       currentPage = page
       try {
+        if (!append) {
+          searchController?.abort()
+          searchController = new AbortController()
+        }
         if (!append) results.innerHTML = '<p class="text-base-content/45">正在搜索...</p>'
+        if (summary) summary.textContent = `正在搜索“${currentQuery}”…`
         if (moreButton) moreButton.disabled = true
-        const params = new URLSearchParams({ q: query, page: String(page), pageSize: '20' })
-        const res = await fetch(`${apiBase}/articles/search?${params.toString()}`, { cache: 'no-store' })
+        const params = new URLSearchParams({ q: query, page: String(page), pageSize: '20', sort: currentSort })
+        const res = await fetch(`${apiBase}/articles/search?${params.toString()}`, { cache: 'no-store', signal: searchController?.signal })
         const json = await res.json()
         if (!res.ok || json.success === false) throw new Error(json.message || '搜索失败')
         const posts = json.data?.posts || json.data || []
         const html = renderPosts(posts)
         results.innerHTML = append ? results.innerHTML + html : (html || '<p class="text-base-content/45">没有找到相关内容</p>')
         const pagination = json.pagination || {}
+        if (!append) rememberSearch(currentQuery)
+        if (summary) summary.textContent = `找到 ${Number(pagination.total ?? posts.length)} 篇结果`
         setMoreVisible(Number(pagination.page || page) < Number(pagination.totalPages || 1))
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return
         const message = error instanceof Error ? error.message : '搜索服务暂时不可用'
         if (!append) results.innerHTML = `<p class="text-base-content/45">${escapeHtml(message)}</p>`
+        if (summary) summary.textContent = message
         setMoreVisible(false)
       } finally {
         if (moreButton) moreButton.disabled = false
@@ -98,6 +155,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         const value = input.value.trim()
         if (value) url.searchParams.set('q', value)
         else url.searchParams.delete('q')
+        url.searchParams.set('sort', currentSort)
         history.replaceState(null, '', url)
         search(input.value, 1, false)
       }, 180)
@@ -107,13 +165,79 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       search(currentQuery, currentPage + 1, true)
     })
 
-    const initial = new URLSearchParams(location.search).get('q') || ''
+    document.querySelectorAll<HTMLButtonElement>('[data-search-sort]').forEach((button) => {
+      button.addEventListener('click', () => {
+        currentSort = button.dataset.searchSort || 'latest'
+        document.querySelectorAll('[data-search-sort]').forEach((item) => item.classList.toggle('is-active', item === button))
+        const url = new URL(location.href)
+        url.searchParams.set('sort', currentSort)
+        history.replaceState(null, '', url)
+        if (input?.value.trim()) search(input.value, 1, false)
+      })
+    })
+    historyList?.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-history-query]')
+      if (!button || !input) return
+      input.value = button.dataset.historyQuery || ''
+      input.dispatchEvent(new Event('input'))
+      input.focus()
+    })
+    document.getElementById('clear-search-history')?.addEventListener('click', () => {
+      try { localStorage.removeItem(SEARCH_HISTORY_KEY) } catch {}
+      renderSearchHistory()
+    })
+    document.getElementById('search-random')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement
+      button.disabled = true
+      try {
+        const response = await fetch(`${apiBase}/articles/random`, { cache: 'no-store' })
+        const json = await response.json().catch(() => ({}))
+        if (!response.ok || !json.data?.slug) throw new Error(json.message || '暂时没有文章')
+        location.href = `/article/${encodeURIComponent(json.data.slug)}`
+      } catch (error) {
+        if (summary) summary.textContent = error instanceof Error ? error.message : '随机阅读失败'
+        button.disabled = false
+      }
+    })
+    document.addEventListener('keydown', (event) => {
+      if (event.key === '/' && document.activeElement !== input && !(document.activeElement instanceof HTMLInputElement) && !(document.activeElement instanceof HTMLTextAreaElement)) {
+        event.preventDefault()
+        input?.focus()
+      }
+    })
+
+    const searchParams = new URLSearchParams(location.search)
+    const initial = searchParams.get('q') || ''
+    currentSort = ['latest', 'popular', 'oldest'].includes(searchParams.get('sort') || '') ? (searchParams.get('sort') || 'latest') : 'latest'
+    document.querySelectorAll<HTMLButtonElement>('[data-search-sort]').forEach((button) => button.classList.toggle('is-active', button.dataset.searchSort === currentSort))
+    renderSearchHistory()
     if (input && initial) {
       input.value = initial
       search(initial, 1, false)
     }
   </script>
   <style>
+    .search-workbench { display: grid; gap: 1rem; }
+    .search-workbench-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+    .search-workbench-head p { color: var(--brand); font-size: 0.62rem; font-weight: 850; letter-spacing: 0.14em; }
+    .search-workbench-head h2 { margin-top: 0.12rem; font-family: var(--editorial-serif); font-size: clamp(1.45rem, 3vw, 2.1rem); font-weight: 650; }
+    .search-workbench-head button { border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); padding: 0.55rem 0.8rem; font-size: 0.68rem; font-weight: 780; cursor: pointer; }
+    .search-workbench-head button:hover { border-color: var(--brand); color: var(--brand); }
+    .search-main-input { min-height: 3.7rem; }
+    .search-main-input svg { width: 1.15rem; fill: none; stroke: currentColor; stroke-width: 1.8; }
+    .search-main-input kbd { border: 1px solid var(--line); border-radius: 0.4rem; color: var(--muted-ink); padding: 0.15rem 0.4rem; font-size: 0.65rem; }
+    .search-tools { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .search-tools > span { color: var(--muted-ink); font-size: 0.68rem; }
+    .search-sort { display: flex; gap: 0.28rem; border-radius: 999px; background: color-mix(in srgb, var(--line) 55%, transparent); padding: 0.22rem; }
+    .search-sort button { border: 0; border-radius: 999px; background: transparent; color: var(--muted-ink); padding: 0.4rem 0.7rem; font-size: 0.64rem; font-weight: 760; cursor: pointer; }
+    .search-sort button.is-active { background: var(--surface-solid); color: var(--ink); box-shadow: 0 3px 10px rgb(20 28 21 / 0.08); }
+    .search-history { display: grid; gap: 0.55rem; border-top: 1px solid var(--line); padding-top: 0.85rem; }
+    .search-history[hidden] { display: none; }
+    .search-history header { display: flex; align-items: center; justify-content: space-between; color: var(--muted-ink); font-size: 0.66rem; }
+    .search-history header button { border: 0; background: transparent; color: inherit; font-size: inherit; cursor: pointer; }
+    .search-history > div { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .search-history > div button { border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--ink); padding: 0.38rem 0.65rem; font-size: 0.64rem; cursor: pointer; }
+    .search-history > div button:hover { border-color: var(--brand); color: var(--brand); }
     :global(.search-result mark) {
       border-radius: 0.35rem;
       background: color-mix(in srgb, var(--p) 24%, transparent);
@@ -125,6 +249,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       background: color-mix(in srgb, var(--p) 9%, transparent);
       padding: 0.2rem 0.55rem;
       color: hsl(var(--bc) / 0.72);
+    }
+    @media (max-width: 640px) {
+      .search-workbench-head { align-items: flex-start; flex-direction: column; }
+      .search-tools { align-items: flex-start; flex-direction: column; }
     }
   </style>
 </BaseLayout>

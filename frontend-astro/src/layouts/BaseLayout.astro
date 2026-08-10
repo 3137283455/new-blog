@@ -62,7 +62,9 @@ const mergedSidebarProps = {
     <meta name="theme-color" content="#f4f2ea" />
     <meta name="description" content={pageDescription} />
     <link rel="canonical" href={canonicalUrl} />
-    <link rel="alternate" type="application/rss+xml" title={`${siteTitle} RSS`} href="/api/rss" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="alternate" type="application/rss+xml" title={`${siteTitle} RSS`} href="/rss.xml" />
+    <link rel="alternate" type="application/feed+json" title={`${siteTitle} JSON Feed`} href="/feed.json" />
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:type" content={pageType} />
     <meta property="og:site_name" content={siteTitle} />
@@ -109,6 +111,8 @@ const mergedSidebarProps = {
           <p>记录所想，分享所见。</p>
         </div>
         <div class="site-footer-meta">
+          <a href="/rss.xml">RSS</a>
+          <a href="/feed.json">JSON Feed</a>
           <span>© 2026</span>
           <span>已运行 <strong id="site-uptime">--</strong></span>
           <span>今日 <strong id="visitor-today">--</strong> · 累计 <strong id="visitor-total">--</strong></span>
@@ -137,6 +141,9 @@ const mergedSidebarProps = {
           if (totalEl) totalEl.textContent = json.data?.total ?? '--';
         })
         .catch(() => {});
+      if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}), { once: true });
+      }
     </script>
   </body>
 </html>

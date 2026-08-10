@@ -28,6 +28,10 @@ const wordCountEnabled = pluginIds.has('word-count')
 const backToTopEnabled = pluginIds.has('back-to-top')
 const articleLikeEnabled = pluginIds.has('article-like')
 const readingHistoryEnabled = pluginIds.has('reading-history')
+const tableOfContentsEnabled = pluginIds.has('table-of-contents')
+const articleBookmarkEnabled = pluginIds.has('article-bookmark')
+const readingModeEnabled = pluginIds.has('reading-mode')
+const codeCopyEnabled = pluginIds.has('code-copy')
 const articleText = String(article.content || article.content_html || '')
   .replace(/<[^>]+>/g, ' ')
   .replace(/&[a-z0-9#]+;/gi, ' ')
@@ -134,8 +138,8 @@ const structuredData = JSON.stringify({
 
     </div>
 
-    <aside class="article-reading-side" aria-label="文章侧栏">
-      {toc.length ? (
+    <aside class:list={['article-reading-side', tableOfContentsEnabled && toc.length && 'has-toc']} aria-label="文章侧栏">
+      {tableOfContentsEnabled && toc.length ? (
         <BaseCard class="article-toc-card p-5">
           <h2>文章目录</h2>
           <nav aria-label="文章目录">
@@ -158,10 +162,22 @@ const structuredData = JSON.stringify({
               <span>喜欢</span><small data-like-count>{article.like_count || 0}</small>
             </button>
           )}
+          {articleBookmarkEnabled && (
+            <button id="bookmark-button" type="button" title="收藏文章" aria-label="收藏文章" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.6L6 21V4.8Z"></path></svg>
+              <span>收藏</span>
+            </button>
+          )}
           <button id="share-button" type="button" title="分享文章" aria-label="分享文章">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"></path></svg>
             <span>分享</span>
           </button>
+          {readingModeEnabled && (
+            <button id="reading-settings-button" type="button" title="阅读设置" aria-label="打开阅读设置">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M9 18h6"></path><circle cx="8" cy="6" r="1.5"></circle><circle cx="15" cy="12" r="1.5"></circle><circle cx="12" cy="18" r="1.5"></circle></svg>
+              <span>阅读</span>
+            </button>
+          )}
           {backToTopEnabled && (
             <button id="back-top-button" type="button" title="回到顶部" aria-label="回到顶部">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6-6 6 6M12 4v16"></path></svg>
@@ -173,6 +189,39 @@ const structuredData = JSON.stringify({
       </div>
     </aside>
   </div>
+
+  {readingModeEnabled && (
+    <dialog id="reading-settings-dialog" class="reading-settings-dialog" aria-labelledby="reading-settings-title">
+      <form method="dialog" class="reading-settings-panel">
+        <header>
+          <div><small>READING MODE</small><h2 id="reading-settings-title">阅读设置</h2></div>
+          <button value="close" aria-label="关闭阅读设置" title="关闭">×</button>
+        </header>
+        <label class="reading-range-control">
+          <span><b>正文字号</b><output id="reading-font-output">18px</output></span>
+          <input id="reading-font-size" type="range" min="16" max="24" step="1" value="18" />
+        </label>
+        <fieldset>
+          <legend>行间距</legend>
+          <div class="reading-segmented" id="reading-line-height">
+            <button type="button" data-value="1.65">紧凑</button>
+            <button type="button" data-value="1.85">舒适</button>
+            <button type="button" data-value="2.05">宽松</button>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>正文宽度</legend>
+          <div class="reading-segmented" id="reading-content-width">
+            <button type="button" data-value="760">专注</button>
+            <button type="button" data-value="900">标准</button>
+            <button type="button" data-value="1040">宽屏</button>
+          </div>
+        </fieldset>
+        <label class="reading-focus-toggle"><span><b>专注模式</b><small>隐藏横幅与页脚，只保留文章</small></span><input id="reading-focus-mode" type="checkbox" /></label>
+        <footer><button id="reset-reading-settings" type="button">恢复默认</button><button value="close">完成</button></footer>
+      </form>
+    </dialog>
+  )}
 
   <dialog id="comment-dialog" class="article-comment-dialog" aria-labelledby="comment-dialog-title">
     <div class="article-comment-panel">
@@ -230,6 +279,9 @@ const structuredData = JSON.stringify({
     serverLikeCount: article.like_count || 0,
     readingProgressEnabled,
     readingHistoryEnabled,
+    articleBookmarkEnabled,
+    readingModeEnabled,
+    codeCopyEnabled,
   }}>
     const articleId = Number(serverArticleId)
     const commentsList = document.getElementById('comments-list')
@@ -241,6 +293,9 @@ const structuredData = JSON.stringify({
     const replyContext = document.getElementById('comment-reply-context')
     const replyName = document.getElementById('comment-reply-name')
     const likeButton = document.getElementById('like-button')
+    const bookmarkButton = document.getElementById('bookmark-button')
+    const readingSettingsButton = document.getElementById('reading-settings-button')
+    const readingSettingsDialog = document.getElementById('reading-settings-dialog')
     const progressRoot = document.querySelector('.article-reading-progress')
     const progressBar = document.getElementById('article-reading-progress-bar')
     const readingPercent = document.getElementById('reading-percent')
@@ -249,6 +304,8 @@ const structuredData = JSON.stringify({
     const resumeStatus = document.getElementById('reading-resume-status')
     const HISTORY_KEY = 'boke-reading-history-v1'
     const LIKED_KEY = 'boke-liked-articles-v1'
+    const BOOKMARK_KEY = 'boke-article-bookmarks-v1'
+    const READING_PREFS_KEY = 'boke-reading-preferences-v1'
     let interactionTimer
     let readingSaveTimer
     let savedReadingEntry = null
@@ -290,6 +347,24 @@ const structuredData = JSON.stringify({
       } catch {
         // 阅读与点赞仍可使用，只是不在当前浏览器持久化。
       }
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value)
+        return
+      }
+      const field = document.createElement('textarea')
+      field.value = value
+      field.setAttribute('readonly', '')
+      field.style.position = 'fixed'
+      field.style.opacity = '0'
+      document.body.append(field)
+      field.select()
+      // 兼容非 HTTPS 环境；现代浏览器优先使用 Clipboard API。
+      const copied = Reflect.get(document, 'execCommand').call(document, 'copy')
+      field.remove()
+      if (!copied) throw new Error('复制失败')
     }
 
     async function loadComments() {
@@ -410,6 +485,94 @@ const structuredData = JSON.stringify({
       })
     }
 
+    function getBookmarks() {
+      const bookmarks = readLocalJson(BOOKMARK_KEY, [])
+      return Array.isArray(bookmarks) ? bookmarks : []
+    }
+
+    function setBookmarkState(bookmarked) {
+      if (!bookmarkButton) return
+      bookmarkButton.classList.toggle('is-bookmarked', bookmarked)
+      bookmarkButton.setAttribute('aria-pressed', String(bookmarked))
+      bookmarkButton.setAttribute('aria-label', bookmarked ? '取消收藏文章' : '收藏文章')
+      const label = bookmarkButton.querySelector('span')
+      if (label) label.textContent = bookmarked ? '已藏' : '收藏'
+    }
+
+    if (articleBookmarkEnabled && bookmarkButton) {
+      setBookmarkState(getBookmarks().some((item) => String(item.id) === String(articleId)))
+      bookmarkButton.addEventListener('click', () => {
+        const bookmarks = getBookmarks()
+        const index = bookmarks.findIndex((item) => String(item.id) === String(articleId))
+        if (index >= 0) {
+          bookmarks.splice(index, 1)
+          setBookmarkState(false)
+          showInteractionMessage('已取消收藏')
+        } else {
+          bookmarks.unshift({
+            id: articleId,
+            slug: String(serverArticleSlug),
+            title: String(serverArticleTitle),
+            savedAt: Date.now(),
+          })
+          setBookmarkState(true)
+          showInteractionMessage('已加入收藏')
+        }
+        writeLocalJson(BOOKMARK_KEY, bookmarks.slice(0, 50))
+      })
+    }
+
+    const defaultReadingPreferences = { fontSize: 18, lineHeight: 1.85, width: 900, focus: false }
+    const readingFontInput = document.getElementById('reading-font-size')
+    const readingFontOutput = document.getElementById('reading-font-output')
+    const readingFocusInput = document.getElementById('reading-focus-mode')
+    const articleCard = document.querySelector('.article-content-card')
+    let readingPreferences = { ...defaultReadingPreferences, ...readLocalJson(READING_PREFS_KEY, {}) }
+
+    function normalizeReadingPreferences(value) {
+      const fontSize = Math.max(16, Math.min(24, Number(value.fontSize) || defaultReadingPreferences.fontSize))
+      const lineHeight = [1.65, 1.85, 2.05].includes(Number(value.lineHeight)) ? Number(value.lineHeight) : defaultReadingPreferences.lineHeight
+      const width = [760, 900, 1040].includes(Number(value.width)) ? Number(value.width) : defaultReadingPreferences.width
+      return { fontSize, lineHeight, width, focus: Boolean(value.focus) }
+    }
+
+    function applyReadingPreferences(nextPreferences, persist = false) {
+      readingPreferences = normalizeReadingPreferences(nextPreferences)
+      if (articleBody) {
+        articleBody.style.fontSize = `${readingPreferences.fontSize}px`
+        articleBody.style.lineHeight = String(readingPreferences.lineHeight)
+      }
+      if (articleCard) {
+        articleCard.style.maxWidth = `${readingPreferences.width}px`
+        articleCard.style.marginInline = 'auto'
+      }
+      document.body.classList.toggle('article-focus-mode', readingPreferences.focus)
+      if (readingFontInput) readingFontInput.value = String(readingPreferences.fontSize)
+      if (readingFontOutput) readingFontOutput.textContent = `${readingPreferences.fontSize}px`
+      if (readingFocusInput) readingFocusInput.checked = readingPreferences.focus
+      document.querySelectorAll('#reading-line-height [data-value]').forEach((button) => {
+        button.classList.toggle('is-active', Number(button.dataset.value) === readingPreferences.lineHeight)
+      })
+      document.querySelectorAll('#reading-content-width [data-value]').forEach((button) => {
+        button.classList.toggle('is-active', Number(button.dataset.value) === readingPreferences.width)
+      })
+      if (persist) writeLocalJson(READING_PREFS_KEY, readingPreferences)
+    }
+
+    if (readingModeEnabled) {
+      applyReadingPreferences(readingPreferences)
+      readingSettingsButton?.addEventListener('click', () => readingSettingsDialog?.showModal())
+      readingFontInput?.addEventListener('input', () => applyReadingPreferences({ ...readingPreferences, fontSize: Number(readingFontInput.value) }, true))
+      document.querySelectorAll('#reading-line-height [data-value]').forEach((button) => {
+        button.addEventListener('click', () => applyReadingPreferences({ ...readingPreferences, lineHeight: Number(button.dataset.value) }, true))
+      })
+      document.querySelectorAll('#reading-content-width [data-value]').forEach((button) => {
+        button.addEventListener('click', () => applyReadingPreferences({ ...readingPreferences, width: Number(button.dataset.value) }, true))
+      })
+      readingFocusInput?.addEventListener('change', () => applyReadingPreferences({ ...readingPreferences, focus: readingFocusInput.checked }, true))
+      document.getElementById('reset-reading-settings')?.addEventListener('click', () => applyReadingPreferences(defaultReadingPreferences, true))
+    }
+
     function getArticleReadingProgress() {
       if (!articleBody) return 0
       const start = articleBody.getBoundingClientRect().top + window.scrollY - 120
@@ -512,7 +675,7 @@ const structuredData = JSON.stringify({
       try {
         if (navigator.share) await navigator.share(shareData)
         else {
-          await navigator.clipboard?.writeText(location.href)
+          await copyText(location.href)
           showInteractionMessage('链接已复制')
         }
       } catch (error) {
@@ -529,5 +692,29 @@ const structuredData = JSON.stringify({
     setActiveToc()
     updateReadingProgress()
     if (readingHistoryEnabled && !savedReadingEntry) saveReadingHistory()
+
+    if (codeCopyEnabled && articleBody) {
+      articleBody.querySelectorAll('pre').forEach((block) => {
+        if (block.dataset.copyReady) return
+        block.dataset.copyReady = 'true'
+        const code = block.querySelector('code')
+        const languageClass = Array.from(code?.classList || []).find((name) => name.startsWith('language-'))
+        const language = languageClass ? languageClass.slice(9) : 'code'
+        const toolbar = document.createElement('div')
+        toolbar.className = 'article-code-toolbar'
+        toolbar.innerHTML = `<span>${escapeHtml(language)}</span><button type="button">复制</button>`
+        toolbar.querySelector('button')?.addEventListener('click', async (event) => {
+          const button = event.currentTarget
+          try {
+            await copyText(code?.textContent || block.textContent || '')
+            button.textContent = '已复制'
+            window.setTimeout(() => { button.textContent = '复制' }, 1600)
+          } catch {
+            button.textContent = '失败'
+          }
+        })
+        block.prepend(toolbar)
+      })
+    }
   </script>
 </BaseLayout>

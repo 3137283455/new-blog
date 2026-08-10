@@ -7,6 +7,7 @@ const [{ articles, pagination }, activePlugins] = await Promise.all([
   getActivePlugins(),
 ])
 const readingHistoryEnabled = activePlugins.some((plugin) => plugin.id === 'reading-history')
+const articleBookmarkEnabled = activePlugins.some((plugin) => plugin.id === 'article-bookmark')
 const featured = articles.find((post) => post.is_pinned || post.is_recommended) || articles[0]
 const regularArticles = articles.filter((post) => post.id !== featured?.id)
 const totalViews = articles.reduce((sum, post) => sum + Number(post.view_count || 0), 0)
@@ -40,6 +41,7 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
       <a href="/archive"><span>浏览归档</span><small>{pagination?.total || articles.length} 篇文章</small></a>
       <a href="/search"><span>搜索内容</span><small>Ctrl / ⌘ K</small></a>
       <a href="/nav"><span>网址导航</span><small>浏览器首页</small></a>
+      <button id="random-article" type="button"><span>随机阅读</span><small>换一篇故事</small></button>
       <a href="/admin/write"><span>开始写作</span><small>新建草稿</small></a>
     </nav>
   </section>
@@ -51,6 +53,16 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
         <button id="clear-reading-history" type="button">清除记录</button>
       </header>
       <div id="home-reading-history-list"></div>
+    </section>
+  )}
+
+  {articleBookmarkEnabled && (
+    <section id="home-bookmarks" class="home-bookmarks" hidden aria-label="我的收藏">
+      <header class="section-heading">
+        <div><span class="section-number">★</span><div><p>Saved stories</p><h2>我的收藏</h2></div></div>
+        <button id="clear-bookmarks" type="button">清除收藏</button>
+      </header>
+      <div id="home-bookmark-list"></div>
     </section>
   )}
 
@@ -114,8 +126,11 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
 
   <script>
     const HISTORY_KEY = 'boke-reading-history-v1'
+    const BOOKMARK_KEY = 'boke-article-bookmarks-v1'
     const historySection = document.getElementById('home-reading-history')
     const historyList = document.getElementById('home-reading-history-list')
+    const bookmarkSection = document.getElementById('home-bookmarks')
+    const bookmarkList = document.getElementById('home-bookmark-list')
     const escapeHistoryHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     })[character] || character)
@@ -141,10 +156,52 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
       }).join('')
     }
 
+    function renderBookmarks() {
+      if (!bookmarkSection || !bookmarkList) return
+      let bookmarks: any[] = []
+      try {
+        const value = JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]')
+        bookmarks = Array.isArray(value) ? value.slice(0, 6) : []
+      } catch {
+        bookmarks = []
+      }
+      bookmarkSection.hidden = bookmarks.length === 0
+      bookmarkList.innerHTML = bookmarks.map((item, index) => `
+        <a href="/article/${encodeURIComponent(String(item.slug || ''))}">
+          <span>${String(index + 1).padStart(2, '0')}</span>
+          <strong>${escapeHistoryHtml(item.title || '未命名文章')}</strong>
+          <small>打开收藏 ↗</small>
+        </a>
+      `).join('')
+    }
+
     document.getElementById('clear-reading-history')?.addEventListener('click', () => {
       try { localStorage.removeItem(HISTORY_KEY) } catch {}
       renderReadingHistory()
     })
+    document.getElementById('clear-bookmarks')?.addEventListener('click', () => {
+      try { localStorage.removeItem(BOOKMARK_KEY) } catch {}
+      renderBookmarks()
+    })
+    document.getElementById('random-article')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement
+      if (button.disabled) return
+      button.disabled = true
+      const small = button.querySelector('small')
+      const previous = small?.textContent || ''
+      if (small) small.textContent = '正在寻找…'
+      try {
+        const response = await fetch('/api/articles/random', { cache: 'no-store' })
+        const json = await response.json().catch(() => ({}))
+        if (!response.ok || !json.data?.slug) throw new Error(json.message || '暂时没有文章')
+        location.href = `/article/${encodeURIComponent(json.data.slug)}`
+      } catch (error) {
+        if (small) small.textContent = error instanceof Error ? error.message : '读取失败'
+        window.setTimeout(() => { if (small) small.textContent = previous }, 1800)
+        button.disabled = false
+      }
+    })
     renderReadingHistory()
+    renderBookmarks()
   </script>
 </BaseLayout>

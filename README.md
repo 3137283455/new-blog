@@ -10,6 +10,9 @@
 - 🔍 **全文搜索**：标题+正文+标签+分类模糊搜索，关键词高亮
 - 💬 **评论系统**：发表、回复、审核、垃圾过滤
 - ❤️ **互动功能**：点赞、分享、回到顶部
+- ⭐ **本地收藏**：收藏文章、首页快速访问，阅读偏好保存在当前浏览器
+- 📖 **沉浸阅读**：字号、行高、正文宽度、专注模式、代码一键复制
+- 🎲 **内容发现**：随机阅读、搜索历史、最新/热门/最早排序
 - 📄 **自定义页面**：留言板、关于我、项目展示等独立页面
 - 🖼️ **媒体管理**：图片上传、冗余清理、本地存储
 
@@ -23,6 +26,8 @@
 - 🌓 **明暗双模式**：自动跟随系统 + 手动切换
 - 📱 **响应式设计**：PC、平板、手机三端适配
 - ⚡ **性能优化**：懒加载、静态资源压缩、分页加载
+- 📲 **可安装应用**：PWA 安装与已访问页面离线缓存
+- 📡 **内容订阅**：RSS 2.0 与 JSON Feed
 - 🚨 **错误页面**：自定义 404/500 美化页
 
 ## 🛠️ 技术栈
@@ -123,6 +128,7 @@ npm run dev
 - `GET /api/articles` — 文章列表（分页、分类、标签筛选）
 - `GET /api/articles/:slug` — 文章详情
 - `GET /api/articles/search?q=` — 全文搜索
+- `GET /api/articles/random` — 随机返回一篇公开文章
 - `GET /api/categories` / `GET /api/tags` — 分类/标签
 - `GET /api/pages/:slug` — 自定义页面
 - `GET /api/navigation` — 导航资源
@@ -131,6 +137,7 @@ npm run dev
 - `GET /api/settings/public` — 公开站点设置与音乐数据
 - `POST /api/articles/:id/comments` — 发表评论
 - `POST /api/articles/:id/like` — 点赞
+- `GET /api/rss` / `GET /api/feed.json` — RSS 与 JSON Feed
 
 ### 管理接口（需 JWT）
 - 文章 CRUD、批量删除、回收站恢复

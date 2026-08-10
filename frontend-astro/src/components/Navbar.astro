@@ -16,6 +16,7 @@ const secondaryItems = [
   { href: '/search', label: '搜索', note: '⌘ K' },
   { href: '/admin/write', label: '写作', note: '新文章' },
   { href: '/admin', label: '后台', note: '管理' },
+  { href: '/rss.xml', label: '订阅', note: 'RSS' },
 ]
 const pathname = Astro.url.pathname
 const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
@@ -66,6 +67,7 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
               <small>{item.note}</small>
             </a>
           ))}
+          <button id="install-app" type="button" hidden><span>安装应用</span><small>离线使用</small></button>
         </div>
       </details>
       <details class="mobile-nav dropdown dropdown-end">
@@ -183,6 +185,26 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
         } catch (error) { if (error?.name !== 'AbortError') staticResults.innerHTML = '<p>搜索暂时不可用</p>'; }
       }, 180);
     });
+
+    const installButton = document.getElementById('install-app');
+    if (installButton && !installButton.dataset.boundInstall) {
+      installButton.dataset.boundInstall = 'true';
+      let installPrompt = null;
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        installPrompt = event;
+        installButton.hidden = false;
+      });
+      installButton.addEventListener('click', async () => {
+        if (!installPrompt) return;
+        await installPrompt.prompt();
+        await installPrompt.userChoice;
+        installPrompt = null;
+        installButton.hidden = true;
+        installButton.closest('details')?.removeAttribute('open');
+      });
+      window.addEventListener('appinstalled', () => { installButton.hidden = true; });
+    }
   }
   document.addEventListener('DOMContentLoaded', initPublicNavigation);
   document.addEventListener('astro:page-load', initPublicNavigation);

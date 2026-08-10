@@ -89,7 +89,7 @@ function seedPlugins() {
     },
     {
       id: 'table-of-contents', name: '文章目录', description: '自动生成文章目录，支持锚点跳转',
-      active: 0,
+      active: 1,
     },
     {
       id: 'word-count', name: '字数统计', description: '显示文章字数和预计阅读时长',
@@ -105,6 +105,18 @@ function seedPlugins() {
     },
     {
       id: 'reading-history', name: '阅读记录', description: '在当前浏览器保存阅读位置并在首页展示最近阅读',
+      active: 1,
+    },
+    {
+      id: 'article-bookmark', name: '文章收藏', description: '允许访客在当前浏览器收藏文章并在首页快速访问',
+      active: 1,
+    },
+    {
+      id: 'reading-mode', name: '沉浸阅读', description: '提供字号、行高、正文宽度和专注模式调节',
+      active: 1,
+    },
+    {
+      id: 'code-copy', name: '代码复制', description: '为文章代码块增加语言提示和一键复制按钮',
       active: 1,
     },
   ]

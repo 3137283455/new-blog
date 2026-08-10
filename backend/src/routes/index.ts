@@ -28,6 +28,7 @@ router.put('/auth/me', auth, authCtrl.updateMe)
 // 鍏紑鎺ュ彛
 router.get('/articles', articleCtrl.list)
 router.get('/articles/search', articleCtrl.search)
+router.get('/articles/random', articleCtrl.random)
 router.get('/articles/:slug', articleCtrl.detail)
 router.get('/categories', categoryCtrl.list)
 router.get('/tags', categoryCtrl.tagList)
@@ -45,6 +46,7 @@ router.get('/themes/active', themeCtrl.active)
 router.get('/plugins/active', pluginCtrl.activePlugins)
 router.get('/settings/public', settingCtrl.publicSettings)
 router.get('/rss', articleCtrl.rss)
+router.get('/feed.json', articleCtrl.jsonFeed)
 router.get('/visitors/count', dashboardCtrl.todayCount)
 
 // 鏂囩珷绠＄悊

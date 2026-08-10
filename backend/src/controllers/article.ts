@@ -19,6 +19,20 @@ function escapeHtml(value: string): string {
   }[char] || char))
 }
 
+function escapeXml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&apos;',
+  }[char] || char))
+}
+
+function cdata(value: unknown): string {
+  return `<![CDATA[${String(value ?? '').replace(/\]\]>/g, ']]]]><![CDATA[>')}]]>`
+}
+
 function generateSlug(title: string): string {
   let slug = title
     .toLowerCase()
@@ -115,6 +129,21 @@ export function list(req: AuthRequest, res: Response) {
   const { total } = db.prepare(countQuery).get(...params.slice(0, -2)) as any
 
   return success(res, articlesWithTags, '获取成功', paginationResult(page, pageSize, total))
+}
+
+export function random(_req: AuthRequest, res: Response) {
+  const article = db.prepare(`
+    SELECT a.id, a.title, a.slug, a.excerpt, a.cover_image, a.view_count,
+           a.comment_count, a.like_count, a.published_at, a.created_at,
+           c.name AS category_name, c.slug AS category_slug
+    FROM articles a
+    LEFT JOIN categories c ON a.category_id = c.id
+    WHERE a.status = 'published' AND a.visibility = 'public' AND a.deleted_at IS NULL
+    ORDER BY RANDOM()
+    LIMIT 1
+  `).get()
+  if (!article) return error(res, '暂时没有可阅读的文章', 'NOT_FOUND', 404)
+  return success(res, article)
 }
 
 export function adminList(req: AuthRequest, res: Response) {
@@ -266,6 +295,7 @@ export function search(req: AuthRequest, res: Response) {
   const q = String(req.query.q || '').trim().slice(0, 80)
   const page = normalizePage(req.query.page)
   const pageSize = normalizePageSize(req.query.pageSize)
+  const sort = ['latest', 'popular', 'oldest'].includes(String(req.query.sort)) ? String(req.query.sort) : 'latest'
 
   if (!q) {
     return success(res, [], '请输入搜索关键词')
@@ -276,6 +306,11 @@ export function search(req: AuthRequest, res: Response) {
   const likeQ = `%${escapeLike(q)}%`
 
   // LIKE 模糊搜索（对中文友好，覆盖标题+正文+摘要+标签）
+  const orderBy = sort === 'popular'
+    ? 'a.view_count DESC, COALESCE(a.published_at, a.created_at) DESC'
+    : sort === 'oldest'
+      ? 'COALESCE(a.published_at, a.created_at) ASC'
+      : 'COALESCE(a.published_at, a.created_at) DESC'
   const results = db.prepare(`
     SELECT
       a.*,
@@ -289,7 +324,7 @@ export function search(req: AuthRequest, res: Response) {
     WHERE (a.title LIKE ? ESCAPE '\\' OR a.content LIKE ? ESCAPE '\\' OR a.excerpt LIKE ? ESCAPE '\\' OR t.name LIKE ? ESCAPE '\\' OR c.name LIKE ? ESCAPE '\\')
       AND a.status = 'published' AND a.visibility = 'public' AND a.deleted_at IS NULL
     GROUP BY a.id
-    ORDER BY a.is_pinned DESC, a.created_at DESC
+    ORDER BY a.is_pinned DESC, ${orderBy}
     LIMIT ? OFFSET ?
   `).all(likeQ, likeQ, likeQ, likeQ, likeQ, pageSize, offset) as any[]
 
@@ -516,34 +551,65 @@ export function forceDelete(req: AuthRequest, res: Response) {
 export function rss(_req: AuthRequest, res: Response) {
   const siteTitle = (db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get() as any)?.value || 'My Blog'
   const siteDesc = (db.prepare("SELECT value FROM settings WHERE key = 'site_description'").get() as any)?.value || ''
-  const baseUrl = process.env.SITE_URL || `http://localhost:${config.port}`
+  const baseUrl = (process.env.SITE_URL || `http://localhost:${config.port}`).replace(/\/$/, '')
 
   const posts = db.prepare(`
     SELECT title, slug, excerpt, content_html, published_at, created_at
-    FROM articles WHERE status = 'published' AND deleted_at IS NULL
-    ORDER BY created_at DESC LIMIT 20
+    FROM articles
+    WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL
+    ORDER BY COALESCE(published_at, created_at) DESC LIMIT 20
   `).all() as any[]
 
   const items = posts.map((p: any) => `
     <item>
-      <title><![CDATA[${p.title}]]></title>
-      <link>${baseUrl}/article/${p.slug}</link>
-      <description><![CDATA[${p.excerpt || p.content_html?.substring(0, 200) || ''}]]></description>
+      <title>${cdata(p.title)}</title>
+      <link>${escapeXml(`${baseUrl}/article/${encodeURIComponent(p.slug)}`)}</link>
+      <description>${cdata(p.excerpt || p.content_html?.substring(0, 500) || '')}</description>
       <pubDate>${new Date(p.published_at || p.created_at).toUTCString()}</pubDate>
-      <guid>${baseUrl}/article/${p.slug}</guid>
+      <guid isPermaLink="true">${escapeXml(`${baseUrl}/article/${encodeURIComponent(p.slug)}`)}</guid>
     </item>`).join('')
 
   const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${siteTitle}</title>
-    <link>${baseUrl}</link>
-    <description>${siteDesc}</description>
-    <atom:link href="${baseUrl}/api/rss" rel="self" type="application/rss+xml"/>
+    <title>${escapeXml(siteTitle)}</title>
+    <link>${escapeXml(baseUrl)}</link>
+    <description>${escapeXml(siteDesc)}</description>
+    <atom:link href="${escapeXml(`${baseUrl}/api/rss`)}" rel="self" type="application/rss+xml"/>
     ${items}
   </channel>
 </rss>`
 
   res.set('Content-Type', 'application/rss+xml; charset=utf-8')
   return res.send(rssXml)
+}
+
+export function jsonFeed(_req: AuthRequest, res: Response) {
+  const siteTitle = (db.prepare("SELECT value FROM settings WHERE key = 'site_title'").get() as any)?.value || 'My Blog'
+  const siteDesc = (db.prepare("SELECT value FROM settings WHERE key = 'site_description'").get() as any)?.value || ''
+  const baseUrl = (process.env.SITE_URL || `http://localhost:${config.port}`).replace(/\/$/, '')
+  const posts = db.prepare(`
+    SELECT title, slug, excerpt, content_html, published_at, created_at, updated_at
+    FROM articles
+    WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL
+    ORDER BY COALESCE(published_at, created_at) DESC LIMIT 20
+  `).all() as any[]
+
+  return res.type('application/feed+json').send({
+    version: 'https://jsonfeed.org/version/1.1',
+    title: siteTitle,
+    description: siteDesc,
+    home_page_url: baseUrl,
+    feed_url: `${baseUrl}/api/feed.json`,
+    language: 'zh-CN',
+    items: posts.map((post) => ({
+      id: `${baseUrl}/article/${encodeURIComponent(post.slug)}`,
+      url: `${baseUrl}/article/${encodeURIComponent(post.slug)}`,
+      title: post.title,
+      summary: post.excerpt || '',
+      content_html: post.content_html || '',
+      date_published: new Date(post.published_at || post.created_at).toISOString(),
+      date_modified: new Date(post.updated_at || post.published_at || post.created_at).toISOString(),
+    })),
+  })
 }
