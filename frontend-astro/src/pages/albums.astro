@@ -83,9 +83,9 @@ const yearItems = Array.from(new Set(albums.map((album) => album.event_date ? ne
     })}
   </section>
 
-  <div id="album-empty" class={`empty-feature ryu-card ${albums.length ? 'hidden' : ''}`}>
-    <strong>还没有相册</strong>
-    <span>去后台“内容中心”里的相册栏目创建相册并上传照片。</span>
+  <div id="album-empty" class="empty-feature ryu-card" hidden={albums.length > 0}>
+    <strong>暂无已公开相册</strong>
+    <span>后台相册开启“前台显示”后会出现在这里。</span>
   </div>
 
   <script>
@@ -180,20 +180,20 @@ const yearItems = Array.from(new Set(albums.map((album) => album.event_date ? ne
       })
       if (!empty) return
       if (!cards.length) {
-        showEmptyMessage('还没有相册', '去后台“内容中心”里的相册栏目创建相册并上传照片。')
+        showEmptyMessage('暂无已公开相册', '后台相册开启“前台显示”后会出现在这里。')
         return
       }
       if (!visibleCount) {
         showEmptyMessage('没有匹配的相册', '换个关键词再试。')
         return
       }
-      empty.classList.add('hidden')
+      empty.hidden = true
     }
 
     function showEmptyMessage(title: string, message: string) {
       if (!empty) return
       empty.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(message)}</span>`
-      empty.classList.remove('hidden')
+      empty.hidden = false
     }
 
     async function refreshAlbums() {
@@ -204,14 +204,14 @@ const yearItems = Array.from(new Set(albums.map((album) => album.event_date ? ne
         const json = await response.json()
         const albums = ((json.data || []) as AlbumItem[]).filter((album) => album && album.title && album.is_active !== 0 && album.is_active !== false)
         grid.innerHTML = albums.map(renderAlbum).join('')
+        filterAlbums()
       } catch {
         if (!getCards().length) showEmptyMessage('相册数据读取失败', '请确认后端 API 已启动，并且后台“内容中心 / 相册”里相册已启用。')
-      } finally {
-        filterAlbums()
       }
     }
 
     input?.addEventListener('input', filterAlbums)
     refreshAlbums()
   </script>
+
 </BaseLayout>

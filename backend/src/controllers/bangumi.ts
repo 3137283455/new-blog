@@ -12,8 +12,11 @@ import {
   updatePlaySource,
 } from '../services/bangumi-play-sources'
 
-// 根据 Bangumi 规范：使用符合格式的 User-Agent（包含 GitHub 地址/应用名称等）
-const BANGUMI_USER_AGENT = 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)'
+// api.bangumi.lol currently rejects non-browser User-Agent values at its edge.
+// Keep the application identity in a separate header while using the visitor's
+// browser User-Agent (or a safe browser fallback) for mirror compatibility.
+const BANGUMI_APP_USER_AGENT = 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)'
+const BANGUMI_BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 // bangumi.lol mirrors the website; api.bangumi.lol mirrors api.bgm.tv.
 // Rewrite the old, incorrect env value so existing deployments recover without
 // requiring an immediate manual .env edit.
@@ -55,6 +58,15 @@ const allowedStatus = new Set(['watching', 'done', 'plan', 'planned', 'paused', 
 
 function cleanText(value: unknown, max = 500) {
   return String(value ?? '').trim().slice(0, max)
+}
+
+function bangumiHeaders(req: AuthRequest) {
+  const incomingUserAgent = cleanText(req.get('user-agent'), 500)
+  return {
+    'User-Agent': /^Mozilla\/5\.0/i.test(incomingUserAgent) ? incomingUserAgent : BANGUMI_BROWSER_USER_AGENT,
+    'X-Application-User-Agent': BANGUMI_APP_USER_AGENT,
+    Accept: 'application/json',
+  }
 }
 
 function cleanSortOrder(value: unknown) {
@@ -158,10 +170,7 @@ export async function searchSource(req: AuthRequest, res: Response) {
   const id = cleanText(req.query.id, 40)
   if (!query && !id) return error(res, '请输入番剧名称或 Bangumi ID')
 
-  const commonHeaders = {
-    'User-Agent': BANGUMI_USER_AGENT,
-    Accept: 'application/json',
-  }
+  const commonHeaders = bangumiHeaders(req)
 
   try {
     if (id) {
@@ -169,31 +178,22 @@ export async function searchSource(req: AuthRequest, res: Response) {
       return success(res, [normalizeBangumiSubject(subject)])
     }
 
-    const errors: string[] = []
     try {
       const json = await fetchJson(`${BANGUMI_API_BASE}/v0/search/subjects?limit=12`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json; charset=utf-8',
           ...commonHeaders,
         },
         body: JSON.stringify({ keyword: query, filter: { type: [2] } }),
       })
       const items = (json.data || []).map(normalizeBangumiSubject)
       if (items.length) return success(res, items)
+      return error(res, 'Bangumi 没有返回匹配结果', 'SOURCE_EMPTY', 404)
     } catch (err) {
-      errors.push(`Bangumi v0: ${(err as Error).message}`)
+      console.error('Bangumi 搜索失败:', err)
+      return error(res, '无法连接 Bangumi 数据源', 'SOURCE_UNAVAILABLE', 502)
     }
-
-    try {
-      const legacy = await fetchJson(`${BANGUMI_API_BASE}/search/subject/${encodeURIComponent(query)}?type=2&responseGroup=small&max_results=12`, { headers: commonHeaders })
-      const items = (legacy.list || []).map(normalizeBangumiSubject)
-      if (items.length) return success(res, items)
-    } catch (err) {
-      errors.push(`Bangumi legacy: ${(err as Error).message}`)
-    }
-
-    return error(res, `Bangumi 镜像没有返回结果。${errors.join(' | ')}`, 'SOURCE_EMPTY', 502)
   } catch (err) {
     console.error('数据源检索失败:', err)
     return error(res, '无法连接番剧数据源', 'SOURCE_UNAVAILABLE', 502)
@@ -205,10 +205,7 @@ export async function sourceDetail(req: AuthRequest, res: Response) {
   if (!id) return error(res, 'Bangumi ID 不能为空')
   try {
     const subject = await fetchJson(`${BANGUMI_API_BASE}/v0/subjects/${encodeURIComponent(id)}`, {
-      headers: {
-        'User-Agent': BANGUMI_USER_AGENT,
-        Accept: 'application/json',
-      },
+      headers: bangumiHeaders(req),
     })
     return success(res, normalizeBangumiSubject(subject))
   } catch (err) {

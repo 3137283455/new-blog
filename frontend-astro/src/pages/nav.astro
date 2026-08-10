@@ -59,45 +59,6 @@ const getFavicon = (url: string) => {
       <div id="recent-links" class="recent-links"></div>
     </section>
 
-    <section class="personal-dashboard" aria-label="个人首页组件">
-      <header class="personal-dashboard-head">
-        <div><p>PERSONAL DESK</p><h2>今天的小桌面</h2></div>
-        <div><span>拖动卡片调整顺序</span><button id="reset-widget-order" type="button">重置布局</button></div>
-      </header>
-
-      <div id="personal-widget-grid" class="personal-widget-grid">
-        <article class="personal-widget note-widget" data-widget="note" draggable="true">
-          <header><div><span>01</span><h3>快捷便签</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动快捷便签">⠿</button></header>
-          <textarea id="quick-note" maxlength="4000" placeholder="随手记点什么，内容会自动保存在这个浏览器…"></textarea>
-          <footer><span id="quick-note-count">0 字</span><span id="quick-note-status">自动保存</span></footer>
-        </article>
-
-        <article class="personal-widget todo-widget" data-widget="todo" draggable="true">
-          <header><div><span>02</span><h3>今日待办</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动今日待办">⠿</button></header>
-          <form id="todo-form"><input id="todo-input" maxlength="120" placeholder="添加一件要做的事" autocomplete="off" /><button type="submit">＋</button></form>
-          <div id="todo-list" class="personal-list"></div>
-          <footer><span id="todo-summary">今天还没有待办</span><button id="clear-completed-todos" type="button">清除已完成</button></footer>
-        </article>
-
-        <article class="personal-widget inbox-widget" data-widget="inbox" draggable="true">
-          <header><div><span>03</span><h3>稍后处理</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动稍后处理">⠿</button></header>
-          <form id="inbox-form">
-            <select id="inbox-type" aria-label="内容类型"><option value="idea">想法</option><option value="link">网址</option><option value="write">待写</option><option value="watch">待看</option><option value="organize">待整理</option></select>
-            <input id="inbox-input" maxlength="300" placeholder="先收进来，稍后再整理" autocomplete="off" />
-            <button type="submit">收下</button>
-          </form>
-          <div id="inbox-list" class="personal-list"></div>
-          <footer><span id="inbox-summary">收集箱是空的</span><button id="clear-done-inbox" type="button">清除已处理</button></footer>
-        </article>
-
-        <article class="personal-widget memory-widget" data-widget="memory" draggable="true">
-          <header><div><span>04</span><h3>时间胶囊</h3></div><div><button id="refresh-memory" type="button" title="换一个回忆" aria-label="换一个回忆">↻</button><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动时间胶囊">⠿</button></div></header>
-          <div id="memory-content" class="memory-content"><p>正在翻找过去的记录…</p></div>
-          <footer><span id="memory-mode">去年今天</span><a href="/archive">查看归档 ↗</a></footer>
-        </article>
-      </div>
-    </section>
-
     <section class="bookmark-board">
       <header class="bookmark-toolbar">
         <div>
@@ -152,6 +113,46 @@ const getFavicon = (url: string) => {
         <span>⌕</span><strong>没有找到匹配的站点</strong><p>换个关键词或分类试试。</p>
       </div>
     </section>
+
+    <details class="personal-dashboard" aria-label="个人首页组件">
+      <summary class="personal-dashboard-head">
+        <div><p>PERSONAL DESK</p><h2>个人工具</h2></div>
+        <div><span>便签、待办、稍后处理与回忆</span><b class="personal-dashboard-toggle"><i>展开</i><em>收起</em></b></div>
+      </summary>
+
+      <div id="personal-widget-grid" class="personal-widget-grid">
+        <article class="personal-widget note-widget" data-widget="note" draggable="true">
+          <header><div><span>01</span><h3>快捷便签</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动快捷便签">⠿</button></header>
+          <textarea id="quick-note" maxlength="4000" placeholder="随手记点什么，内容会自动保存在这个浏览器…"></textarea>
+          <footer><span id="quick-note-count">0 字</span><span id="quick-note-status">自动保存</span></footer>
+        </article>
+
+        <article class="personal-widget todo-widget" data-widget="todo" draggable="true">
+          <header><div><span>02</span><h3>今日待办</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动今日待办">⠿</button></header>
+          <form id="todo-form"><input id="todo-input" maxlength="120" placeholder="添加一件要做的事" autocomplete="off" /><button type="submit">＋</button></form>
+          <div id="todo-list" class="personal-list"></div>
+          <footer><span id="todo-summary">今天还没有待办</span><button id="clear-completed-todos" type="button">清除已完成</button></footer>
+        </article>
+
+        <article class="personal-widget inbox-widget" data-widget="inbox" draggable="true">
+          <header><div><span>03</span><h3>稍后处理</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动稍后处理">⠿</button></header>
+          <form id="inbox-form">
+            <select id="inbox-type" aria-label="内容类型"><option value="idea">想法</option><option value="link">网址</option><option value="write">待写</option><option value="watch">待看</option><option value="organize">待整理</option></select>
+            <input id="inbox-input" maxlength="300" placeholder="先收进来，稍后再整理" autocomplete="off" />
+            <button type="submit">收下</button>
+          </form>
+          <div id="inbox-list" class="personal-list"></div>
+          <footer><span id="inbox-summary">收集箱是空的</span><button id="clear-done-inbox" type="button">清除已处理</button></footer>
+        </article>
+
+        <article class="personal-widget memory-widget" data-widget="memory" draggable="true">
+          <header><div><span>04</span><h3>时间胶囊</h3></div><div><button id="refresh-memory" type="button" title="换一个回忆" aria-label="换一个回忆">↻</button><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动时间胶囊">⠿</button></div></header>
+          <div id="memory-content" class="memory-content"><p>正在翻找过去的记录…</p></div>
+          <footer><span id="memory-mode">去年今天</span><a href="/archive">查看归档 ↗</a></footer>
+        </article>
+      </div>
+      <footer class="personal-dashboard-actions"><span>拖动卡片调整顺序</span><button id="reset-widget-order" type="button">重置布局</button></footer>
+    </details>
 
     <footer class="start-footer">
       <span>按 <kbd>/</kbd> 筛选站点</span><span><kbd>Enter</kbd> 打开第一个结果</span><span>{links.length} 个站点 · 数据来自博客后台</span>

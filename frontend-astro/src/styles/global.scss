@@ -3316,6 +3316,8 @@ h1, h2, h3, .site-title, .article-title { font-family: var(--theme-title-font, v
   text-align: center;
 }
 
+.empty-feature[hidden] { display: none !important; }
+
 .empty-feature strong {
   font-size: 1.25rem;
   font-weight: 1000;
@@ -5265,12 +5267,19 @@ select {
 .hub-search-results > p { padding: 1rem; color: var(--muted-ink); font-size: 0.75rem; text-align: center; }
 .hub-result-kind { min-width: 2.8rem; border-radius: 999px; background: color-mix(in srgb, var(--brand) 12%, transparent); color: var(--brand); padding: 0.28rem 0.45rem; font-size: 0.55rem; font-weight: 850; text-align: center; }
 
-.personal-dashboard { margin-top: 2rem; }
-.personal-dashboard-head { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 0.8rem; padding: 0 0.2rem; }
+.personal-dashboard { margin-top: 1rem; border: 1px solid var(--line); border-radius: 1.1rem; background: color-mix(in srgb, var(--surface-solid) 68%, transparent); padding: 0.9rem 1rem; }
+.personal-dashboard-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0; padding: 0 0.2rem; list-style: none; cursor: pointer; }
+.personal-dashboard-head::-webkit-details-marker { display: none; }
+.personal-dashboard[open] .personal-dashboard-head { margin-bottom: 0.8rem; }
 .personal-dashboard-head p { color: var(--brand); font-size: 0.58rem; font-weight: 900; letter-spacing: 0.15em; }
 .personal-dashboard-head h2 { margin-top: 0.15rem; font-family: var(--editorial-serif); font-size: 1.55rem; font-weight: 500; }
 .personal-dashboard-head > div:last-child { display: flex; align-items: center; gap: 0.7rem; color: var(--muted-ink); font-size: 0.62rem; }
 .personal-dashboard-head button { border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--muted-ink); padding: 0.15rem 0; font-size: 0.62rem; }
+.personal-dashboard-toggle { display: inline-flex; min-width: 2.8rem; align-items: center; justify-content: center; border-radius: 999px; background: var(--ink); color: var(--paper); padding: 0.4rem 0.65rem; font-size: 0.6rem; font-style: normal; }
+.personal-dashboard-toggle :where(i, em) { font-style: normal; }
+.personal-dashboard-toggle em,
+.personal-dashboard[open] .personal-dashboard-toggle i { display: none; }
+.personal-dashboard[open] .personal-dashboard-toggle em { display: inline; }
 .personal-widget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
 .personal-widget { display: flex; min-width: 0; min-height: 19rem; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 1.15rem; background: color-mix(in srgb, var(--surface-solid) 82%, transparent); padding: 1rem; box-shadow: 0 14px 45px rgb(24 34 26 / 0.055); transition: opacity 150ms ease, transform 150ms ease, border-color 150ms ease; }
 .personal-widget.is-dragging { border-color: color-mix(in srgb, var(--brand) 65%, var(--line)); opacity: 0.45; transform: scale(0.985); }
@@ -5284,6 +5293,8 @@ select {
 #refresh-memory:hover { background: color-mix(in srgb, var(--brand) 11%, transparent); color: var(--ink); }
 #refresh-memory { cursor: pointer; }
 .personal-widget > footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: auto; border-top: 1px solid var(--line); padding-top: 0.7rem; color: var(--muted-ink); font-size: 0.6rem; }
+.personal-dashboard-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; padding: 0.8rem 0.2rem 0; color: var(--muted-ink); font-size: 0.62rem; }
+.personal-dashboard-actions button { border: 0; border-bottom: 1px solid currentColor; background: transparent; color: inherit; padding: 0.15rem 0; font-size: inherit; }
 .personal-widget > footer button,
 .personal-widget > footer a { border: 0; background: transparent; color: var(--brand); padding: 0; font-size: 0.6rem; font-weight: 750; }
 .note-widget textarea { min-height: 12rem; flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: var(--ink); padding: 0.9rem 0.15rem; font-family: var(--editorial-serif); font-size: 1.05rem; line-height: 1.7; }
