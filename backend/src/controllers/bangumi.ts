@@ -14,8 +14,21 @@ import {
 
 // 根据 Bangumi 规范：使用符合格式的 User-Agent（包含 GitHub 地址/应用名称等）
 const BANGUMI_USER_AGENT = 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)'
-// 将 API 默认接口指向可访问的镜像站，页面基准地址保持为 Bangumi 原站
-const BANGUMI_API_BASE = (process.env.BANGUMI_API_BASE || 'https://bangumi.lol').replace(/\/+$/, '')
+// bangumi.lol mirrors the website; api.bangumi.lol mirrors api.bgm.tv.
+// Rewrite the old, incorrect env value so existing deployments recover without
+// requiring an immediate manual .env edit.
+function resolveBangumiApiBase(value?: string) {
+  const base = (value || 'https://api.bangumi.lol').replace(/\/+$/, '')
+  try {
+    const url = new URL(base)
+    if (url.hostname === 'bangumi.lol') url.hostname = 'api.bangumi.lol'
+    return url.toString().replace(/\/+$/, '')
+  } catch {
+    return 'https://api.bangumi.lol'
+  }
+}
+
+const BANGUMI_API_BASE = resolveBangumiApiBase(process.env.BANGUMI_API_BASE)
 const BANGUMI_PAGE_BASE = (process.env.BANGUMI_PAGE_BASE || 'https://bangumi.lol').replace(/\/+$/, '')
 
 const selectSql = `
@@ -110,10 +123,6 @@ export function incrementProgress(req: AuthRequest, res: Response) {
   return success(res, { watched_episodes: next, total_episodes: item.total_episodes, status }, '观看进度已更新')
 }
 
-function stripHtml(value: unknown) {
-  return cleanText(String(value || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' '), LIMITS.summary)
-}
-
 function normalizeBangumiSubject(item: any) {
   const image = item.images?.large || item.images?.common || item.images?.medium || item.images?.small || ''
   const rating = Number(item.rating?.score || 0)
@@ -129,44 +138,6 @@ function normalizeBangumiSubject(item: any) {
     rating: Number.isFinite(rating) ? rating : 0,
     season: item.date || '',
     summary: item.summary || '',
-  }
-}
-
-function normalizeAniListSubject(item: any) {
-  const rating = Number(item.averageScore || 0) / 10
-  const date = item.startDate?.year
-    ? [item.startDate.year, item.startDate.month, item.startDate.day].filter(Boolean).join('-')
-    : ''
-  return {
-    external_id: String(item.id || ''),
-    source: 'anilist',
-    title: item.title?.english || item.title?.romaji || item.title?.native || '',
-    original_title: item.title?.native || item.title?.romaji || '',
-    cover: item.coverImage?.large || '',
-    url: item.siteUrl || '',
-    type: item.format || 'ANIME',
-    total_episodes: Number(item.episodes || 0),
-    rating: Number.isFinite(rating) ? rating : 0,
-    season: date,
-    summary: stripHtml(item.description || ''),
-  }
-}
-
-function normalizeTvMazeSubject(item: any) {
-  const show = item.show || item
-  const rating = Number(show.rating?.average || 0)
-  return {
-    external_id: String(show.id || ''),
-    source: 'tvmaze',
-    title: show.name || '',
-    original_title: show.name || '',
-    cover: show.image?.original || show.image?.medium || '',
-    url: show.url || '',
-    type: show.type || '',
-    total_episodes: 0,
-    rating: Number.isFinite(rating) ? rating : 0,
-    season: show.premiered || '',
-    summary: stripHtml(show.summary || ''),
   }
 }
 
@@ -222,47 +193,7 @@ export async function searchSource(req: AuthRequest, res: Response) {
       errors.push(`Bangumi legacy: ${(err as Error).message}`)
     }
 
-    try {
-      const json = await fetchJson('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          query: `query ($search: String) {
-            Page(perPage: 12) {
-              media(search: $search, type: ANIME) {
-                id
-                title { romaji english native }
-                coverImage { large }
-                description
-                episodes
-                averageScore
-                startDate { year month day }
-                siteUrl
-                format
-              }
-            }
-          }`,
-          variables: { search: query },
-        }),
-      })
-      const items = (json.data?.Page?.media || []).map(normalizeAniListSubject)
-      if (items.length) return success(res, items)
-    } catch (err) {
-      errors.push(`AniList: ${(err as Error).message}`)
-    }
-
-    try {
-      const json = await fetchJson(`https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`)
-      const items = (json || []).filter((item: any) => {
-        const genres = item.show?.genres || []
-        return genres.includes('Anime') || item.show?.language === 'Japanese'
-      }).map(normalizeTvMazeSubject)
-      if (items.length) return success(res, items)
-    } catch (err) {
-      errors.push(`TVMaze: ${(err as Error).message}`)
-    }
-
-    return error(res, `数据源没有返回结果。${errors.join(' | ')}`, 'SOURCE_EMPTY', 502)
+    return error(res, `Bangumi 镜像没有返回结果。${errors.join(' | ')}`, 'SOURCE_EMPTY', 502)
   } catch (err) {
     console.error('数据源检索失败:', err)
     return error(res, '无法连接番剧数据源', 'SOURCE_UNAVAILABLE', 502)
