@@ -13,6 +13,7 @@ export interface Article {
   title: string
   slug: string
   content_html?: string
+  content?: string
   excerpt?: string
   cover_image?: string
   title_font_family?: string
@@ -33,6 +34,11 @@ export interface Article {
   previous?: ArticleSummary | null
   next?: ArticleSummary | null
   related?: ArticleSummary[]
+}
+
+export interface ActivePlugin {
+  id: string
+  name: string
 }
 
 export interface ArticleSummary {
@@ -162,6 +168,17 @@ export async function getPublicSettings(): Promise<PublicSettings> {
     return (json.data || {}) as PublicSettings
   } catch {
     return {}
+  }
+}
+
+export async function getActivePlugins(): Promise<ActivePlugin[]> {
+  try {
+    const res = await apiFetch(`${API_BASE}/plugins/active`)
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.data || []) as ActivePlugin[]
+  } catch {
+    return []
   }
 }
 

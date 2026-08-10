@@ -99,6 +99,14 @@ function seedPlugins() {
       id: 'back-to-top', name: '回到顶部增强', description: '平滑回到顶部并显示阅读百分比',
       active: 1,
     },
+    {
+      id: 'article-like', name: '文章点赞', description: '在文章操作栏显示点赞按钮和点赞数量',
+      active: 1,
+    },
+    {
+      id: 'reading-history', name: '阅读记录', description: '在当前浏览器保存阅读位置并在首页展示最近阅读',
+      active: 1,
+    },
   ]
 
   const stmt = db.prepare(`INSERT OR IGNORE INTO plugins (id, name, version, author, description, is_active, config)

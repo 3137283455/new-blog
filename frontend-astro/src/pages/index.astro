@@ -1,8 +1,12 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
-import { formatDate, getArticles } from '@/lib/api'
+import { formatDate, getActivePlugins, getArticles } from '@/lib/api'
 
-const { articles, pagination } = await getArticles({ page: 1, pageSize: 10 })
+const [{ articles, pagination }, activePlugins] = await Promise.all([
+  getArticles({ page: 1, pageSize: 10 }),
+  getActivePlugins(),
+])
+const readingHistoryEnabled = activePlugins.some((plugin) => plugin.id === 'reading-history')
 const featured = articles.find((post) => post.is_pinned || post.is_recommended) || articles[0]
 const regularArticles = articles.filter((post) => post.id !== featured?.id)
 const totalViews = articles.reduce((sum, post) => sum + Number(post.view_count || 0), 0)
@@ -39,6 +43,16 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
       <a href="/admin/write"><span>开始写作</span><small>新建草稿</small></a>
     </nav>
   </section>
+
+  {readingHistoryEnabled && (
+    <section id="home-reading-history" class="home-reading-history" hidden aria-label="最近阅读">
+      <header class="section-heading">
+        <div><span class="section-number">↺</span><div><p>Continue reading</p><h2>最近阅读</h2></div></div>
+        <button id="clear-reading-history" type="button">清除记录</button>
+      </header>
+      <div id="home-reading-history-list"></div>
+    </section>
+  )}
 
   {featured && (
     <article class="home-featured">
@@ -97,4 +111,40 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
       </div>
     )}
   </section>
+
+  <script>
+    const HISTORY_KEY = 'boke-reading-history-v1'
+    const historySection = document.getElementById('home-reading-history')
+    const historyList = document.getElementById('home-reading-history-list')
+    const escapeHistoryHtml = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[character] || character)
+
+    function renderReadingHistory() {
+      if (!historySection || !historyList) return
+      let history: any[] = []
+      try {
+        const value = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+        history = Array.isArray(value) ? value.slice(0, 4) : []
+      } catch {
+        history = []
+      }
+      historySection.hidden = history.length === 0
+      historyList.innerHTML = history.map((item) => {
+        const progress = Math.max(0, Math.min(100, Math.round(Number(item.progress || 0) * 100)))
+        const status = item.completed ? '已读完' : `${progress}%`
+        return `<a href="/article/${encodeURIComponent(String(item.slug || ''))}">
+          <span class="home-reading-index">${item.completed ? '✓' : String(progress).padStart(2, '0')}</span>
+          <span class="home-reading-copy"><strong>${escapeHistoryHtml(item.title || '未命名文章')}</strong><small>${item.completed ? '再次阅读' : progress > 0 ? '继续上次的位置' : '开始阅读'}</small></span>
+          <span class="home-reading-state"><b>${escapeHistoryHtml(status)}</b><i style="--reading-value:${progress}%"></i></span>
+        </a>`
+      }).join('')
+    }
+
+    document.getElementById('clear-reading-history')?.addEventListener('click', () => {
+      try { localStorage.removeItem(HISTORY_KEY) } catch {}
+      renderReadingHistory()
+    })
+    renderReadingHistory()
+  </script>
 </BaseLayout>

@@ -3842,6 +3842,68 @@ select {
 .home-utility nav span { color: var(--ink); font-size: 0.85rem; font-weight: 780; }
 .home-utility nav small { margin-top: 0.12rem; color: var(--muted-ink); font-size: 0.66rem; }
 
+.home-reading-history {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  background: var(--surface);
+  padding: 1rem;
+  box-shadow: 0 18px 50px rgb(25 34 27 / 0.06);
+}
+
+.home-reading-history[hidden] { display: none; }
+.home-reading-history .section-heading { margin: 0; }
+.home-reading-history .section-heading button {
+  border: 0;
+  background: transparent;
+  color: var(--muted-ink);
+  font-size: 0.66rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+.home-reading-history .section-heading button:hover { color: var(--ink); }
+.home-reading-history > div {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.home-reading-history a {
+  display: grid;
+  grid-template-columns: 2.1rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
+  color: var(--ink);
+  padding: 0.75rem;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+.home-reading-history a:hover { border-color: var(--brand); transform: translateY(-2px); }
+.home-reading-index {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--brand) 13%, transparent);
+  color: var(--brand);
+  font-family: ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+.home-reading-copy { min-width: 0; }
+.home-reading-copy strong,
+.home-reading-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-reading-copy strong { font-size: 0.72rem; font-weight: 820; }
+.home-reading-copy small { margin-top: 0.16rem; color: var(--muted-ink); font-size: 0.58rem; }
+.home-reading-state { display: grid; min-width: 2.3rem; gap: 0.28rem; color: var(--muted-ink); text-align: right; }
+.home-reading-state b { font-size: 0.56rem; }
+.home-reading-state i { display: block; width: 2.3rem; height: 2px; overflow: hidden; border-radius: 999px; background: var(--line); }
+.home-reading-state i::after { display: block; width: var(--reading-value); height: 100%; border-radius: inherit; background: var(--brand); content: ''; }
+
 .home-featured { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); overflow: hidden; border: 1px solid var(--line); border-radius: 1.25rem; background: var(--surface); box-shadow: 0 18px 50px rgb(26 36 28 / 0.07); }
 .home-featured-media { position: relative; min-height: 27rem; overflow: hidden; }
 .home-featured-media img { width: 100%; height: 100%; object-fit: cover; transition: transform 650ms cubic-bezier(.2,.8,.2,1); }
@@ -3984,6 +4046,7 @@ select {
   .bookmark-grid.is-compact { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .bookmark-toolbar { grid-template-columns: 1fr minmax(13rem, 18rem); }
   .bookmark-actions { grid-column: 1 / -1; }
+  .home-reading-history > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
@@ -4000,6 +4063,7 @@ select {
   .home-utility { grid-template-columns: 1fr; gap: 1rem; }
   .home-utility nav { grid-template-columns: 1fr 1fr; gap: 0.85rem 0; }
   .home-utility nav a:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .home-reading-history > div { grid-template-columns: 1fr; }
   .home-featured { grid-template-columns: 1fr; }
   .home-featured-media { min-height: 17rem; }
   .home-featured h2 { font-size: 2.35rem; }
@@ -4077,6 +4141,88 @@ select {
   text-wrap: balance;
 }
 
+.article-reading-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 120;
+  height: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+  pointer-events: none;
+}
+
+.article-reading-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--brand), var(--brand-bright));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--brand) 65%, transparent);
+  transition: transform 100ms linear;
+}
+
+.reading-resume-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 38%, var(--line));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface-solid) 88%, var(--brand));
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.reading-resume-card[hidden] {
+  display: none;
+}
+
+.reading-resume-card > div:first-child {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.reading-resume-card small {
+  color: var(--brand);
+  font-size: 0.52rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.reading-resume-card strong {
+  font-family: var(--editorial-serif);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.reading-resume-card span {
+  color: var(--muted-ink);
+  font-size: 0.66rem;
+}
+
+.reading-resume-card > div:last-child {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.reading-resume-card button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-ink);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reading-resume-card button:last-child {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .article-action-wrap {
   position: static;
   display: grid;
@@ -4129,6 +4275,20 @@ select {
 .article-action-dock button:first-child:hover {
   background: var(--brand);
   color: white;
+}
+
+.article-action-dock button.is-liked {
+  background: color-mix(in srgb, #e24d67 14%, transparent);
+  color: #c93653;
+}
+
+.article-action-dock button.is-liked svg {
+  fill: currentColor;
+}
+
+.article-action-dock button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .article-action-dock svg,
@@ -4525,7 +4685,7 @@ select {
 
   .article-action-dock {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(3.25rem, 1fr));
     border-radius: 1rem;
   }
 
@@ -4537,6 +4697,15 @@ select {
   .article-action-wrap > p {
     position: static;
     white-space: normal;
+  }
+
+  .reading-resume-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reading-resume-card > div:last-child {
+    justify-content: flex-end;
   }
 }
 

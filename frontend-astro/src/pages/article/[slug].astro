@@ -1,12 +1,15 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
 import BaseCard from '@components/BaseCard.astro'
-import { formatDate, getArticle, getPublicSettings } from '@/lib/api'
+import { formatDate, getActivePlugins, getArticle, getPublicSettings } from '@/lib/api'
 import { buildArticleFontCss, fontFamilyStyle, injectHeadingIds } from '@/lib/markdown'
 
 const { slug } = Astro.params
-const article = slug ? await getArticle(slug) : null
-const publicSettings = await getPublicSettings()
+const [article, publicSettings, activePlugins] = await Promise.all([
+  slug ? getArticle(slug) : Promise.resolve(null),
+  getPublicSettings(),
+  getActivePlugins(),
+])
 
 if (!article) {
   return Astro.redirect('/404')
@@ -19,6 +22,18 @@ const fontFaces = buildArticleFontCss(article, Array.isArray(publicSettings.font
 const titleFontStyle = fontFamilyStyle(article.title_font_family, 'var(--font-title)')
 const bodyFontStyle = fontFamilyStyle(article.body_font_family, 'var(--font-body)')
 const commentsEnabled = publicSettings.enable_comments !== false
+const pluginIds = new Set(activePlugins.map((plugin) => plugin.id))
+const readingProgressEnabled = pluginIds.has('reading-progress')
+const wordCountEnabled = pluginIds.has('word-count')
+const backToTopEnabled = pluginIds.has('back-to-top')
+const articleLikeEnabled = pluginIds.has('article-like')
+const readingHistoryEnabled = pluginIds.has('reading-history')
+const articleText = String(article.content || article.content_html || '')
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&[a-z0-9#]+;/gi, ' ')
+  .replace(/\s+/g, '')
+const articleWordCount = articleText.length
+const articleReadingMinutes = Math.max(1, Math.ceil(articleWordCount / 320))
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 const articleUrl = new URL(Astro.url.pathname, Astro.url.origin).href
 const articleImage = article.cover_image || (Array.isArray(publicSettings.banner_images) ? publicSettings.banner_images[0] : '/home.webp')
@@ -46,9 +61,27 @@ const structuredData = JSON.stringify({
 >
   <script is:inline type="application/ld+json" set:html={structuredData}></script>
   {fontFaces && <style set:html={fontFaces} />}
+  {readingProgressEnabled && (
+    <div class="article-reading-progress" aria-hidden="true">
+      <span id="article-reading-progress-bar"></span>
+    </div>
+  )}
 
   <div class="article-reading-layout">
     <div class="article-reading-main">
+      {readingHistoryEnabled && (
+        <section id="reading-resume-card" class="reading-resume-card" hidden aria-live="polite">
+          <div>
+            <small>CONTINUE READING</small>
+            <strong>继续上次的阅读位置？</strong>
+            <span id="reading-resume-status"></span>
+          </div>
+          <div>
+            <button id="reading-resume-dismiss" type="button">忽略</button>
+            <button id="reading-resume-action" type="button">继续阅读</button>
+          </div>
+        </section>
+      )}
       <BaseCard class="article-content-card p-6 md:p-10">
         <header class="article-content-head mb-10 border-b border-base-content/10 pb-8 text-center">
           <div class="mb-4 flex flex-wrap justify-center gap-2">
@@ -58,13 +91,15 @@ const structuredData = JSON.stringify({
           <h1 class="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl" style={titleFontStyle}>{article.title}</h1>
           <p class="mt-4 text-sm text-base-content/50">
             {article.view_count || 0} 阅读 · {article.comment_count || 0} 评论
+            {articleLikeEnabled && <> · <span data-like-count>{article.like_count || 0}</span> 喜欢</>}
+            {wordCountEnabled && <> · <span data-reading-stats>{articleWordCount} 字 · 约 {articleReadingMinutes} 分钟</span></>}
           </p>
         </header>
 
         <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
       </BaseCard>
 
-      {(article.previous || article.next || article.related?.length) && (
+      {Boolean(article.previous || article.next || article.related?.length) && (
         <section class="article-discovery" aria-label="继续阅读">
           {(article.previous || article.next) && (
             <div class="article-neighbors">
@@ -117,14 +152,22 @@ const structuredData = JSON.stringify({
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 9.2 9.2 0 0 1-3.3-.6L4 20l1.5-4A7.4 7.4 0 0 1 4 11.5 7.5 7.5 0 0 1 12 4a7.5 7.5 0 0 1 8 7.5Z"></path><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01"></path></svg>
             <span>评论</span><small data-comment-count>{article.comment_count || 0}</small>
           </button>
+          {articleLikeEnabled && (
+            <button id="like-button" type="button" title="喜欢这篇文章" aria-label={`点赞，共 ${article.like_count || 0} 次`} aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.8a5.5 5.5 0 0 0-7.8 0L12 5.9l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.4a5.5 5.5 0 0 0 0-7.8Z"></path></svg>
+              <span>喜欢</span><small data-like-count>{article.like_count || 0}</small>
+            </button>
+          )}
           <button id="share-button" type="button" title="分享文章" aria-label="分享文章">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"></path></svg>
             <span>分享</span>
           </button>
-          <button id="back-top-button" type="button" title="回到顶部" aria-label="回到顶部">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6-6 6 6M12 4v16"></path></svg>
-            <span>顶部</span>
-          </button>
+          {backToTopEnabled && (
+            <button id="back-top-button" type="button" title="回到顶部" aria-label="回到顶部">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6-6 6 6M12 4v16"></path></svg>
+              <span>顶部</span>{readingProgressEnabled && <small id="reading-percent">0</small>}
+            </button>
+          )}
         </div>
         <p id="interaction-message" aria-live="polite"></p>
       </div>
@@ -179,10 +222,16 @@ const structuredData = JSON.stringify({
     </div>
   </dialog>
 
-  <script is:inline define:vars={{ apiBase }}>
-    const articleId =
-      document.getElementById('comment-form')?.dataset.articleId ||
-      document.getElementById('reload-comments')?.dataset.articleId
+  <script is:inline define:vars={{
+    apiBase,
+    serverArticleId: article.id,
+    serverArticleSlug: article.slug,
+    serverArticleTitle: article.title,
+    serverLikeCount: article.like_count || 0,
+    readingProgressEnabled,
+    readingHistoryEnabled,
+  }}>
+    const articleId = Number(serverArticleId)
     const commentsList = document.getElementById('comments-list')
     const commentMessage = document.getElementById('comment-message')
     const interactionMessage = document.getElementById('interaction-message')
@@ -191,7 +240,22 @@ const structuredData = JSON.stringify({
     const commentForm = document.getElementById('comment-form')
     const replyContext = document.getElementById('comment-reply-context')
     const replyName = document.getElementById('comment-reply-name')
+    const likeButton = document.getElementById('like-button')
+    const progressRoot = document.querySelector('.article-reading-progress')
+    const progressBar = document.getElementById('article-reading-progress-bar')
+    const readingPercent = document.getElementById('reading-percent')
+    const articleBody = document.querySelector('.markdown-body')
+    const resumeCard = document.getElementById('reading-resume-card')
+    const resumeStatus = document.getElementById('reading-resume-status')
+    const HISTORY_KEY = 'boke-reading-history-v1'
+    const LIKED_KEY = 'boke-liked-articles-v1'
+    let interactionTimer
+    let readingSaveTimer
+    let savedReadingEntry = null
     let commentsLoaded = false
+
+    // 脱离带 transform 动画的页面容器，确保 fixed 进度条以浏览器窗口为定位基准。
+    if (progressRoot && progressRoot.parentElement !== document.body) document.body.append(progressRoot)
 
     function escapeHtml(value) {
       const map = {
@@ -202,6 +266,30 @@ const structuredData = JSON.stringify({
         "'": '&#39;',
       }
       return String(value ?? '').replace(/[&<>"']/g, (char) => map[char] || char)
+    }
+
+    function showInteractionMessage(message) {
+      if (!interactionMessage) return
+      interactionMessage.textContent = message || ''
+      window.clearTimeout(interactionTimer)
+      if (message) interactionTimer = window.setTimeout(() => { interactionMessage.textContent = '' }, 2600)
+    }
+
+    function readLocalJson(key, fallback) {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || '')
+        return value ?? fallback
+      } catch {
+        return fallback
+      }
+    }
+
+    function writeLocalJson(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value))
+      } catch {
+        // 阅读与点赞仍可使用，只是不在当前浏览器持久化。
+      }
     }
 
     async function loadComments() {
@@ -286,6 +374,107 @@ const structuredData = JSON.stringify({
     })
     document.getElementById('cancel-comment-reply')?.addEventListener('click', clearReply)
 
+    function getLikedArticles() {
+      return new Set(readLocalJson(LIKED_KEY, []).map(String))
+    }
+
+    function setLikeState(liked, count = Number(serverLikeCount || 0)) {
+      if (!likeButton) return
+      likeButton.classList.toggle('is-liked', liked)
+      likeButton.setAttribute('aria-pressed', String(liked))
+      likeButton.setAttribute('aria-label', `${liked ? '已点赞' : '点赞'}，共 ${count} 次`)
+      document.querySelectorAll('[data-like-count]').forEach((element) => {
+        element.textContent = String(count)
+      })
+    }
+
+    if (likeButton) {
+      setLikeState(getLikedArticles().has(String(articleId)), Number(serverLikeCount || 0))
+      likeButton.addEventListener('click', async () => {
+        if (likeButton.disabled) return
+        likeButton.disabled = true
+        try {
+          const res = await fetch(`${apiBase}/articles/${articleId}/like`, { method: 'POST' })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok || json.success === false) throw new Error(json.message || '点赞失败')
+          const liked = getLikedArticles()
+          liked.add(String(articleId))
+          writeLocalJson(LIKED_KEY, [...liked])
+          setLikeState(true, Number(json.data?.like_count ?? serverLikeCount ?? 0))
+          showInteractionMessage(json.message || '谢谢你的喜欢')
+        } catch (error) {
+          showInteractionMessage(error instanceof Error ? error.message : '点赞失败')
+        } finally {
+          likeButton.disabled = false
+        }
+      })
+    }
+
+    function getArticleReadingProgress() {
+      if (!articleBody) return 0
+      const start = articleBody.getBoundingClientRect().top + window.scrollY - 120
+      const distance = Math.max(1, articleBody.offsetHeight - window.innerHeight * 0.42)
+      return Math.max(0, Math.min(1, (window.scrollY - start) / distance))
+    }
+
+    function updateReadingProgress() {
+      const progress = getArticleReadingProgress()
+      if (progressBar) progressBar.style.transform = `scaleX(${progress})`
+      if (readingPercent) readingPercent.textContent = String(Math.round(progress * 100))
+      return progress
+    }
+
+    function getReadingHistory() {
+      const history = readLocalJson(HISTORY_KEY, [])
+      return Array.isArray(history) ? history : []
+    }
+
+    function saveReadingHistory() {
+      if (!readingHistoryEnabled || !articleBody) return
+      const progress = updateReadingProgress()
+      const history = getReadingHistory().filter((item) => String(item.id) !== String(articleId))
+      const entry = {
+        id: articleId,
+        slug: String(serverArticleSlug),
+        title: String(serverArticleTitle),
+        progress: Math.round(progress * 1000) / 1000,
+        completed: progress >= 0.92,
+        updatedAt: Date.now(),
+      }
+      history.unshift(entry)
+      writeLocalJson(HISTORY_KEY, history.slice(0, 20))
+      savedReadingEntry = entry
+    }
+
+    function scheduleReadingSave() {
+      updateReadingProgress()
+      if (!readingHistoryEnabled) return
+      window.clearTimeout(readingSaveTimer)
+      readingSaveTimer = window.setTimeout(saveReadingHistory, 450)
+    }
+
+    if (readingHistoryEnabled) {
+      savedReadingEntry = getReadingHistory().find((item) => String(item.id) === String(articleId)) || null
+      if (savedReadingEntry && savedReadingEntry.progress >= 0.04 && savedReadingEntry.progress < 0.92 && resumeCard) {
+        resumeCard.hidden = false
+        if (resumeStatus) resumeStatus.textContent = `上次读到 ${Math.round(savedReadingEntry.progress * 100)}%`
+      }
+      document.getElementById('reading-resume-action')?.addEventListener('click', () => {
+        if (!articleBody || !savedReadingEntry) return
+        const start = articleBody.getBoundingClientRect().top + window.scrollY - 100
+        const distance = Math.max(1, articleBody.offsetHeight - window.innerHeight * 0.42)
+        window.scrollTo({ top: start + distance * savedReadingEntry.progress, behavior: 'smooth' })
+        if (resumeCard) resumeCard.hidden = true
+      })
+      document.getElementById('reading-resume-dismiss')?.addEventListener('click', () => {
+        if (resumeCard) resumeCard.hidden = true
+      })
+      window.addEventListener('pagehide', saveReadingHistory)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveReadingHistory()
+      })
+    }
+
     commentButton?.addEventListener('click', () => {
       commentDialog?.showModal()
       document.body.classList.add('comment-dialog-open')
@@ -324,18 +513,21 @@ const structuredData = JSON.stringify({
         if (navigator.share) await navigator.share(shareData)
         else {
           await navigator.clipboard?.writeText(location.href)
-          if (interactionMessage) interactionMessage.textContent = '链接已复制'
+          showInteractionMessage('链接已复制')
         }
       } catch (error) {
-        if (interactionMessage) {
-          interactionMessage.textContent = error instanceof Error && error.name === 'AbortError' ? '' : '分享失败'
-        }
+        showInteractionMessage(error instanceof Error && error.name === 'AbortError' ? '' : '分享失败')
       }
     })
     document.getElementById('back-top-button')?.addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     })
-    window.addEventListener('scroll', setActiveToc, { passive: true })
+    window.addEventListener('scroll', () => {
+      setActiveToc()
+      scheduleReadingSave()
+    }, { passive: true })
     setActiveToc()
+    updateReadingProgress()
+    if (readingHistoryEnabled && !savedReadingEntry) saveReadingHistory()
   </script>
 </BaseLayout>

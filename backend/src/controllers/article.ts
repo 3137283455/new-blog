@@ -346,13 +346,15 @@ export function like(req: AuthRequest, res: Response) {
   // 检查是否已点赞
   const existing = db.prepare('SELECT id FROM likes WHERE article_id = ? AND ip = ?').get(Number(id), ip)
   if (existing) {
-    return error(res, '您已经点赞过了', 'ALREADY_LIKED')
+    const current = db.prepare('SELECT like_count FROM articles WHERE id = ?').get(Number(id)) as any
+    return success(res, { liked: true, like_count: Number(current?.like_count || 0) }, '您已经点赞过了')
   }
 
   db.prepare('INSERT INTO likes (article_id, ip) VALUES (?, ?)').run(Number(id), ip)
   db.prepare('UPDATE articles SET like_count = like_count + 1 WHERE id = ?').run(Number(id))
 
-  return success(res, null, '点赞成功')
+  const current = db.prepare('SELECT like_count FROM articles WHERE id = ?').get(Number(id)) as any
+  return success(res, { liked: true, like_count: Number(current?.like_count || 0) }, '点赞成功')
 }
 
 // ===== 管理接口 =====
