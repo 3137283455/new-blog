@@ -16,6 +16,7 @@ import * as albumCtrl from '../controllers/album'
 import * as musicCtrl from '../controllers/music'
 import * as markdownCtrl from '../controllers/markdown'
 import * as backupCtrl from '../controllers/backup'
+import * as hubCtrl from '../controllers/hub'
 import { upload, backupUpload } from '../middleware/upload'
 
 const router = Router()
@@ -30,6 +31,8 @@ router.get('/articles', articleCtrl.list)
 router.get('/articles/search', articleCtrl.search)
 router.get('/articles/random', articleCtrl.random)
 router.get('/articles/:slug', articleCtrl.detail)
+router.get('/search/all', hubCtrl.searchAll)
+router.get('/hub/memories', hubCtrl.memories)
 router.get('/categories', categoryCtrl.list)
 router.get('/tags', categoryCtrl.tagList)
 router.get('/pages', pageCtrl.publicList)

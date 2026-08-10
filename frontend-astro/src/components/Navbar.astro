@@ -88,7 +88,7 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
   <section class="command-dialog" role="dialog" aria-modal="true" aria-label="快速搜索">
     <header>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
-      <input id="command-input" type="search" placeholder="搜索文章，或快速前往…" autocomplete="off" />
+      <input id="command-input" type="search" placeholder="搜索文章、网址、追番、相册和音乐…" autocomplete="off" />
       <kbd>ESC</kbd>
     </header>
     <div id="command-results" class="command-results">
@@ -178,10 +178,12 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
         controller = new AbortController();
         staticResults.innerHTML = '<p>正在搜索…</p>';
         try {
-          const response = await fetch(`${window.__PUBLIC_API_BASE__ || '/api'}/articles/search?q=${encodeURIComponent(query)}&page=1&pageSize=6`, { signal: controller.signal });
+          const response = await fetch(`${window.__PUBLIC_API_BASE__ || '/api'}/search/all?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal });
           const json = await response.json();
-          const posts = json.data?.posts || json.data || [];
-          staticResults.innerHTML = posts.length ? `<p>文章</p>${posts.map((post) => `<a href="/article/${encodeURIComponent(post.slug)}"><span>${String(post.title || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}</span><small>阅读</small></a>`).join('')}` : `<p>没有找到“${query.replace(/[&<>"']/g, '')}”</p><a href="/search?q=${encodeURIComponent(query)}"><span>前往完整搜索</span><small>↗</small></a>`;
+          const items = json.data?.results || [];
+          const escape = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+          const normalize = (value) => /^(https?:|mailto:|tel:|#|\/)/i.test(String(value || '')) ? String(value || '#') : `https://${value}`;
+          staticResults.innerHTML = items.length ? `<p>全部内容</p>${items.map((item) => { const href = normalize(item.href); const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''; return `<a href="${escape(href)}"${external}><span>${escape(item.title)}</span><small>${escape(item.kind_label || '打开')}</small></a>`; }).join('')}` : `<p>没有找到“${escape(query)}”</p><a href="/search?q=${encodeURIComponent(query)}"><span>搜索博客文章</span><small>↗</small></a>`;
         } catch (error) { if (error?.name !== 'AbortError') staticResults.innerHTML = '<p>搜索暂时不可用</p>'; }
       }, 180);
     });

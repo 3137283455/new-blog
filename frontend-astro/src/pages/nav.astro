@@ -33,6 +33,7 @@ const getHost = (url: string) => {
         <span id="search-engine-mark">B</span><span id="search-engine-name">Bing</span><small>⌄</small>
       </button>
       <div id="search-engine-menu" class="search-engine-menu" role="listbox" hidden>
+        <button type="button" data-engine="site" data-mark="⌘" data-name="我的内容" data-url="">我的内容 <small>全站搜索</small></button>
         <button type="button" data-engine="bing" data-mark="B" data-name="Bing" data-url="https://www.bing.com/search?q=">Bing <small>国际搜索</small></button>
         <button type="button" data-engine="baidu" data-mark="百" data-name="百度" data-url="https://www.baidu.com/s?wd=">百度 <small>中文搜索</small></button>
         <button type="button" data-engine="google" data-mark="G" data-name="Google" data-url="https://www.google.com/search?q=">Google <small>全球搜索</small></button>
@@ -45,9 +46,50 @@ const getHost = (url: string) => {
       <button class="web-search-submit" type="submit" aria-label="搜索">搜索 <span>↗</span></button>
     </form>
 
+    <section id="hub-search-results" class="hub-search-results" hidden aria-live="polite"></section>
+
     <section id="recent-section" class="start-recent" hidden>
       <header><p><span></span>最近访问</p><button id="clear-recents" type="button">清除</button></header>
       <div id="recent-links" class="recent-links"></div>
+    </section>
+
+    <section class="personal-dashboard" aria-label="个人首页组件">
+      <header class="personal-dashboard-head">
+        <div><p>PERSONAL DESK</p><h2>今天的小桌面</h2></div>
+        <div><span>拖动卡片调整顺序</span><button id="reset-widget-order" type="button">重置布局</button></div>
+      </header>
+
+      <div id="personal-widget-grid" class="personal-widget-grid">
+        <article class="personal-widget note-widget" data-widget="note" draggable="true">
+          <header><div><span>01</span><h3>快捷便签</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动快捷便签">⠿</button></header>
+          <textarea id="quick-note" maxlength="4000" placeholder="随手记点什么，内容会自动保存在这个浏览器…"></textarea>
+          <footer><span id="quick-note-count">0 字</span><span id="quick-note-status">自动保存</span></footer>
+        </article>
+
+        <article class="personal-widget todo-widget" data-widget="todo" draggable="true">
+          <header><div><span>02</span><h3>今日待办</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动今日待办">⠿</button></header>
+          <form id="todo-form"><input id="todo-input" maxlength="120" placeholder="添加一件要做的事" autocomplete="off" /><button type="submit">＋</button></form>
+          <div id="todo-list" class="personal-list"></div>
+          <footer><span id="todo-summary">今天还没有待办</span><button id="clear-completed-todos" type="button">清除已完成</button></footer>
+        </article>
+
+        <article class="personal-widget inbox-widget" data-widget="inbox" draggable="true">
+          <header><div><span>03</span><h3>稍后处理</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动稍后处理">⠿</button></header>
+          <form id="inbox-form">
+            <select id="inbox-type" aria-label="内容类型"><option value="idea">想法</option><option value="link">网址</option><option value="write">待写</option><option value="watch">待看</option></select>
+            <input id="inbox-input" maxlength="300" placeholder="先收进来，稍后再整理" autocomplete="off" />
+            <button type="submit">收下</button>
+          </form>
+          <div id="inbox-list" class="personal-list"></div>
+          <footer><span id="inbox-summary">收集箱是空的</span><button id="clear-done-inbox" type="button">清除已处理</button></footer>
+        </article>
+
+        <article class="personal-widget memory-widget" data-widget="memory" draggable="true">
+          <header><div><span>04</span><h3>时间胶囊</h3></div><div><button id="refresh-memory" type="button" title="换一个回忆" aria-label="换一个回忆">↻</button><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动时间胶囊">⠿</button></div></header>
+          <div id="memory-content" class="memory-content"><p>正在翻找过去的记录…</p></div>
+          <footer><span id="memory-mode">去年今天</span><a href="/archive">查看归档 ↗</a></footer>
+        </article>
+      </div>
     </section>
 
     <section class="bookmark-board">
@@ -62,6 +104,7 @@ const getHost = (url: string) => {
           <kbd>/</kbd>
         </label>
         <div class="bookmark-actions">
+          <label class="bookmark-sort"><span>排序</span><select id="nav-sort"><option value="original">后台顺序</option><option value="frequent">最常使用</option><option value="recent">最近访问</option></select></label>
           <button id="favorites-filter" type="button" aria-pressed="false"><span>☆</span> 收藏</button>
           <button id="density-toggle" type="button" aria-label="切换显示密度" title="切换显示密度">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"></rect><rect x="14" y="4" width="6" height="6" rx="1"></rect><rect x="4" y="14" width="6" height="6" rx="1"></rect><rect x="14" y="14" width="6" height="6" rx="1"></rect></svg>
@@ -84,7 +127,7 @@ const getHost = (url: string) => {
           const category = item.category || '常用'
           const host = getHost(item.url)
           return (
-            <article class="bookmark-card" data-id={String(item.id)} data-category={category.toLowerCase()} data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()} style={`--delay:${Math.min(index, 12) * 28}ms`}>
+            <article class="bookmark-card" data-id={String(item.id)} data-order={String(index)} data-category={category.toLowerCase()} data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()} style={`--delay:${Math.min(index, 12) * 28}ms`}>
               <a class="bookmark-card-link" href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} data-track-recent>
                 <span class="bookmark-icon">{avatar && <img src={avatar} alt="" loading="lazy" onerror="this.remove()" />}<b>{item.icon || item.title.slice(0, 1)}</b></span>
                 <span class="bookmark-copy"><strong>{item.title}</strong><small>{item.description || host}</small></span>
@@ -110,6 +153,10 @@ const getHost = (url: string) => {
   <script>
     type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; is_active?: number | boolean }
     type RecentItem = { id: string; title: string; href: string; icon: string; visitedAt: number }
+    type UsageItem = { count: number; lastVisited: number }
+    type TodoItem = { id: string; text: string; done: boolean; createdAt: number }
+    type InboxItem = { id: string; type: 'idea' | 'link' | 'write' | 'watch'; text: string; done: boolean; createdAt: number }
+    type HubItem = { id: string; kind: string; kind_label: string; title: string; subtitle?: string; href: string; image?: string; meta?: string }
     const board = document.querySelector<HTMLElement>('.start-page')
     const grid = document.getElementById('nav-grid')
     const input = document.getElementById('nav-filter') as HTMLInputElement | null
@@ -121,6 +168,12 @@ const getHost = (url: string) => {
     const mediaBase = board?.dataset.uploadBase || ''
     const FAVORITES_KEY = 'boke-nav-favorites-v1'
     const RECENTS_KEY = 'boke-nav-recents-v1'
+    const USAGE_KEY = 'boke-nav-usage-v1'
+    const SORT_KEY = 'boke-nav-sort-v1'
+    const NOTE_KEY = 'boke-personal-note-v1'
+    const TODO_KEY = 'boke-personal-todos-v1'
+    const INBOX_KEY = 'boke-personal-inbox-v1'
+    const WIDGET_ORDER_KEY = 'boke-personal-widget-order-v1'
     let activeCategory = 'all'
     let favoritesOnly = false
 
@@ -130,6 +183,7 @@ const getHost = (url: string) => {
     const resolveMedia = (src?: string) => src?.startsWith('/uploads/') ? `${mediaBase}${src}` : (src || '')
     const readStorage = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback } }
     const getFavorites = () => new Set(readStorage<string[]>(FAVORITES_KEY, []))
+    const makeId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
     function updateClock() {
       const now = new Date()
@@ -150,22 +204,55 @@ const getHost = (url: string) => {
       const menu = document.getElementById('search-engine-menu')
       const mark = document.getElementById('search-engine-mark')
       const name = document.getElementById('search-engine-name')
+      const results = document.getElementById('hub-search-results')
       let searchUrl = 'https://www.bing.com/search?q='
+      let activeEngine = 'bing'
+      let timer = 0
+      let controller: AbortController | null = null
       const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-engine]'))
+      const renderResults = (items: HubItem[], query: string) => {
+        if (!results) return
+        results.hidden = false
+        results.innerHTML = items.length
+          ? `<header><span>我的内容</span><small>${items.length} 个结果</small></header><div>${items.map((item) => { const href = normalizeUrl(item.href); const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''; return `<a href="${escapeHtml(href)}"${external}><span class="hub-result-kind">${escapeHtml(item.kind_label)}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.subtitle || item.meta || '')}</small></span><b>↗</b></a>` }).join('')}</div>`
+          : `<p>没有找到“${escapeHtml(query)}”，换个关键词试试。</p>`
+      }
+      const searchSite = (query: string) => {
+        window.clearTimeout(timer)
+        controller?.abort()
+        if (!query) { if (results) { results.hidden = true; results.innerHTML = '' }; return }
+        timer = window.setTimeout(async () => {
+          controller = new AbortController()
+          if (results) { results.hidden = false; results.innerHTML = '<p>正在翻找你的内容…</p>' }
+          try {
+            const response = await fetch(`${apiBase}/search/all?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal })
+            if (!response.ok) throw new Error()
+            const json = await response.json()
+            renderResults((json.data?.results || []) as HubItem[], query)
+          } catch (error) {
+            if ((error as Error)?.name !== 'AbortError' && results) results.innerHTML = '<p>搜索暂时不可用，请稍后再试。</p>'
+          }
+        }, 180)
+      }
       const choose = (option: HTMLButtonElement) => {
-        searchUrl = option.dataset.url || searchUrl
+        activeEngine = option.dataset.engine || 'bing'
+        searchUrl = option.dataset.url || ''
         if (mark) mark.textContent = option.dataset.mark || 'B'
         if (name) name.textContent = option.dataset.name || 'Bing'
-        localStorage.setItem('boke-search-engine', option.dataset.engine || 'bing')
+        if (webInput) webInput.placeholder = activeEngine === 'site' ? '搜索文章、网址、追番、相册和音乐' : '搜索互联网'
+        if (activeEngine !== 'site' && results) { results.hidden = true; results.innerHTML = '' }
+        localStorage.setItem('boke-search-engine', activeEngine)
         menu?.setAttribute('hidden', '')
         trigger?.setAttribute('aria-expanded', 'false')
         webInput?.focus()
+        if (activeEngine === 'site') searchSite(webInput?.value.trim() || '')
       }
-      choose(options.find((item) => item.dataset.engine === localStorage.getItem('boke-search-engine')) || options[0])
+      choose(options.find((item) => item.dataset.engine === (localStorage.getItem('boke-search-engine') || 'bing')) || options.find((item) => item.dataset.engine === 'bing') || options[0])
       if (window.matchMedia('(min-width: 761px)').matches) requestAnimationFrame(() => webInput?.focus())
       trigger?.addEventListener('click', () => { const willOpen = menu?.hasAttribute('hidden'); menu?.toggleAttribute('hidden', !willOpen); trigger.setAttribute('aria-expanded', String(willOpen)) })
       options.forEach((option) => option.addEventListener('click', () => choose(option)))
-      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (query) location.href = `${searchUrl}${encodeURIComponent(query)}` })
+      webInput?.addEventListener('input', () => { if (activeEngine === 'site') searchSite(webInput.value.trim()) })
+      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (!query) return; if (activeEngine === 'site') results?.querySelector<HTMLAnchorElement>('a')?.click(); else location.href = `${searchUrl}${encodeURIComponent(query)}` })
       document.addEventListener('click', (event) => { if (!form?.contains(event.target as Node)) { menu?.setAttribute('hidden', ''); trigger?.setAttribute('aria-expanded', 'false') } })
     }
 
@@ -174,11 +261,29 @@ const getHost = (url: string) => {
       const icon = `${avatar ? `<img src="${escapeHtml(avatar)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}<b>${escapeHtml(item.icon || title.slice(0, 1))}</b>`
       const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
       const search = `${title} ${item.description || ''} ${category} ${host} ${item.url || ''}`.toLowerCase()
-      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span></article>`
+      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-order="${index}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span><span class="bookmark-usage" hidden></span></article>`
     }
 
     function getCards() { return Array.from(document.querySelectorAll<HTMLElement>('.bookmark-card')) }
     function updateFavoriteState() { const favorites = getFavorites(); getCards().forEach((card) => { const active = favorites.has(card.dataset.id || ''); const button = card.querySelector<HTMLButtonElement>('.bookmark-star'); card.classList.toggle('is-favorite', active); if (button) { button.textContent = active ? '★' : '☆'; button.setAttribute('aria-pressed', String(active)) } }) }
+    function sortCards() {
+      if (!grid) return
+      const mode = (document.getElementById('nav-sort') as HTMLSelectElement | null)?.value || 'original'
+      const usage = readStorage<Record<string, UsageItem>>(USAGE_KEY, {})
+      const cards = getCards()
+      cards.forEach((card) => {
+        const data = usage[card.dataset.id || '']
+        const badge = card.querySelector<HTMLElement>('.bookmark-usage')
+        if (badge) { badge.hidden = !data?.count; badge.textContent = data?.count ? `${data.count} 次` : '' }
+      })
+      cards.sort((left, right) => {
+        const leftUsage = usage[left.dataset.id || ''] || { count: 0, lastVisited: 0 }
+        const rightUsage = usage[right.dataset.id || ''] || { count: 0, lastVisited: 0 }
+        if (mode === 'frequent') return rightUsage.count - leftUsage.count || rightUsage.lastVisited - leftUsage.lastVisited || Number(left.dataset.order) - Number(right.dataset.order)
+        if (mode === 'recent') return rightUsage.lastVisited - leftUsage.lastVisited || Number(left.dataset.order) - Number(right.dataset.order)
+        return Number(left.dataset.order) - Number(right.dataset.order)
+      }).forEach((card) => grid.append(card))
+    }
     function applyFilter() {
       const keyword = input?.value.trim().toLowerCase() || ''; const favorites = getFavorites(); let visible = 0
       getCards().forEach((card) => { const show = (activeCategory === 'all' || card.dataset.category === activeCategory) && (!keyword || (card.dataset.search || '').includes(keyword)) && (!favoritesOnly || favorites.has(card.dataset.id || '')); card.hidden = !show; if (show) visible += 1 })
@@ -188,24 +293,102 @@ const getHost = (url: string) => {
     function bindCards() {
       updateFavoriteState()
       getCards().forEach((card) => {
+        if (card.dataset.bound === 'true') return
+        card.dataset.bound = 'true'
         card.querySelector('.bookmark-star')?.addEventListener('click', () => { const favorites = getFavorites(); const id = card.dataset.id || ''; favorites.has(id) ? favorites.delete(id) : favorites.add(id); localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); updateFavoriteState(); applyFilter() })
-        card.querySelector('[data-track-recent]')?.addEventListener('click', () => { const link = card.querySelector<HTMLAnchorElement>('.bookmark-card-link'); const title = card.querySelector('strong')?.textContent || ''; const icon = card.querySelector('.bookmark-icon')?.textContent?.trim() || title.slice(0, 1); const recents = readStorage<RecentItem[]>(RECENTS_KEY, []).filter((item) => item.id !== card.dataset.id); recents.unshift({ id: card.dataset.id || title, title, href: link?.href || '#', icon, visitedAt: Date.now() }); localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, 6))) })
+        card.querySelector('[data-track-recent]')?.addEventListener('click', () => {
+          const link = card.querySelector<HTMLAnchorElement>('.bookmark-card-link'); const title = card.querySelector('strong')?.textContent || ''; const icon = card.querySelector('.bookmark-icon')?.textContent?.trim() || title.slice(0, 1); const id = card.dataset.id || title; const now = Date.now()
+          const recents = readStorage<RecentItem[]>(RECENTS_KEY, []).filter((item) => item.id !== id); recents.unshift({ id, title, href: link?.href || '#', icon, visitedAt: now }); localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, 6)))
+          const usage = readStorage<Record<string, UsageItem>>(USAGE_KEY, {}); usage[id] = { count: (usage[id]?.count || 0) + 1, lastVisited: now }; localStorage.setItem(USAGE_KEY, JSON.stringify(usage)); renderRecents(); sortCards()
+        })
       })
+      sortCards()
     }
     function bindPills() { document.querySelectorAll<HTMLButtonElement>('[data-nav-category]').forEach((button) => button.addEventListener('click', () => { activeCategory = button.dataset.navCategory || 'all'; document.querySelectorAll('[data-nav-category]').forEach((item) => item.classList.toggle('is-active', item === button)); applyFilter() })) }
     function renderCategories(items: NavItem[]) { if (!pillsWrap) return; const cats = Array.from(new Set(items.map((item) => item.category || '常用'))); pillsWrap.innerHTML = `<button class="is-active" type="button" data-nav-category="all">全部 <small>${items.length}</small></button>${cats.map((category) => `<button type="button" data-nav-category="${escapeHtml(category.toLowerCase())}">${escapeHtml(category)} <small>${items.filter((item) => (item.category || '常用') === category).length}</small></button>`).join('')}`; activeCategory = 'all'; bindPills() }
     function renderRecents() { const section = document.getElementById('recent-section'); const wrap = document.getElementById('recent-links'); const recents = readStorage<RecentItem[]>(RECENTS_KEY, []); if (!section || !wrap) return; section.hidden = !recents.length; wrap.innerHTML = recents.map((item) => `<a href="${escapeHtml(item.href)}"><b>${escapeHtml(item.icon || item.title.slice(0, 1))}</b><span>${escapeHtml(item.title)}</span></a>`).join('') }
 
     async function refreshNavigation() {
-      try { const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const items = ((json.data || []) as NavItem[]).filter((item) => item?.title && item?.url && item.is_active !== 0 && item.is_active !== false); if (!grid) return; grid.innerHTML = items.map(renderCard).join(''); renderCategories(items); bindCards(); applyFilter() } catch { bindCards(); applyFilter() }
+      try { const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const items = ((json.data || []) as NavItem[]).filter((item) => item?.title && item?.url && item.is_active !== 0 && item.is_active !== false); if (!grid) return; grid.innerHTML = items.map(renderCard).join(''); renderCategories(items); bindCards(); applyFilter() } catch { bindCards(); sortCards(); applyFilter() }
     }
 
-    updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); renderRecents(); bindPills(); bindCards(); applyFilter(); refreshNavigation()
+    function initPersonalDashboard() {
+      const note = document.getElementById('quick-note') as HTMLTextAreaElement | null
+      const noteCount = document.getElementById('quick-note-count')
+      const noteStatus = document.getElementById('quick-note-status')
+      let noteTimer = 0
+      const updateNoteCount = () => { if (noteCount) noteCount.textContent = `${note?.value.length || 0} 字` }
+      if (note) { note.value = localStorage.getItem(NOTE_KEY) || ''; updateNoteCount(); note.addEventListener('input', () => { updateNoteCount(); if (noteStatus) noteStatus.textContent = '正在保存…'; window.clearTimeout(noteTimer); noteTimer = window.setTimeout(() => { localStorage.setItem(NOTE_KEY, note.value); if (noteStatus) noteStatus.textContent = '已保存' }, 260) }) }
+
+      const todoList = document.getElementById('todo-list')
+      const todoForm = document.getElementById('todo-form') as HTMLFormElement | null
+      const todoInput = document.getElementById('todo-input') as HTMLInputElement | null
+      let todos = readStorage<TodoItem[]>(TODO_KEY, [])
+      const saveTodos = () => localStorage.setItem(TODO_KEY, JSON.stringify(todos))
+      const renderTodos = () => {
+        const openCount = todos.filter((item) => !item.done).length
+        if (todoList) todoList.innerHTML = todos.length ? todos.map((item) => `<div class="personal-list-item${item.done ? ' is-done' : ''}" data-id="${escapeHtml(item.id)}"><button type="button" data-action="toggle" aria-label="${item.done ? '恢复' : '完成'}">${item.done ? '✓' : ''}</button><span>${escapeHtml(item.text)}</span><button type="button" data-action="delete" aria-label="删除">×</button></div>`).join('') : '<p class="personal-list-empty">留一点空白，也很好。</p>'
+        const summary = document.getElementById('todo-summary'); if (summary) summary.textContent = todos.length ? `${openCount} 件待完成 · ${todos.length - openCount} 件已完成` : '今天还没有待办'
+      }
+      todoForm?.addEventListener('submit', (event) => { event.preventDefault(); const text = todoInput?.value.trim(); if (!text) return; todos.unshift({ id: makeId(), text, done: false, createdAt: Date.now() }); saveTodos(); renderTodos(); if (todoInput) { todoInput.value = ''; todoInput.focus() } })
+      todoList?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]'); const row = button?.closest<HTMLElement>('[data-id]'); if (!button || !row) return; const index = todos.findIndex((item) => item.id === row.dataset.id); if (index < 0) return; if (button.dataset.action === 'toggle') todos[index].done = !todos[index].done; else todos.splice(index, 1); saveTodos(); renderTodos() })
+      document.getElementById('clear-completed-todos')?.addEventListener('click', () => { todos = todos.filter((item) => !item.done); saveTodos(); renderTodos() })
+      renderTodos()
+
+      const inboxList = document.getElementById('inbox-list')
+      const inboxForm = document.getElementById('inbox-form') as HTMLFormElement | null
+      const inboxInput = document.getElementById('inbox-input') as HTMLInputElement | null
+      const inboxType = document.getElementById('inbox-type') as HTMLSelectElement | null
+      const typeLabels: Record<InboxItem['type'], string> = { idea: '想法', link: '网址', write: '待写', watch: '待看' }
+      let inbox = readStorage<InboxItem[]>(INBOX_KEY, [])
+      const saveInbox = () => localStorage.setItem(INBOX_KEY, JSON.stringify(inbox))
+      const renderInbox = () => {
+        const openCount = inbox.filter((item) => !item.done).length
+        if (inboxList) inboxList.innerHTML = inbox.length ? inbox.map((item) => { const content = item.type === 'link' ? `<a href="${escapeHtml(normalizeUrl(item.text))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.text)}</a>` : `<span>${escapeHtml(item.text)}</span>`; return `<div class="personal-list-item inbox-list-item${item.done ? ' is-done' : ''}" data-id="${escapeHtml(item.id)}"><button type="button" data-action="toggle" aria-label="${item.done ? '恢复' : '处理完成'}">${item.done ? '✓' : ''}</button><small>${typeLabels[item.type]}</small>${content}<button type="button" data-action="delete" aria-label="删除">×</button></div>` }).join('') : '<p class="personal-list-empty">看到好东西时，先把它收在这里。</p>'
+        const summary = document.getElementById('inbox-summary'); if (summary) summary.textContent = inbox.length ? `${openCount} 项等你处理` : '收集箱是空的'
+      }
+      inboxForm?.addEventListener('submit', (event) => { event.preventDefault(); const text = inboxInput?.value.trim(); if (!text) return; inbox.unshift({ id: makeId(), type: (inboxType?.value || 'idea') as InboxItem['type'], text, done: false, createdAt: Date.now() }); saveInbox(); renderInbox(); if (inboxInput) { inboxInput.value = ''; inboxInput.focus() } })
+      inboxList?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]'); const row = button?.closest<HTMLElement>('[data-id]'); if (!button || !row) return; const index = inbox.findIndex((item) => item.id === row.dataset.id); if (index < 0) return; if (button.dataset.action === 'toggle') inbox[index].done = !inbox[index].done; else inbox.splice(index, 1); saveInbox(); renderInbox() })
+      document.getElementById('clear-done-inbox')?.addEventListener('click', () => { inbox = inbox.filter((item) => !item.done); saveInbox(); renderInbox() })
+      renderInbox()
+
+      const widgetGrid = document.getElementById('personal-widget-grid')
+      const widgets = () => Array.from(widgetGrid?.querySelectorAll<HTMLElement>('[data-widget]') || [])
+      const applyWidgetOrder = (order: string[]) => { order.forEach((id) => { const widget = widgetGrid?.querySelector<HTMLElement>(`[data-widget="${id}"]`); if (widget) widgetGrid?.append(widget) }) }
+      applyWidgetOrder(readStorage<string[]>(WIDGET_ORDER_KEY, []))
+      let dragged: HTMLElement | null = null
+      let dragArmed = false
+      widgets().forEach((widget) => {
+        widget.querySelector('.widget-drag')?.addEventListener('pointerdown', () => { dragArmed = true })
+        widget.addEventListener('dragstart', (event) => { if (!dragArmed) { event.preventDefault(); return }; dragged = widget; widget.classList.add('is-dragging'); event.dataTransfer?.setData('text/plain', widget.dataset.widget || '') })
+        widget.addEventListener('dragend', () => { dragArmed = false; dragged?.classList.remove('is-dragging'); dragged = null; localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(widgets().map((item) => item.dataset.widget))) })
+        widget.addEventListener('dragover', (event) => { if (!dragged || dragged === widget) return; event.preventDefault(); const rect = widget.getBoundingClientRect(); widgetGrid?.insertBefore(dragged, event.clientY < rect.top + rect.height / 2 ? widget : widget.nextSibling) })
+      })
+      document.addEventListener('pointerup', () => { dragArmed = false })
+      document.getElementById('reset-widget-order')?.addEventListener('click', () => { applyWidgetOrder(['note', 'todo', 'inbox', 'memory']); localStorage.removeItem(WIDGET_ORDER_KEY) })
+    }
+
+    function initMemories() {
+      const content = document.getElementById('memory-content')
+      const mode = document.getElementById('memory-mode')
+      const button = document.getElementById('refresh-memory') as HTMLButtonElement | null
+      let items: HubItem[] = []
+      let index = 0
+      const show = () => { const item = items[index % items.length]; if (!content || !item) return; const href = normalizeUrl(item.href); content.innerHTML = `<a href="${escapeHtml(href)}"><span>${escapeHtml(item.kind_label)}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.subtitle || '')}</p><small>${escapeHtml(String(item.meta || '').slice(0, 10))}</small></a>`; index += 1 }
+      const load = async () => { if (button) button.disabled = true; if (content) content.innerHTML = '<p>正在翻找过去的记录…</p>'; try { const response = await fetch(`${apiBase}/hub/memories`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const today = (json.data?.on_this_day || []) as HubItem[]; const random = (json.data?.random || []) as HubItem[]; items = today.length ? today : random; index = Math.floor(Math.random() * Math.max(items.length, 1)); if (mode) mode.textContent = today.length ? '往年今日' : '随机回顾'; show() } catch { if (content) content.innerHTML = '<p>内容再多一点，这里就会出现你的回忆。</p>'; if (mode) mode.textContent = '等待记录' } finally { if (button) button.disabled = false } }
+      button?.addEventListener('click', () => { if (items.length > 1) show(); else load() })
+      load()
+    }
+
+    const navSort = document.getElementById('nav-sort') as HTMLSelectElement | null
+    if (navSort) navSort.value = localStorage.getItem(SORT_KEY) || 'original'
+    updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); initPersonalDashboard(); initMemories(); renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
     input?.addEventListener('input', applyFilter)
     favoritesButton?.addEventListener('click', () => { favoritesOnly = !favoritesOnly; favoritesButton.classList.toggle('is-active', favoritesOnly); favoritesButton.setAttribute('aria-pressed', String(favoritesOnly)); applyFilter() })
     document.getElementById('density-toggle')?.addEventListener('click', () => { const compact = grid?.classList.toggle('is-compact') || false; localStorage.setItem('boke-nav-compact', String(compact)) })
     if (localStorage.getItem('boke-nav-compact') === 'true') grid?.classList.add('is-compact')
     document.getElementById('clear-recents')?.addEventListener('click', () => { localStorage.removeItem(RECENTS_KEY); renderRecents() })
+    navSort?.addEventListener('change', () => { localStorage.setItem(SORT_KEY, navSort.value); sortCards(); applyFilter() })
     document.addEventListener('keydown', (event) => { if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && document.activeElement === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click() })
   </script>
 </BaseLayout>
