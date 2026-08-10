@@ -126,6 +126,7 @@ export function adminList(req: AuthRequest, res: Response) {
   const pinned = req.query.pinned as string
   const trashed = req.query.trashed as string
   const status = req.query.status as string
+  const summary = req.query.summary === 'true'
 
   let where = trashed === 'true' ? 'WHERE a.deleted_at IS NOT NULL' : 'WHERE a.deleted_at IS NULL'
   const params: any[] = []
@@ -154,8 +155,13 @@ export function adminList(req: AuthRequest, res: Response) {
   orderBy = 'ORDER BY a.is_pinned DESC, ' + orderBy.replace('ORDER BY ', '')
 
   const offset = (page - 1) * pageSize
+  const selectFields = summary
+    ? `a.id, a.title, a.slug, a.excerpt, a.status, a.visibility, a.category_id,
+       a.is_pinned, a.is_recommended, a.view_count, a.comment_count,
+       a.published_at, a.created_at, a.updated_at, a.deleted_at`
+    : 'a.*'
   let query = `
-    SELECT a.*, c.name as category_name, c.slug as category_slug
+    SELECT ${selectFields}, c.name as category_name, c.slug as category_slug
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
   `
@@ -169,7 +175,7 @@ export function adminList(req: AuthRequest, res: Response) {
   params.push(pageSize, offset)
 
   const articles = db.prepare(query).all(...params) as any[]
-  const tagStmt = db.prepare(`
+  const tagStmt = summary ? null : db.prepare(`
     SELECT t.* FROM tags t
     JOIN article_tags at2 ON t.id = at2.tag_id
     WHERE at2.article_id = ?
@@ -179,7 +185,7 @@ export function adminList(req: AuthRequest, res: Response) {
     ...a,
     is_pinned: !!a.is_pinned,
     is_recommended: !!a.is_recommended,
-    tags: tagStmt.all(a.id),
+    ...(tagStmt ? { tags: tagStmt.all(a.id) } : {}),
   }))
 
   let countQuery = `SELECT COUNT(DISTINCT a.id) as total FROM articles a LEFT JOIN categories c ON a.category_id = c.id`

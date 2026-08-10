@@ -6,7 +6,7 @@ export function seed() {
   migrate()
 
   const adminUsername = 'admin'
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin'
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
   const isFirstRun = !db.prepare('SELECT id FROM users WHERE username = ?').get(adminUsername)
 
   if (isFirstRun) {
