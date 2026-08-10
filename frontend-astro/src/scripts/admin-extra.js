@@ -4,6 +4,7 @@
   const tokenKey = 'boke_admin_token';
   const state = {
     navigation: [],
+    searchEngines: [],
     bangumi: [],
     albums: [],
     bangumiSourceItems: [],
@@ -13,6 +14,12 @@
     mediaPicker: null,
     mediaPickerItems: [],
   };
+  const DEFAULT_SEARCH_ENGINES = [
+    { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
+    { id: 'bing', name: 'Bing', mark: 'B', url: 'https://www.bing.com/search?q={query}' },
+    { id: 'baidu', name: '百度', mark: '百', url: 'https://www.baidu.com/s?wd={query}' },
+    { id: 'google', name: 'Google', mark: 'G', url: 'https://www.google.com/search?q={query}' },
+  ];
   const $ = (selector) => document.querySelector(selector);
 
   function token() {
@@ -49,6 +56,38 @@
     el.textContent = message;
     el.classList.toggle('text-error', error);
     el.classList.toggle('text-success', !error && !!message);
+  }
+
+  function parseJsonSetting(row, fallback) {
+    if (!row) return fallback;
+    try { return row.type === 'json' ? JSON.parse(row.value) : row.value; } catch { return fallback; }
+  }
+
+  function renderSearchEngines() {
+    const list = $('#search-engine-list');
+    if (!list) return;
+    list.innerHTML = state.searchEngines.map((engine) => `
+      <article class="flex min-w-0 items-center gap-3 rounded-2xl bg-base-200/55 p-3">
+        <b class="grid h-9 w-9 flex-none place-items-center rounded-xl bg-base-content text-xs text-base-100">${html(engine.mark || engine.name?.slice(0, 1) || '⌕')}</b>
+        <span class="min-w-0 flex-1"><strong class="block truncate">${html(engine.name)}</strong><small class="block truncate text-base-content/45">${html(engine.url === 'site:' ? '站内内容搜索' : engine.url)}</small></span>
+        <button class="btn btn-ghost btn-xs text-error" type="button" data-delete-search-engine="${html(engine.id)}">删除</button>
+      </article>
+    `).join('') || '<p class="text-sm text-base-content/45">至少保留一个搜索来源。</p>';
+  }
+
+  async function loadSearchEngines() {
+    const json = await api('/admin/settings');
+    const row = (json.data || []).find((item) => item.key === 'nav_search_engines');
+    const engines = parseJsonSetting(row, DEFAULT_SEARCH_ENGINES);
+    state.searchEngines = Array.isArray(engines) && engines.length ? engines : [...DEFAULT_SEARCH_ENGINES];
+    renderSearchEngines();
+  }
+
+  async function saveSearchEngines(message) {
+    if (!state.searchEngines.length) throw new Error('至少保留一个搜索来源');
+    await api('/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: { nav_search_engines: state.searchEngines } }) });
+    setPanelMessage('search-engine-message', message || '搜索来源已保存');
+    renderSearchEngines();
   }
 
   function mediaUrl(file) {
@@ -791,13 +830,36 @@
   async function loadPanel(panel) {
     if (!token()) return;
     try {
-      if (panel === 'navigation') await loadNavigation();
+      if (panel === 'navigation') await Promise.all([loadNavigation(), loadSearchEngines()]);
       if (panel === 'bangumi') await loadBangumi();
       if (panel === 'albums') await loadAlbums();
     } catch (error) {
       console.warn(error);
     }
   }
+
+  $('#search-engine-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const fields = form.elements;
+    const name = fields.namedItem('name').value.trim();
+    const mark = fields.namedItem('mark').value.trim() || name.slice(0, 1);
+    const url = fields.namedItem('url').value.trim();
+    if (!name || !url) return setPanelMessage('search-engine-message', '请填写名称和搜索地址', true);
+    if (url !== 'site:' && (!/^https?:\/\//i.test(url) || !url.includes('{query}'))) {
+      return setPanelMessage('search-engine-message', '外部搜索地址必须以 http(s) 开头并包含 {query}', true);
+    }
+    if (state.searchEngines.length >= 16) return setPanelMessage('search-engine-message', '最多添加 16 个搜索来源', true);
+    if (state.searchEngines.some((engine) => engine.url === url)) return setPanelMessage('search-engine-message', '这个搜索地址已经存在', true);
+    state.searchEngines.push({ id: `custom-${Date.now().toString(36)}`, name, mark, url });
+    try {
+      await saveSearchEngines('搜索来源已添加');
+      form.reset();
+    } catch (error) {
+      state.searchEngines.pop();
+      setPanelMessage('search-engine-message', error.message || '保存失败', true);
+    }
+  });
 
   $('#navigation-form')?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -841,9 +903,6 @@
         source: fields.namedItem('external_id').value.trim() ? 'bangumi' : '',
         type: fields.namedItem('type').value.trim(),
         total_episodes: Number(fields.namedItem('total_episodes').value || 0),
-        watched_episodes: Number(fields.namedItem('watched_episodes').value || 0),
-        episode_duration: Number(fields.namedItem('episode_duration').value || 24),
-        update_weekday: Number(fields.namedItem('update_weekday').value || 0),
         article_id: Number(fields.namedItem('article_id').value) || null,
         play_sources: state.bangumiPlaySources,
         status: fields.namedItem('status').value,
@@ -983,6 +1042,23 @@
       const item = state.navigation.find((row) => String(row.id) === target.dataset.extraEditNavigation);
       if (item) openNavigationDialog(item);
     }
+    if (target.dataset.deleteSearchEngine) {
+      if (state.searchEngines.length <= 1) {
+        setPanelMessage('search-engine-message', '至少保留一个搜索来源', true);
+        return;
+      }
+      if (!confirm('确认删除这个搜索来源吗？')) return;
+      const previous = [...state.searchEngines];
+      state.searchEngines = state.searchEngines.filter((engine) => engine.id !== target.dataset.deleteSearchEngine);
+      try {
+        await saveSearchEngines('搜索来源已删除');
+      } catch (error) {
+        state.searchEngines = previous;
+        renderSearchEngines();
+        setPanelMessage('search-engine-message', error.message || '删除失败', true);
+      }
+      return;
+    }
     if (target.dataset.extraDeleteNavigation && confirm('确认删除这个导航吗？')) {
       try {
         await api(`/admin/navigation/${target.dataset.extraDeleteNavigation}`, { method: 'DELETE' });
@@ -995,7 +1071,7 @@
     if (target.dataset.extraEditBangumi) {
       const item = state.bangumi.find((row) => String(row.id) === target.dataset.extraEditBangumi);
       if (item) {
-        fill($('#bangumi-form'), item, ['id', 'title', 'original_title', 'cover', 'url', 'external_id', 'type', 'total_episodes', 'watched_episodes', 'episode_duration', 'update_weekday', 'article_id', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
+        fill($('#bangumi-form'), item, ['id', 'title', 'original_title', 'cover', 'url', 'external_id', 'type', 'total_episodes', 'article_id', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
         state.bangumiPlaySources = normalizePlaySources(item.play_sources || item.play_links);
         renderBangumiPlaySources();
       }

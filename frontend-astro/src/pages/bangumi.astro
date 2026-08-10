@@ -7,17 +7,11 @@ import {
   normalizeExternalUrl,
   parseBangumiPlaySources,
 } from '../lib/bangumi'
-import { getBangumiItems, getBangumiStats } from '../lib/api'
+import { getBangumiItems } from '../lib/api'
 import { resolveUploadUrl, uploadBase } from '../lib/media'
 
 const items = (await getBangumiItems()).filter((item) => item.is_active !== 0 && item.is_active !== false)
-const stats = await getBangumiStats()
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
-const weekday = new Date().getDay() || 7
-const todayUpdates = items.filter((item) => Number(item.update_weekday || 0) === weekday)
-const watchedHours = Math.round(Number(stats?.summary?.watched_minutes || 0) / 60)
-const recommendation = stats?.recommendation
-const weekLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
 const watching = items.filter((item) => item.status === 'watching').length
 const done = items.filter((item) => item.status === 'done').length
 const scoredItems = items.filter((item) => Number(item.rating || 0) > 0)
@@ -65,38 +59,6 @@ const seasons = Array.from(new Set(items.map((item) => item.season).filter(Boole
       <span><strong>{items.length}</strong> 部作品</span>
       <span><strong>{averageRating.toFixed(1)}</strong> 平均评分</span>
     </div>
-  </section>
-
-  <section class="bangumi-personal-overview">
-    <div class="bangumi-metric-card">
-      <small>累计观看</small>
-      <strong>{watchedHours}</strong>
-      <span>小时 · {items.reduce((sum, item) => sum + Number(item.watched_episodes || 0), 0)} 集</span>
-    </div>
-    <div class="bangumi-today-card">
-      <header><small>今日更新</small><strong>{todayUpdates.length || '—'}</strong></header>
-      <div>
-        {todayUpdates.length
-          ? todayUpdates.map((item) => <span>{item.title}</span>)
-          : <span>今天没有设置更新的番剧</span>}
-      </div>
-    </div>
-    <div class="bangumi-recall-card">
-      <small>捡起一部搁置番</small>
-      {recommendation
-        ? <><strong>{recommendation.title}</strong><span>{Number(recommendation.watched_episodes || 0)} / {Number(recommendation.total_episodes || 0) || '?'} 集</span></>
-        : <><strong>暂无搁置</strong><span>保持现在的节奏</span></>}
-    </div>
-  </section>
-
-  <section class="bangumi-week-calendar ryu-card">
-    {weekLabels.map((label, index) => {
-      const entries = items.filter((item) => Number(item.update_weekday || 0) === index + 1)
-      return <div class={weekday === index + 1 ? 'is-today' : ''}>
-        <strong>{label}</strong>
-        <span>{entries.length ? entries.map((item) => item.title).join(' · ') : '—'}</span>
-      </div>
-    })}
   </section>
 
   <section class="feature-toolbar bangumi-filterbar ryu-card" data-api-base={apiBase} data-upload-base={uploadBase}>
@@ -152,9 +114,6 @@ const seasons = Array.from(new Set(items.map((item) => item.season).filter(Boole
             </div>
           )}
           <div class="bangumi-card-footer">
-            <button type="button" class="bangumi-progress-button" data-bangumi-progress={item.id} title="观看进度加一集">
-              <small>观看进度</small><strong data-progress-value>{Number(item.watched_episodes || 0)} / {Number(item.total_episodes || 0) || '?'}</strong>
-            </button>
             {item.article_slug
               ? <a href={`/article/${item.article_slug}`}><small>观后感</small><strong>阅读</strong></a>
               : <span><small>观后感</small><strong>未关联</strong></span>}
@@ -259,7 +218,6 @@ const seasons = Array.from(new Set(items.map((item) => item.season).filter(Boole
         <article class="bangumi-card bangumi-card-compact" data-bangumi-id="${item.id}" data-search="${escapeHtml(search)}" data-status="${escapeHtml(status)}">
           ${main}
           <div class="bangumi-card-footer">
-            <button type="button" class="bangumi-progress-button" data-bangumi-progress="${item.id}" title="观看进度加一集"><small>观看进度</small><strong data-progress-value>${Number(item.watched_episodes || 0)} / ${Number(item.total_episodes || 0) || '?'}</strong></button>
             ${item.article_slug ? `<a href="/article/${escapeHtml(item.article_slug)}"><small>观后感</small><strong>阅读</strong></a>` : '<span><small>观后感</small><strong>未关联</strong></span>'}
             ${detail}
             ${play}
@@ -332,33 +290,9 @@ const seasons = Array.from(new Set(items.map((item) => item.season).filter(Boole
       filterCards()
     }
 
-    async function incrementProgress(button: HTMLButtonElement) {
-      const id = Number(button.dataset.bangumiProgress || 0)
-      if (!id || button.disabled) return
-      button.disabled = true
-      try {
-        const response = await fetch(`${apiBase}/bangumi/${id}/progress`, { method: 'POST' })
-        const json = await response.json()
-        if (!response.ok) throw new Error(json.message || '更新失败')
-        const value = button.querySelector<HTMLElement>('[data-progress-value]')
-        if (value) value.textContent = `${Number(json.data?.watched_episodes || 0)} / ${Number(json.data?.total_episodes || 0) || '?'}`
-        button.classList.add('is-updated')
-        window.setTimeout(() => button.classList.remove('is-updated'), 700)
-      } catch {
-        button.title = '更新失败，请稍后重试'
-      } finally {
-        button.disabled = false
-      }
-    }
-
     input?.addEventListener('input', filterCards)
     select?.addEventListener('change', filterCards)
     document.addEventListener('click', (event) => {
-      const progressButton = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-bangumi-progress]')
-      if (progressButton) {
-        incrementProgress(progressButton)
-        return
-      }
       const button = (event.target as HTMLElement).closest<HTMLElement>('[data-open-bangumi-sources]')
       if (button) openSources(button)
     })

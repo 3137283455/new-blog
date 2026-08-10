@@ -51,6 +51,16 @@ export function seed() {
     console.log('[Seed] 管理员已存在，跳过基础种子')
   }
 
+  db.prepare(`
+    INSERT OR IGNORE INTO settings (key, value, type, description)
+    VALUES ('nav_search_engines', ?, 'json', '导航页搜索引擎')
+  `).run(JSON.stringify([
+    { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
+    { id: 'bing', name: 'Bing', mark: 'B', url: 'https://www.bing.com/search?q={query}' },
+    { id: 'baidu', name: '百度', mark: '百', url: 'https://www.baidu.com/s?wd={query}' },
+    { id: 'google', name: 'Google', mark: 'G', url: 'https://www.google.com/search?q={query}' },
+  ]))
+
   // 主题与插件始终确保存在（INSERT OR IGNORE，支持增量补充）
   seedThemes()
   seedPlugins()

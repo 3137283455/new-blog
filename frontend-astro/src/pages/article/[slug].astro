@@ -204,7 +204,6 @@ const structuredData = JSON.stringify({
             </button>
           )}
         </div>
-        <p id="interaction-message" aria-live="polite"></p>
       </div>
     </aside>
   </div>
@@ -290,6 +289,8 @@ const structuredData = JSON.stringify({
     </div>
   </dialog>
 
+  <div id="interaction-message" class="article-interaction-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
   <script is:inline define:vars={{
     apiBase,
     serverArticleId: article.id,
@@ -337,6 +338,7 @@ const structuredData = JSON.stringify({
 
     // 脱离带 transform 动画的页面容器，确保 fixed 进度条以浏览器窗口为定位基准。
     if (progressRoot && progressRoot.parentElement !== document.body) document.body.append(progressRoot)
+    if (interactionMessage && interactionMessage.parentElement !== document.body) document.body.append(interactionMessage)
 
     function escapeHtml(value) {
       const map = {
@@ -349,11 +351,16 @@ const structuredData = JSON.stringify({
       return String(value ?? '').replace(/[&<>"']/g, (char) => map[char] || char)
     }
 
-    function showInteractionMessage(message) {
+    function showInteractionMessage(message, tone = 'success') {
       if (!interactionMessage) return
       interactionMessage.textContent = message || ''
+      interactionMessage.dataset.tone = tone
+      interactionMessage.classList.toggle('is-visible', Boolean(message))
       window.clearTimeout(interactionTimer)
-      if (message) interactionTimer = window.setTimeout(() => { interactionMessage.textContent = '' }, 2600)
+      if (message) interactionTimer = window.setTimeout(() => {
+        interactionMessage.classList.remove('is-visible')
+        window.setTimeout(() => { interactionMessage.textContent = '' }, 180)
+      }, 2600)
     }
 
     function readLocalJson(key, fallback) {
@@ -431,26 +438,44 @@ const structuredData = JSON.stringify({
       if (!articleId) return
       const form = event.currentTarget
       const data = new FormData(form)
+      const submitButton = form.querySelector('button[type="submit"]')
+      const savedIdentity = {
+        author_name: String(data.get('author_name') || ''),
+        author_email: String(data.get('author_email') || ''),
+        author_url: String(data.get('author_url') || ''),
+      }
       if (commentMessage) commentMessage.textContent = '正在提交...'
+      if (submitButton) { submitButton.disabled = true; submitButton.setAttribute('aria-busy', 'true') }
       try {
         const res = await fetch(`${apiBase}/articles/${articleId}/comments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(Object.fromEntries(data.entries())),
         })
-        const json = await res.json().catch(() => ({}))
+        const responseText = await res.text()
+        let json = {}
+        try { json = responseText ? JSON.parse(responseText) : {} } catch { json = {} }
         if (!res.ok || json.success === false) {
-          if (commentMessage) commentMessage.textContent = json.message || '提交失败'
+          const message = json.message || `评论提交失败（HTTP ${res.status}）`
+          if (commentMessage) commentMessage.textContent = message
+          showInteractionMessage(message, 'error')
           return
         }
-        if (commentMessage) commentMessage.textContent = json.message || '已提交'
+        const message = json.message || '评论已提交'
+        if (commentMessage) commentMessage.textContent = message
+        showInteractionMessage(message)
         if (json.success) {
           form.reset()
+          Object.entries(savedIdentity).forEach(([name, value]) => { const field = form.elements.namedItem(name); if (field) field.value = value })
           clearReply()
-          await loadComments()
+          if (json.data?.status === 'approved') await loadComments()
         }
-      } catch {
-        if (commentMessage) commentMessage.textContent = '网络异常，评论提交失败'
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '网络异常，评论提交失败'
+        if (commentMessage) commentMessage.textContent = message
+        showInteractionMessage(message, 'error')
+      } finally {
+        if (submitButton) { submitButton.disabled = false; submitButton.removeAttribute('aria-busy') }
       }
     })
 
@@ -502,7 +527,7 @@ const structuredData = JSON.stringify({
           setLikeState(true, Number(json.data?.like_count ?? serverLikeCount ?? 0))
           showInteractionMessage(json.message || '谢谢你的喜欢')
         } catch (error) {
-          showInteractionMessage(error instanceof Error ? error.message : '点赞失败')
+          showInteractionMessage(error instanceof Error ? error.message : '点赞失败', 'error')
         } finally {
           likeButton.disabled = false
         }
@@ -703,7 +728,7 @@ const structuredData = JSON.stringify({
           showInteractionMessage('链接已复制')
         }
       } catch (error) {
-        showInteractionMessage(error instanceof Error && error.name === 'AbortError' ? '' : '分享失败')
+        showInteractionMessage(error instanceof Error && error.name === 'AbortError' ? '' : '分享失败', 'error')
       }
     })
     document.getElementById('back-top-button')?.addEventListener('click', () => {

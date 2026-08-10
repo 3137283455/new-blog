@@ -44,6 +44,29 @@ const SETTING_LIMITS: Record<string, number> = {
   active_theme: 60,
 }
 
+const DEFAULT_NAV_SEARCH_ENGINES = [
+  { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
+  { id: 'bing', name: 'Bing', mark: 'B', url: 'https://www.bing.com/search?q={query}' },
+  { id: 'baidu', name: '百度', mark: '百', url: 'https://www.baidu.com/s?wd={query}' },
+  { id: 'google', name: 'Google', mark: 'G', url: 'https://www.google.com/search?q={query}' },
+]
+
+function normalizeSearchEngines(value: unknown) {
+  if (!Array.isArray(value)) return DEFAULT_NAV_SEARCH_ENGINES
+  const ids = new Set<string>()
+  return value.slice(0, 16).flatMap((item: any, index) => {
+    const name = String(item?.name || '').trim().slice(0, 30)
+    const mark = String(item?.mark || name.slice(0, 1) || '⌕').trim().slice(0, 4)
+    const url = String(item?.url || '').trim().slice(0, 500)
+    let id = String(item?.id || `engine-${index + 1}`).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40)
+    if (!id) id = `engine-${index + 1}`
+    while (ids.has(id)) id = `${id}-${index + 1}`.slice(0, 40)
+    if (!name || (url !== 'site:' && (!/^https?:\/\//i.test(url) || !url.includes('{query}')))) return []
+    ids.add(id)
+    return [{ id, name, mark, url }]
+  })
+}
+
 function normalizeSetting(key: string, value: unknown) {
   if (key === 'posts_per_page') {
     const parsed = Number(value || 10)
@@ -60,6 +83,7 @@ function normalizeSetting(key: string, value: unknown) {
     if (!Array.isArray(value)) return []
     return value.slice(0, 80)
   }
+  if (key === 'nav_search_engines') return normalizeSearchEngines(value)
   const limit = SETTING_LIMITS[key]
   if (limit) return String(value || '').trim().slice(0, limit)
   return value
@@ -80,6 +104,7 @@ export function publicSettings(_req: AuthRequest, res: Response) {
     'profile_bio',
     'banner_images',
     'font_library',
+    'nav_search_engines',
   ]
 
   for (const row of rows) {
@@ -92,6 +117,7 @@ export function publicSettings(_req: AuthRequest, res: Response) {
   if (musicTracks.length) {
     map.music_playlist = musicTracks
   }
+  if (!Array.isArray(map.nav_search_engines)) map.nav_search_engines = DEFAULT_NAV_SEARCH_ENGINES
   return success(res, map)
 }
 

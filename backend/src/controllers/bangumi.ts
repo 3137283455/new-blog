@@ -102,39 +102,6 @@ export function list(_req: AuthRequest, res: Response) {
   return success(res, attachPlaySources(rows))
 }
 
-export function stats(_req: AuthRequest, res: Response) {
-  const summary = db.prepare(`
-    SELECT COUNT(*) AS total,
-      SUM(CASE WHEN status = 'watching' THEN 1 ELSE 0 END) AS watching,
-      SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
-      COALESCE(SUM(watched_episodes * episode_duration), 0) AS watched_minutes
-    FROM bangumi_items WHERE is_active = 1
-  `).get()
-  const calendar = db.prepare(`
-    SELECT id, title, cover, update_weekday, watched_episodes, total_episodes
-    FROM bangumi_items WHERE is_active = 1 AND update_weekday BETWEEN 1 AND 7
-    ORDER BY update_weekday ASC, sort_order ASC
-  `).all()
-  const recommendation = db.prepare(`
-    SELECT id, title, cover, summary, watched_episodes, total_episodes
-    FROM bangumi_items
-    WHERE is_active = 1 AND status IN ('paused', 'plan', 'planned')
-    ORDER BY RANDOM() LIMIT 1
-  `).get()
-  return success(res, { summary, calendar, recommendation })
-}
-
-export function incrementProgress(req: AuthRequest, res: Response) {
-  const id = Number(req.params.id)
-  const item = db.prepare('SELECT id, watched_episodes, total_episodes FROM bangumi_items WHERE id = ? AND is_active = 1').get(id) as any
-  if (!item) return error(res, '追番不存在', 'NOT_FOUND', 404)
-  const next = Math.min(Math.max(0, Number(item.total_episodes) || 9999), Number(item.watched_episodes || 0) + 1)
-  const status = item.total_episodes > 0 && next >= item.total_episodes ? 'done' : 'watching'
-  db.prepare("UPDATE bangumi_items SET watched_episodes = ?, progress = ?, status = ?, updated_at = datetime('now') WHERE id = ?")
-    .run(next, item.total_episodes > 0 ? `${next}/${item.total_episodes}` : String(next), status, id)
-  return success(res, { watched_episodes: next, total_episodes: item.total_episodes, status }, '观看进度已更新')
-}
-
 function normalizeBangumiSubject(item: any) {
   const image = item.images?.large || item.images?.common || item.images?.medium || item.images?.small || ''
   const rating = Number(item.rating?.score || 0)

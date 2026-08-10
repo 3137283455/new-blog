@@ -19,7 +19,6 @@ const COMMENT_LIMITS = {
   email: 120,
   url: 200,
   content: 2000,
-  cooldownSeconds: 30,
 }
 
 function isValidEmail(value: string) {
@@ -96,6 +95,7 @@ export function create(req: AuthRequest, res: Response) {
   const safeEmail = cleanText(author_email)
   const safeUrl = normalizeUrl(cleanText(author_url))
   const safeContent = cleanText(content)
+  if (!Number.isInteger(articleId) || articleId <= 0) return error(res, '文章不存在', 'NOT_FOUND', 404)
   if (!safeAuthor || !safeContent) return error(res, '昵称和内容不能为空')
   if (safeAuthor.length > COMMENT_LIMITS.author) return error(res, `昵称不能超过 ${COMMENT_LIMITS.author} 个字符`)
   if (safeEmail.length > COMMENT_LIMITS.email) return error(res, `邮箱不能超过 ${COMMENT_LIMITS.email} 个字符`)
@@ -118,22 +118,13 @@ export function create(req: AuthRequest, res: Response) {
     if (!parent) return error(res, '回复的评论不存在', 'NOT_FOUND', 404)
   }
 
-  const ip = req.ip || req.socket.remoteAddress || ''
-  const recent = db.prepare(`
-    SELECT id FROM comments
-    WHERE article_id = ? AND ip = ? AND created_at >= datetime('now', ?)
-    LIMIT 1
-  `).get(articleId, ip, `-${COMMENT_LIMITS.cooldownSeconds} seconds`)
-  if (recent) {
-    return error(res, `评论提交太频繁，请 ${COMMENT_LIMITS.cooldownSeconds} 秒后再试`, 'COMMENT_RATE_LIMITED', 429)
-  }
-
   // 检查是否需要审核
   const setting = db.prepare("SELECT value FROM settings WHERE key = 'comment_moderation'").get() as any
   const needModeration = setting?.value === 'true'
   const status = needModeration ? 'pending' : 'approved'
 
-  db.prepare(`
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || req.socket.remoteAddress || ''
+  const result = db.prepare(`
     INSERT INTO comments (article_id, parent_id, author_name, author_email, author_url, content, status, ip, user_agent)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -146,7 +137,7 @@ export function create(req: AuthRequest, res: Response) {
   refreshArticleCommentCount(articleId)
 
   const msg = needModeration ? '评论已提交，审核通过后显示' : '评论成功'
-  return success(res, null, msg)
+  return success(res, { id: Number(result.lastInsertRowid), status }, msg)
 }
 
 // ===== 管理 =====

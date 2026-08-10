@@ -79,12 +79,6 @@ export interface MusicTrack {
   photo_album_id?: number
 }
 
-export interface BangumiStats {
-  summary: { total?: number; watching?: number; done?: number; watched_minutes?: number }
-  calendar: BangumiItem[]
-  recommendation?: BangumiItem | null
-}
-
 export interface MusicStats {
   year: number
   recent: Array<MusicTrack & { played_at?: string; plays?: number }>
@@ -123,6 +117,12 @@ export interface PublicSettings {
     family?: string
     url?: string
     type?: string
+  }>
+  nav_search_engines?: Array<{
+    id: string
+    name: string
+    mark?: string
+    url: string
   }>
 }
 
@@ -347,17 +347,6 @@ export async function getBangumiItems(): Promise<BangumiItem[]> {
     return (json.data || []) as BangumiItem[]
   } catch {
     return []
-  }
-}
-
-export async function getBangumiStats(): Promise<BangumiStats | null> {
-  try {
-    const res = await apiFetch(`${API_BASE}/bangumi/stats`)
-    if (!res.ok) return null
-    const json = await res.json()
-    return (json.data || null) as BangumiStats | null
-  } catch {
-    return null
   }
 }
 

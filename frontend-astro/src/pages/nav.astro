@@ -1,9 +1,18 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
-import { getNavigationLinks } from '../lib/api'
+import { getNavigationLinks, getPublicSettings } from '../lib/api'
 import { resolveUploadUrl, uploadBase } from '../lib/media'
 
-const links = (await getNavigationLinks()).filter((item) => item.is_active !== 0 && item.is_active !== false)
+const [navigationLinks, publicSettings] = await Promise.all([getNavigationLinks(), getPublicSettings()])
+const links = navigationLinks.filter((item) => item.is_active !== 0 && item.is_active !== false)
+const defaultSearchEngines = [
+  { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
+  { id: 'bing', name: 'Bing', mark: 'B', url: 'https://www.bing.com/search?q={query}' },
+]
+const searchEngines = Array.isArray(publicSettings.nav_search_engines) && publicSettings.nav_search_engines.length
+  ? publicSettings.nav_search_engines
+  : defaultSearchEngines
+const initialSearchEngine = searchEngines[0]
 const categories = Array.from(new Set(links.map((item) => item.category || '常用'))).filter(Boolean)
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 const normalizeUrl = (url: string) => {
@@ -36,14 +45,21 @@ const getFavicon = (url: string) => {
 
     <form id="web-search" class="web-search" role="search">
       <button id="search-engine-trigger" class="search-engine-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-        <span id="search-engine-mark">B</span><span id="search-engine-name">Bing</span><small>⌄</small>
+        <span id="search-engine-mark">{initialSearchEngine.mark || initialSearchEngine.name.slice(0, 1)}</span><span id="search-engine-name">{initialSearchEngine.name}</span><small aria-hidden="true">⌄</small>
       </button>
-      <div id="search-engine-menu" class="search-engine-menu" role="listbox" hidden>
-        <button type="button" data-engine="site" data-mark="⌘" data-name="我的内容" data-url="">我的内容 <small>全站搜索</small></button>
-        <button type="button" data-engine="bing" data-mark="B" data-name="Bing" data-url="https://www.bing.com/search?q=">Bing <small>国际搜索</small></button>
-        <button type="button" data-engine="baidu" data-mark="百" data-name="百度" data-url="https://www.baidu.com/s?wd=">百度 <small>中文搜索</small></button>
-        <button type="button" data-engine="google" data-mark="G" data-name="Google" data-url="https://www.google.com/search?q=">Google <small>全球搜索</small></button>
-        <button type="button" data-engine="duck" data-mark="D" data-name="DuckDuckGo" data-url="https://duckduckgo.com/?q=">DuckDuckGo <small>隐私搜索</small></button>
+      <div id="search-engine-menu" class="search-engine-menu" role="listbox" aria-label="选择搜索引擎" hidden>
+        {searchEngines.map((engine, index) => (
+          <button
+            id={`search-engine-option-${engine.id}`}
+            type="button"
+            role="option"
+            aria-selected={index === 0 ? 'true' : 'false'}
+            data-engine={engine.id}
+            data-mark={engine.mark || engine.name.slice(0, 1)}
+            data-name={engine.name}
+            data-url={engine.url}
+          ><span><b>{engine.mark || engine.name.slice(0, 1)}</b>{engine.name}</span><i aria-hidden="true">✓</i></button>
+        ))}
       </div>
       <label>
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
@@ -114,46 +130,6 @@ const getFavicon = (url: string) => {
       </div>
     </section>
 
-    <details class="personal-dashboard" aria-label="个人首页组件">
-      <summary class="personal-dashboard-head">
-        <div><p>PERSONAL DESK</p><h2>个人工具</h2></div>
-        <div><span>便签、待办、稍后处理与回忆</span><b class="personal-dashboard-toggle"><i>展开</i><em>收起</em></b></div>
-      </summary>
-
-      <div id="personal-widget-grid" class="personal-widget-grid">
-        <article class="personal-widget note-widget" data-widget="note" draggable="true">
-          <header><div><span>01</span><h3>快捷便签</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动快捷便签">⠿</button></header>
-          <textarea id="quick-note" maxlength="4000" placeholder="随手记点什么，内容会自动保存在这个浏览器…"></textarea>
-          <footer><span id="quick-note-count">0 字</span><span id="quick-note-status">自动保存</span></footer>
-        </article>
-
-        <article class="personal-widget todo-widget" data-widget="todo" draggable="true">
-          <header><div><span>02</span><h3>今日待办</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动今日待办">⠿</button></header>
-          <form id="todo-form"><input id="todo-input" maxlength="120" placeholder="添加一件要做的事" autocomplete="off" /><button type="submit">＋</button></form>
-          <div id="todo-list" class="personal-list"></div>
-          <footer><span id="todo-summary">今天还没有待办</span><button id="clear-completed-todos" type="button">清除已完成</button></footer>
-        </article>
-
-        <article class="personal-widget inbox-widget" data-widget="inbox" draggable="true">
-          <header><div><span>03</span><h3>稍后处理</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动稍后处理">⠿</button></header>
-          <form id="inbox-form">
-            <select id="inbox-type" aria-label="内容类型"><option value="idea">想法</option><option value="link">网址</option><option value="write">待写</option><option value="watch">待看</option><option value="organize">待整理</option></select>
-            <input id="inbox-input" maxlength="300" placeholder="先收进来，稍后再整理" autocomplete="off" />
-            <button type="submit">收下</button>
-          </form>
-          <div id="inbox-list" class="personal-list"></div>
-          <footer><span id="inbox-summary">收集箱是空的</span><button id="clear-done-inbox" type="button">清除已处理</button></footer>
-        </article>
-
-        <article class="personal-widget memory-widget" data-widget="memory" draggable="true">
-          <header><div><span>04</span><h3>时间胶囊</h3></div><div><button id="refresh-memory" type="button" title="换一个回忆" aria-label="换一个回忆">↻</button><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动时间胶囊">⠿</button></div></header>
-          <div id="memory-content" class="memory-content"><p>正在翻找过去的记录…</p></div>
-          <footer><span id="memory-mode">去年今天</span><a href="/archive">查看归档 ↗</a></footer>
-        </article>
-      </div>
-      <footer class="personal-dashboard-actions"><span>拖动卡片调整顺序</span><button id="reset-widget-order" type="button">重置布局</button></footer>
-    </details>
-
     <footer class="start-footer">
       <span>按 <kbd>/</kbd> 筛选站点</span><span><kbd>Enter</kbd> 打开第一个结果</span><span>{links.length} 个站点 · 数据来自博客后台</span>
     </footer>
@@ -163,8 +139,6 @@ const getFavicon = (url: string) => {
     type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; workspace?: string; is_active?: number | boolean }
     type RecentItem = { id: string; title: string; href: string; icon: string; visitedAt: number }
     type UsageItem = { count: number; lastVisited: number }
-    type TodoItem = { id: string; text: string; done: boolean; createdAt: number }
-    type InboxItem = { id: string; type: 'idea' | 'link' | 'write' | 'watch' | 'organize'; text: string; done: boolean; createdAt: number; serverId?: number }
     type HubItem = { id: string; kind: string; kind_label: string; title: string; subtitle?: string; href: string; image?: string; meta?: string }
     const board = document.querySelector<HTMLElement>('.start-page')
     const grid = document.getElementById('nav-grid')
@@ -179,10 +153,6 @@ const getFavicon = (url: string) => {
     const RECENTS_KEY = 'boke-nav-recents-v1'
     const USAGE_KEY = 'boke-nav-usage-v1'
     const SORT_KEY = 'boke-nav-sort-v1'
-    const NOTE_KEY = 'boke-personal-note-v1'
-    const TODO_KEY = 'boke-personal-todos-v1'
-    const INBOX_KEY = 'boke-personal-inbox-v1'
-    const WIDGET_ORDER_KEY = 'boke-personal-widget-order-v1'
     const WORKSPACE_KEY = 'boke-nav-workspace-v1'
     let activeCategory = 'all'
     let favoritesOnly = false
@@ -193,7 +163,6 @@ const getFavicon = (url: string) => {
     const resolveMedia = (src?: string) => src?.startsWith('/uploads/') ? `${mediaBase}${src}` : (src || '')
     const readStorage = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback } }
     const getFavorites = () => new Set(readStorage<string[]>(FAVORITES_KEY, []))
-    const makeId = () => globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
     function updateClock() {
       const now = new Date()
@@ -215,11 +184,12 @@ const getFavicon = (url: string) => {
       const mark = document.getElementById('search-engine-mark')
       const name = document.getElementById('search-engine-name')
       const results = document.getElementById('hub-search-results')
-      let searchUrl = 'https://www.bing.com/search?q='
-      let activeEngine = 'bing'
+      let searchUrl = ''
+      let activeEngine = ''
       let timer = 0
       let controller: AbortController | null = null
       const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-engine]'))
+      const isSiteSearch = () => searchUrl === 'site:'
       const renderResults = (items: HubItem[], query: string) => {
         if (!results) return
         results.hidden = false
@@ -245,25 +215,42 @@ const getFavicon = (url: string) => {
         }, 180)
       }
       const choose = (option: HTMLButtonElement) => {
-        activeEngine = option.dataset.engine || 'bing'
+        activeEngine = option.dataset.engine || ''
         searchUrl = option.dataset.url || ''
-        if (mark) mark.textContent = option.dataset.mark || 'B'
-        if (name) name.textContent = option.dataset.name || 'Bing'
-        if (webInput) webInput.placeholder = activeEngine === 'site' ? '搜索文章、网址、追番、相册和音乐' : '搜索互联网'
-        if (activeEngine !== 'site' && results) { results.hidden = true; results.innerHTML = '' }
+        if (mark) mark.textContent = option.dataset.mark || '⌕'
+        if (name) name.textContent = option.dataset.name || '搜索'
+        if (webInput) webInput.placeholder = isSiteSearch() ? '搜索博客内容' : `使用 ${option.dataset.name || '搜索引擎'} 搜索`
+        if (!isSiteSearch() && results) { results.hidden = true; results.innerHTML = '' }
+        options.forEach((item) => {
+          const selected = item === option
+          item.classList.toggle('is-selected', selected)
+          item.setAttribute('aria-selected', String(selected))
+        })
         localStorage.setItem('boke-search-engine', activeEngine)
         menu?.setAttribute('hidden', '')
         trigger?.setAttribute('aria-expanded', 'false')
         webInput?.focus()
-        if (activeEngine === 'site') searchSite(webInput?.value.trim() || '')
+        if (isSiteSearch()) searchSite(webInput?.value.trim() || '')
       }
-      choose(options.find((item) => item.dataset.engine === (localStorage.getItem('boke-search-engine') || 'bing')) || options.find((item) => item.dataset.engine === 'bing') || options[0])
+      const closeMenu = (returnFocus = false) => { menu?.setAttribute('hidden', ''); trigger?.setAttribute('aria-expanded', 'false'); if (returnFocus) trigger?.focus() }
+      const openMenu = () => { menu?.removeAttribute('hidden'); trigger?.setAttribute('aria-expanded', 'true'); requestAnimationFrame(() => (options.find((item) => item.classList.contains('is-selected')) || options[0])?.focus()) }
+      const moveOptionFocus = (current: HTMLButtonElement, direction: number) => {
+        const index = options.indexOf(current)
+        options[(index + direction + options.length) % options.length]?.focus()
+      }
+      choose(options.find((item) => item.dataset.engine === localStorage.getItem('boke-search-engine')) || options[0])
       if (window.matchMedia('(min-width: 761px)').matches) requestAnimationFrame(() => webInput?.focus())
-      trigger?.addEventListener('click', () => { const willOpen = menu?.hasAttribute('hidden'); menu?.toggleAttribute('hidden', !willOpen); trigger.setAttribute('aria-expanded', String(willOpen)) })
+      trigger?.addEventListener('click', () => menu?.hasAttribute('hidden') ? openMenu() : closeMenu())
+      trigger?.addEventListener('keydown', (event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); openMenu() } })
       options.forEach((option) => option.addEventListener('click', () => choose(option)))
-      webInput?.addEventListener('input', () => { if (activeEngine === 'site') searchSite(webInput.value.trim()) })
-      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (!query) return; if (activeEngine === 'site') results?.querySelector<HTMLAnchorElement>('a')?.click(); else location.href = `${searchUrl}${encodeURIComponent(query)}` })
-      document.addEventListener('click', (event) => { if (!form?.contains(event.target as Node)) { menu?.setAttribute('hidden', ''); trigger?.setAttribute('aria-expanded', 'false') } })
+      options.forEach((option) => option.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); moveOptionFocus(option, event.key === 'ArrowDown' ? 1 : -1) }
+        if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); options[event.key === 'Home' ? 0 : options.length - 1]?.focus() }
+        if (event.key === 'Escape') { event.preventDefault(); closeMenu(true) }
+      }))
+      webInput?.addEventListener('input', () => { if (isSiteSearch()) searchSite(webInput.value.trim()) })
+      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (!query) return; if (isSiteSearch()) results?.querySelector<HTMLAnchorElement>('a')?.click(); else location.href = searchUrl.replace('{query}', encodeURIComponent(query)) })
+      document.addEventListener('click', (event) => { if (!form?.contains(event.target as Node)) closeMenu() })
     }
 
     function renderCard(item: NavItem, index: number) {
@@ -323,79 +310,11 @@ const getFavicon = (url: string) => {
       try { const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const items = ((json.data || []) as NavItem[]).filter((item) => item?.title && item?.url && item.is_active !== 0 && item.is_active !== false); if (!grid) return; grid.innerHTML = items.map(renderCard).join(''); renderCategories(items); bindCards(); applyFilter() } catch { bindCards(); sortCards(); applyFilter() }
     }
 
-    function initPersonalDashboard() {
-      const note = document.getElementById('quick-note') as HTMLTextAreaElement | null
-      const noteCount = document.getElementById('quick-note-count')
-      const noteStatus = document.getElementById('quick-note-status')
-      let noteTimer = 0
-      const updateNoteCount = () => { if (noteCount) noteCount.textContent = `${note?.value.length || 0} 字` }
-      if (note) { note.value = localStorage.getItem(NOTE_KEY) || ''; updateNoteCount(); note.addEventListener('input', () => { updateNoteCount(); if (noteStatus) noteStatus.textContent = '正在保存…'; window.clearTimeout(noteTimer); noteTimer = window.setTimeout(() => { localStorage.setItem(NOTE_KEY, note.value); if (noteStatus) noteStatus.textContent = '已保存' }, 260) }) }
-
-      const todoList = document.getElementById('todo-list')
-      const todoForm = document.getElementById('todo-form') as HTMLFormElement | null
-      const todoInput = document.getElementById('todo-input') as HTMLInputElement | null
-      let todos = readStorage<TodoItem[]>(TODO_KEY, [])
-      const saveTodos = () => localStorage.setItem(TODO_KEY, JSON.stringify(todos))
-      const renderTodos = () => {
-        const openCount = todos.filter((item) => !item.done).length
-        if (todoList) todoList.innerHTML = todos.length ? todos.map((item) => `<div class="personal-list-item${item.done ? ' is-done' : ''}" data-id="${escapeHtml(item.id)}"><button type="button" data-action="toggle" aria-label="${item.done ? '恢复' : '完成'}">${item.done ? '✓' : ''}</button><span>${escapeHtml(item.text)}</span><button type="button" data-action="delete" aria-label="删除">×</button></div>`).join('') : '<p class="personal-list-empty">留一点空白，也很好。</p>'
-        const summary = document.getElementById('todo-summary'); if (summary) summary.textContent = todos.length ? `${openCount} 件待完成 · ${todos.length - openCount} 件已完成` : '今天还没有待办'
-      }
-      todoForm?.addEventListener('submit', (event) => { event.preventDefault(); const text = todoInput?.value.trim(); if (!text) return; todos.unshift({ id: makeId(), text, done: false, createdAt: Date.now() }); saveTodos(); renderTodos(); if (todoInput) { todoInput.value = ''; todoInput.focus() } })
-      todoList?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]'); const row = button?.closest<HTMLElement>('[data-id]'); if (!button || !row) return; const index = todos.findIndex((item) => item.id === row.dataset.id); if (index < 0) return; if (button.dataset.action === 'toggle') todos[index].done = !todos[index].done; else todos.splice(index, 1); saveTodos(); renderTodos() })
-      document.getElementById('clear-completed-todos')?.addEventListener('click', () => { todos = todos.filter((item) => !item.done); saveTodos(); renderTodos() })
-      renderTodos()
-
-      const inboxList = document.getElementById('inbox-list')
-      const inboxForm = document.getElementById('inbox-form') as HTMLFormElement | null
-      const inboxInput = document.getElementById('inbox-input') as HTMLInputElement | null
-      const inboxType = document.getElementById('inbox-type') as HTMLSelectElement | null
-      const typeLabels: Record<InboxItem['type'], string> = { idea: '想法', link: '网址', write: '待写', watch: '待看', organize: '整理' }
-      let inbox = readStorage<InboxItem[]>(INBOX_KEY, [])
-      const saveInbox = () => localStorage.setItem(INBOX_KEY, JSON.stringify(inbox))
-      const renderInbox = () => {
-        const openCount = inbox.filter((item) => !item.done).length
-        if (inboxList) inboxList.innerHTML = inbox.length ? inbox.map((item) => { const content = item.type === 'link' ? `<a href="${escapeHtml(normalizeUrl(item.text))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.text)}</a>` : `<span>${escapeHtml(item.text)}</span>`; return `<div class="personal-list-item inbox-list-item${item.done ? ' is-done' : ''}" data-id="${escapeHtml(item.id)}"><button type="button" data-action="toggle" aria-label="${item.done ? '恢复' : '处理完成'}">${item.done ? '✓' : ''}</button><small>${typeLabels[item.type]}</small>${content}<button type="button" data-action="delete" aria-label="删除">×</button></div>` }).join('') : '<p class="personal-list-empty">看到好东西时，先把它收在这里。</p>'
-        const summary = document.getElementById('inbox-summary'); if (summary) summary.textContent = inbox.length ? `${openCount} 项等你处理` : '收集箱是空的'
-      }
-      inboxForm?.addEventListener('submit', async (event) => { event.preventDefault(); const text = inboxInput?.value.trim(); if (!text) return; const item: InboxItem = { id: makeId(), type: (inboxType?.value || 'idea') as InboxItem['type'], text, done: false, createdAt: Date.now() }; inbox.unshift(item); saveInbox(); renderInbox(); if (inboxInput) { inboxInput.value = ''; inboxInput.focus() }; try { const response = await fetch(`${apiBase}/hub/inbox`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: item.type, content: item.text, url: item.type === 'link' ? item.text : '', source: 'nav-home' }) }); const json = await response.json(); if (response.ok && json.data?.id) { item.serverId = json.data.id; saveInbox() } } catch {} })
-      inboxList?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]'); const row = button?.closest<HTMLElement>('[data-id]'); if (!button || !row) return; const index = inbox.findIndex((item) => item.id === row.dataset.id); if (index < 0) return; if (button.dataset.action === 'toggle') inbox[index].done = !inbox[index].done; else inbox.splice(index, 1); saveInbox(); renderInbox() })
-      document.getElementById('clear-done-inbox')?.addEventListener('click', () => { inbox = inbox.filter((item) => !item.done); saveInbox(); renderInbox() })
-      renderInbox()
-
-      const widgetGrid = document.getElementById('personal-widget-grid')
-      const widgets = () => Array.from(widgetGrid?.querySelectorAll<HTMLElement>('[data-widget]') || [])
-      const applyWidgetOrder = (order: string[]) => { order.forEach((id) => { const widget = widgetGrid?.querySelector<HTMLElement>(`[data-widget="${id}"]`); if (widget) widgetGrid?.append(widget) }) }
-      applyWidgetOrder(readStorage<string[]>(WIDGET_ORDER_KEY, []))
-      let dragged: HTMLElement | null = null
-      let dragArmed = false
-      widgets().forEach((widget) => {
-        widget.querySelector('.widget-drag')?.addEventListener('pointerdown', () => { dragArmed = true })
-        widget.addEventListener('dragstart', (event) => { if (!dragArmed) { event.preventDefault(); return }; dragged = widget; widget.classList.add('is-dragging'); event.dataTransfer?.setData('text/plain', widget.dataset.widget || '') })
-        widget.addEventListener('dragend', () => { dragArmed = false; dragged?.classList.remove('is-dragging'); dragged = null; localStorage.setItem(WIDGET_ORDER_KEY, JSON.stringify(widgets().map((item) => item.dataset.widget))) })
-        widget.addEventListener('dragover', (event) => { if (!dragged || dragged === widget) return; event.preventDefault(); const rect = widget.getBoundingClientRect(); widgetGrid?.insertBefore(dragged, event.clientY < rect.top + rect.height / 2 ? widget : widget.nextSibling) })
-      })
-      document.addEventListener('pointerup', () => { dragArmed = false })
-      document.getElementById('reset-widget-order')?.addEventListener('click', () => { applyWidgetOrder(['note', 'todo', 'inbox', 'memory']); localStorage.removeItem(WIDGET_ORDER_KEY) })
-    }
-
-    function initMemories() {
-      const content = document.getElementById('memory-content')
-      const mode = document.getElementById('memory-mode')
-      const button = document.getElementById('refresh-memory') as HTMLButtonElement | null
-      let items: HubItem[] = []
-      let index = 0
-      const show = () => { const item = items[index % items.length]; if (!content || !item) return; const href = normalizeUrl(item.href); content.innerHTML = `<a href="${escapeHtml(href)}"><span>${escapeHtml(item.kind_label)}</span><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.subtitle || '')}</p><small>${escapeHtml(String(item.meta || '').slice(0, 10))}</small></a>`; index += 1 }
-      const load = async () => { if (button) button.disabled = true; if (content) content.innerHTML = '<p>正在翻找过去的记录…</p>'; try { const response = await fetch(`${apiBase}/hub/memories`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const today = (json.data?.on_this_day || []) as HubItem[]; const random = (json.data?.random || []) as HubItem[]; items = today.length ? today : random; index = Math.floor(Math.random() * Math.max(items.length, 1)); if (mode) mode.textContent = today.length ? '往年今日' : '随机回顾'; show() } catch { if (content) content.innerHTML = '<p>内容再多一点，这里就会出现你的回忆。</p>'; if (mode) mode.textContent = '等待记录' } finally { if (button) button.disabled = false } }
-      button?.addEventListener('click', () => { if (items.length > 1) show(); else load() })
-      load()
-    }
-
     const navSort = document.getElementById('nav-sort') as HTMLSelectElement | null
     const navWorkspace = document.getElementById('nav-workspace') as HTMLSelectElement | null
     if (navSort) navSort.value = localStorage.getItem(SORT_KEY) || 'original'
     if (navWorkspace) navWorkspace.value = localStorage.getItem(WORKSPACE_KEY) || 'all'
-    updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); initPersonalDashboard(); initMemories(); renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
+    updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
     input?.addEventListener('input', applyFilter)
     favoritesButton?.addEventListener('click', () => { favoritesOnly = !favoritesOnly; favoritesButton.classList.toggle('is-active', favoritesOnly); favoritesButton.setAttribute('aria-pressed', String(favoritesOnly)); applyFilter() })
     document.getElementById('density-toggle')?.addEventListener('click', () => { const compact = grid?.classList.toggle('is-compact') || false; localStorage.setItem('boke-nav-compact', String(compact)) })
