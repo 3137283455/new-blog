@@ -17,6 +17,7 @@ import * as musicCtrl from '../controllers/music'
 import * as markdownCtrl from '../controllers/markdown'
 import * as backupCtrl from '../controllers/backup'
 import * as hubCtrl from '../controllers/hub'
+import * as personalCtrl from '../controllers/personal'
 import { upload, backupUpload } from '../middleware/upload'
 
 const router = Router()
@@ -33,15 +34,23 @@ router.get('/articles/random', articleCtrl.random)
 router.get('/articles/:slug', articleCtrl.detail)
 router.get('/search/all', hubCtrl.searchAll)
 router.get('/hub/memories', hubCtrl.memories)
+router.get('/hub/insights', personalCtrl.insights)
+router.post('/hub/inbox', personalCtrl.submitInbox)
+router.get('/series', personalCtrl.seriesList)
+router.get('/series/:slug', personalCtrl.seriesDetail)
 router.get('/categories', categoryCtrl.list)
 router.get('/tags', categoryCtrl.tagList)
 router.get('/pages', pageCtrl.publicList)
 router.get('/pages/:slug', pageCtrl.getBySlug)
 router.get('/navigation', navigationCtrl.publicList)
 router.get('/bangumi', bangumiCtrl.publicList)
+router.get('/bangumi/stats', bangumiCtrl.stats)
+router.post('/bangumi/:id/progress', bangumiCtrl.incrementProgress)
 router.get('/albums', albumCtrl.publicList)
 router.get('/albums/:id', albumCtrl.publicDetail)
 router.get('/music', musicCtrl.publicList)
+router.get('/music/stats', musicCtrl.stats)
+router.post('/music/:id/play', musicCtrl.recordPlay)
 router.get('/articles/:id/comments', commentCtrl.list)
 router.post('/articles/:id/comments', commentCtrl.create)
 router.post('/articles/:id/like', articleCtrl.like)
@@ -62,6 +71,19 @@ router.post('/admin/articles/batch-delete', auth, articleCtrl.batchDelete)
 router.put('/admin/articles/:id/restore', auth, articleCtrl.restore)
 router.delete('/admin/articles/:id/force', auth, articleCtrl.forceDelete)
 router.post('/admin/markdown/preview', auth, markdownCtrl.preview)
+
+// 个人中心、收集箱与专题
+router.get('/admin/personal/inbox', auth, personalCtrl.inboxList)
+router.put('/admin/personal/inbox/:id', auth, personalCtrl.updateInbox)
+router.post('/admin/personal/inbox/:id/convert', auth, personalCtrl.convertInbox)
+router.delete('/admin/personal/inbox/:id', auth, personalCtrl.removeInbox)
+router.get('/admin/personal/todos', auth, personalCtrl.todoList)
+router.put('/admin/personal/todos/:id', auth, personalCtrl.updateTodo)
+router.delete('/admin/personal/todos/:id', auth, personalCtrl.removeTodo)
+router.get('/admin/series', auth, personalCtrl.adminSeriesList)
+router.post('/admin/series', auth, personalCtrl.createSeries)
+router.put('/admin/series/:id', auth, personalCtrl.updateSeries)
+router.delete('/admin/series/:id', auth, personalCtrl.removeSeries)
 
 // 鍒嗙被绠＄悊
 router.post('/admin/categories', auth, categoryCtrl.create)
@@ -140,6 +162,9 @@ router.post('/admin/themes/install', auth, themeCtrl.install)
 router.put('/admin/themes/:id/activate', auth, themeCtrl.activate)
 router.post('/admin/themes/:id/preview', auth, themeCtrl.preview)
 router.post('/admin/themes/clear-preview', auth, themeCtrl.clearPreview)
+router.put('/admin/themes/:id/config', auth, themeCtrl.updateConfig)
+router.get('/admin/themes/:id/export', auth, themeCtrl.exportConfig)
+router.post('/admin/themes/import', auth, themeCtrl.importConfig)
 router.delete('/admin/themes/:id', auth, themeCtrl.remove)
 
 // 鎻掍欢绠＄悊

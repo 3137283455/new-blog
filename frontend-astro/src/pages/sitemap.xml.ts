@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro'
-import { getAlbums, getArticles, getPages } from '@/lib/api'
+import { getAlbums, getArticles, getPages, getSeries } from '@/lib/api'
 
 function escapeXml(value: string) {
   return value.replace(/[<>&'\"]/g, (character) => ({
@@ -13,8 +13,8 @@ function escapeXml(value: string) {
 
 export const GET: APIRoute = async ({ url }) => {
   type SitemapEntry = { path: string; lastmod?: string | null }
-  const staticPaths = ['/', '/archive', '/nav', '/bangumi', '/albums', '/music']
-  const [pages, albums] = await Promise.all([getPages(), getAlbums()])
+  const staticPaths = ['/', '/archive', '/nav', '/series', '/memories', '/bangumi', '/albums', '/music']
+  const [pages, albums, series] = await Promise.all([getPages(), getAlbums(), getSeries()])
   const articles = []
   let page = 1
   let totalPages = 1
@@ -30,6 +30,7 @@ export const GET: APIRoute = async ({ url }) => {
     ...staticPaths.map((path) => ({ path })),
     ...pages.map((item) => ({ path: `/page/${item.slug}`, lastmod: item.updated_at || item.created_at })),
     ...albums.map((item) => ({ path: `/albums/${item.id}` })),
+    ...series.map((item) => ({ path: `/series/${item.slug}` })),
     ...articles.map((item) => ({
       path: `/article/${item.slug}`,
       lastmod: item.updated_at || item.published_at || item.created_at,

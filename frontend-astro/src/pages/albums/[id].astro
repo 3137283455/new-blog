@@ -8,6 +8,15 @@ if (!album) return Astro.redirect('/albums')
 
 const resolveMedia = (src?: string) => resolveUploadUrl(src || '')
 const photos = album.photos || []
+const groupMode = Astro.url.searchParams.get('group') === 'location' ? 'location' : 'year'
+const groups = Object.entries(photos.reduce<Record<string, typeof photos>>((output, photo) => {
+  const value = photo.captured_at || album.event_date || photo.created_at || ''
+  const key = groupMode === 'location'
+    ? (photo.photo_location || album.location || '未标地点')
+    : (value ? String(new Date(value).getFullYear()) : '未标日期')
+  ;(output[key] ||= []).push(photo)
+  return output
+}, {}))
 ---
 
 <BaseLayout
@@ -39,27 +48,34 @@ const photos = album.photos || []
       <h1 class="text-2xl font-black md:text-4xl">{album.icon || ''} {album.title}</h1>
       <p class="mt-2 text-base-content/60">{album.description || '照片集'}</p>
     </div>
-    <a class="ryu-btn" href="/albums">返回相册</a>
+    <div class="album-view-actions"><a class:list={['ryu-btn', groupMode === 'year' && 'is-active']} href={`/albums/${album.id}?group=year`}>按年份</a><a class:list={['ryu-btn', groupMode === 'location' && 'is-active']} href={`/albums/${album.id}?group=location`}>按地点</a><button id="random-album-photo" class="ryu-btn" type="button">随机回忆</button><a class="ryu-btn" href="/albums">返回相册</a></div>
   </section>
 
-  <section class="photo-wall">
-    {photos.map((photo, index) => (
-      <a
-        class={`photo-wall-item variant-${photo.variant || '1x1'}`}
-        href={resolveMedia(photo.image)}
-        target="_blank"
-        style={`--rotate:${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg`}
-      >
-        <img src={resolveMedia(photo.image)} alt={photo.title || album.title} loading="lazy" />
-        {(photo.title || photo.description) && (
-          <span>
-            <strong>{photo.title}</strong>
-            <small>{photo.description}</small>
-          </span>
-        )}
-      </a>
+  <div class:list={['album-timeline', album.story_mode && 'is-story-mode']}>
+    {groups.map(([year, groupPhotos]) => (
+      <section class="album-year-group">
+        <header><span>{year}</span><p>{groupPhotos.length} 张照片</p></header>
+        <div class="photo-wall">
+          {groupPhotos.map((photo, index) => (
+            <a
+              class={`photo-wall-item variant-${photo.variant || '1x1'}`}
+              href={resolveMedia(photo.image)}
+              target="_blank"
+              data-random-photo
+              style={`--rotate:${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg`}
+            >
+              <img src={resolveMedia(photo.image)} alt={photo.title || album.title} loading="lazy" />
+              <span>
+                <strong>{photo.title || '无题照片'}</strong>
+                <small>{photo.story_text || photo.description || '这一刻没有留下文字。'}</small>
+                {(photo.captured_at || photo.camera || photo.photo_location) && <em>{[photo.captured_at ? formatDate(photo.captured_at) : '', photo.photo_location, photo.camera].filter(Boolean).join(' · ')}</em>}
+              </span>
+            </a>
+          ))}
+        </div>
+      </section>
     ))}
-  </section>
+  </div>
 
   {photos.length === 0 && (
     <div class="empty-feature ryu-card">
@@ -67,4 +83,13 @@ const photos = album.photos || []
       <span>去后台上传并添加照片。</span>
     </div>
   )}
+  <script>
+    document.getElementById('random-album-photo')?.addEventListener('click', () => {
+      const photos = Array.from(document.querySelectorAll<HTMLElement>('[data-random-photo]'))
+      const photo = photos[Math.floor(Math.random() * photos.length)]
+      photo?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      photo?.classList.add('is-random-pick')
+      window.setTimeout(() => photo?.classList.remove('is-random-pick'), 1800)
+    })
+  </script>
 </BaseLayout>

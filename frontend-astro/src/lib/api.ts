@@ -34,6 +34,17 @@ export interface Article {
   previous?: ArticleSummary | null
   next?: ArticleSummary | null
   related?: ArticleSummary[]
+  series_id?: number
+  series_order?: number
+  series_title?: string
+  series_slug?: string
+  series_articles?: ArticleSummary[]
+  series_position?: number
+  music_track_id?: number
+  music_title?: string
+  music_artist?: string
+  music_url?: string
+  music_cover?: string
 }
 
 export interface ActivePlugin {
@@ -54,6 +65,7 @@ export interface ArticleSummary {
 }
 
 export interface MusicTrack {
+  id?: number
   title: string
   artist?: string
   url: string
@@ -61,6 +73,38 @@ export interface MusicTrack {
   lyrics?: string
   playlist?: string
   collection?: string
+  article_id?: number
+  photo_id?: number
+  article_slug?: string
+  photo_album_id?: number
+}
+
+export interface BangumiStats {
+  summary: { total?: number; watching?: number; done?: number; watched_minutes?: number }
+  calendar: BangumiItem[]
+  recommendation?: BangumiItem | null
+}
+
+export interface MusicStats {
+  year: number
+  recent: Array<MusicTrack & { played_at?: string; plays?: number }>
+  top: Array<MusicTrack & { plays?: number }>
+  months: Array<{ month: string; plays: number }>
+  total: { plays?: number }
+}
+
+export interface ArticleSeries {
+  id: number
+  title: string
+  slug: string
+  description?: string
+  cover?: string
+  sort_order?: number
+  is_featured?: number | boolean
+  status?: string
+  article_count?: number
+  total_views?: number
+  articles?: ArticleSummary[]
 }
 
 export interface PublicSettings {
@@ -102,6 +146,7 @@ export interface NavigationLink {
   category?: string
   icon?: string
   avatar?: string
+  workspace?: string
   sort_order?: number
   is_active?: number | boolean
 }
@@ -125,6 +170,11 @@ export interface BangumiItem {
   summary?: string
   sort_order?: number
   is_active?: number | boolean
+  watched_episodes?: number
+  episode_duration?: number
+  update_weekday?: number
+  article_id?: number
+  article_slug?: string
 }
 
 export interface BangumiPlaySource {
@@ -145,6 +195,11 @@ export interface AlbumPhoto {
   description?: string
   variant?: string
   sort_order?: number
+  captured_at?: string
+  camera?: string
+  photo_location?: string
+  story_text?: string
+  created_at?: string
 }
 
 export interface AlbumItem {
@@ -157,6 +212,7 @@ export interface AlbumItem {
   icon?: string
   sort_order?: number
   is_active?: number | boolean
+  story_mode?: number | boolean
   photos?: AlbumPhoto[]
 }
 
@@ -226,6 +282,63 @@ export async function getNavigationLinks(): Promise<NavigationLink[]> {
   }
 }
 
+export async function getMusicStats(year?: number): Promise<MusicStats | null> {
+  try {
+    const query = year ? `?year=${encodeURIComponent(String(year))}` : ''
+    const res = await apiFetch(`${API_BASE}/music/stats${query}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return (json.data || null) as MusicStats | null
+  } catch {
+    return null
+  }
+}
+
+export async function getActiveTheme(): Promise<any> {
+  try {
+    const res = await apiFetch(`${API_BASE}/themes/active`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.data || null
+  } catch {
+    return null
+  }
+}
+
+export async function getSeries(): Promise<ArticleSeries[]> {
+  try {
+    const res = await apiFetch(`${API_BASE}/series`)
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.data || []) as ArticleSeries[]
+  } catch {
+    return []
+  }
+}
+
+export async function getSeriesDetail(slug: string): Promise<ArticleSeries | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/series/${encodeURIComponent(slug)}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.data as ArticleSeries
+  } catch {
+    return null
+  }
+}
+
+export async function getPersonalInsights(year?: number): Promise<any> {
+  try {
+    const query = year ? `?year=${encodeURIComponent(String(year))}` : ''
+    const res = await apiFetch(`${API_BASE}/hub/insights${query}`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.data || null
+  } catch {
+    return null
+  }
+}
+
 export async function getBangumiItems(): Promise<BangumiItem[]> {
   try {
     const res = await apiFetch(`${API_BASE}/bangumi`)
@@ -234,6 +347,17 @@ export async function getBangumiItems(): Promise<BangumiItem[]> {
     return (json.data || []) as BangumiItem[]
   } catch {
     return []
+  }
+}
+
+export async function getBangumiStats(): Promise<BangumiStats | null> {
+  try {
+    const res = await apiFetch(`${API_BASE}/bangumi/stats`)
+    if (!res.ok) return null
+    const json = await res.json()
+    return (json.data || null) as BangumiStats | null
+  } catch {
+    return null
   }
 }
 

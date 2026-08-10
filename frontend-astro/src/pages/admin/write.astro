@@ -938,6 +938,19 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             </section>
 
             <section class="writer-card">
+              <h2>专题与联动</h2>
+              <label class="writer-field">所属专题
+                <select id="series"><option value="">不加入专题</option></select>
+              </label>
+              <label class="writer-field">专题顺序
+                <input id="series-order" type="number" min="0" max="9999" value="0" />
+              </label>
+              <label class="writer-field">背景音乐
+                <select id="music-track"><option value="">不绑定音乐</option></select>
+              </label>
+            </section>
+
+            <section class="writer-card">
               <h2>分类与封面</h2>
               <label class="writer-field">分类
                 <select id="category"></select>
@@ -1286,6 +1299,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           tag_ids: Array.from($('#tags').selectedOptions).map((option) => Number(option.value)),
           is_pinned: $('#is-pinned').checked,
           is_recommended: $('#is-recommended').checked,
+          series_id: Number($('#series').value) || null,
+          series_order: Number($('#series-order').value || 0),
+          music_track_id: Number($('#music-track').value) || null,
         }
       }
 
@@ -1304,6 +1320,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         $('#body-font-select').value = fontKey({ family: post?.body_font_family, url: post?.body_font_url })
         $('#is-pinned').checked = !!post?.is_pinned
         $('#is-recommended').checked = !!post?.is_recommended
+        $('#series').value = post?.series_id || ''
+        $('#series-order').value = post?.series_order || 0
+        $('#music-track').value = post?.music_track_id || ''
         const tagIds = new Set((post?.tags || []).map((tag) => String(tag.id)))
         Array.from($('#tags').options).forEach((option) => {
           option.selected = tagIds.has(option.value)
@@ -1569,9 +1588,11 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       }
 
       async function loadTaxonomy() {
-        const [categoryJson, tagJson] = await Promise.all([
+        const [categoryJson, tagJson, seriesJson, musicJson] = await Promise.all([
           publicRequest('/categories'),
           publicRequest('/tags'),
+          publicRequest('/series'),
+          publicRequest('/music'),
         ])
         $('#category').innerHTML = '<option value="">无分类</option>' + (categoryJson.data || []).map((item) => (
           `<option value="${item.id}">${html(item.name)}</option>`
@@ -1579,6 +1600,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         $('#tags').innerHTML = (tagJson.data || []).map((item) => (
           `<option value="${item.id}">${html(item.name)}</option>`
         )).join('')
+        $('#series').innerHTML = '<option value="">不加入专题</option>' + (seriesJson.data || []).map((item) => `<option value="${item.id}">${html(item.title)}</option>`).join('')
+        $('#music-track').innerHTML = '<option value="">不绑定音乐</option>' + (musicJson.data || []).map((item) => `<option value="${item.id}">${html(item.title)} · ${html(item.artist || '未知歌手')}</option>`).join('')
       }
 
       async function loadCurrentArticle() {
@@ -1762,7 +1785,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       $('#article-search').addEventListener('input', scheduleArticleSearch)
       $('#content').addEventListener('input', scheduleEditorUpdate)
       $('#title').addEventListener('input', scheduleEditorUpdate)
-      ;['excerpt', 'cover', 'status', 'visibility', 'category', 'tags', 'title-font-select', 'body-font-select', 'is-pinned', 'is-recommended'].forEach((id) => {
+      ;['excerpt', 'cover', 'status', 'visibility', 'category', 'tags', 'series', 'series-order', 'music-track', 'title-font-select', 'body-font-select', 'is-pinned', 'is-recommended'].forEach((id) => {
         document.getElementById(id)?.addEventListener('change', markDirty)
       })
       window.addEventListener('beforeunload', (event) => {

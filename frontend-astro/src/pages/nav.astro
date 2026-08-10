@@ -15,6 +15,12 @@ const normalizeUrl = (url: string) => {
 const getHost = (url: string) => {
   try { return new URL(normalizeUrl(url)).hostname.replace(/^www\./, '') } catch { return url }
 }
+const getFavicon = (url: string) => {
+  try {
+    const target = new URL(normalizeUrl(url))
+    return target.protocol.startsWith('http') ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(target.hostname)}&sz=64` : ''
+  } catch { return '' }
+}
 ---
 
 <BaseLayout title="导航" subtitle="你的每日网络起点" showBanner={false} showSidebar={false} wide hideFooter>
@@ -76,7 +82,7 @@ const getHost = (url: string) => {
         <article class="personal-widget inbox-widget" data-widget="inbox" draggable="true">
           <header><div><span>03</span><h3>稍后处理</h3></div><button class="widget-drag" type="button" title="拖动排序" aria-label="拖动稍后处理">⠿</button></header>
           <form id="inbox-form">
-            <select id="inbox-type" aria-label="内容类型"><option value="idea">想法</option><option value="link">网址</option><option value="write">待写</option><option value="watch">待看</option></select>
+            <select id="inbox-type" aria-label="内容类型"><option value="idea">想法</option><option value="link">网址</option><option value="write">待写</option><option value="watch">待看</option><option value="organize">待整理</option></select>
             <input id="inbox-input" maxlength="300" placeholder="先收进来，稍后再整理" autocomplete="off" />
             <button type="submit">收下</button>
           </form>
@@ -104,6 +110,7 @@ const getHost = (url: string) => {
           <kbd>/</kbd>
         </label>
         <div class="bookmark-actions">
+          <label class="bookmark-sort"><span>布局</span><select id="nav-workspace"><option value="all">全部</option><option value="work">工作</option><option value="study">学习</option><option value="fun">娱乐</option></select></label>
           <label class="bookmark-sort"><span>排序</span><select id="nav-sort"><option value="original">后台顺序</option><option value="frequent">最常使用</option><option value="recent">最近访问</option></select></label>
           <button id="favorites-filter" type="button" aria-pressed="false"><span>☆</span> 收藏</button>
           <button id="density-toggle" type="button" aria-label="切换显示密度" title="切换显示密度">
@@ -123,11 +130,11 @@ const getHost = (url: string) => {
       <div id="nav-grid" class="bookmark-grid">
         {links.map((item, index) => {
           const href = normalizeUrl(item.url)
-          const avatar = resolveUploadUrl(item.avatar || '')
+          const avatar = resolveUploadUrl(item.avatar || '') || getFavicon(item.url)
           const category = item.category || '常用'
           const host = getHost(item.url)
           return (
-            <article class="bookmark-card" data-id={String(item.id)} data-order={String(index)} data-category={category.toLowerCase()} data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()} style={`--delay:${Math.min(index, 12) * 28}ms`}>
+            <article class="bookmark-card" data-id={String(item.id)} data-order={String(index)} data-workspace={item.workspace || 'general'} data-category={category.toLowerCase()} data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()} style={`--delay:${Math.min(index, 12) * 28}ms`}>
               <a class="bookmark-card-link" href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} data-track-recent>
                 <span class="bookmark-icon">{avatar && <img src={avatar} alt="" loading="lazy" onerror="this.remove()" />}<b>{item.icon || item.title.slice(0, 1)}</b></span>
                 <span class="bookmark-copy"><strong>{item.title}</strong><small>{item.description || host}</small></span>
@@ -135,6 +142,7 @@ const getHost = (url: string) => {
               </a>
               <button class="bookmark-star" type="button" aria-label={`收藏 ${item.title}`} aria-pressed="false" title="收藏">☆</button>
               <span class="bookmark-category">{category}</span>
+              {index < 9 && <span class="bookmark-hotkey">{index + 1}</span>}
             </article>
           )
         })}
@@ -151,11 +159,11 @@ const getHost = (url: string) => {
   </section>
 
   <script>
-    type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; is_active?: number | boolean }
+    type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; workspace?: string; is_active?: number | boolean }
     type RecentItem = { id: string; title: string; href: string; icon: string; visitedAt: number }
     type UsageItem = { count: number; lastVisited: number }
     type TodoItem = { id: string; text: string; done: boolean; createdAt: number }
-    type InboxItem = { id: string; type: 'idea' | 'link' | 'write' | 'watch'; text: string; done: boolean; createdAt: number }
+    type InboxItem = { id: string; type: 'idea' | 'link' | 'write' | 'watch' | 'organize'; text: string; done: boolean; createdAt: number; serverId?: number }
     type HubItem = { id: string; kind: string; kind_label: string; title: string; subtitle?: string; href: string; image?: string; meta?: string }
     const board = document.querySelector<HTMLElement>('.start-page')
     const grid = document.getElementById('nav-grid')
@@ -174,6 +182,7 @@ const getHost = (url: string) => {
     const TODO_KEY = 'boke-personal-todos-v1'
     const INBOX_KEY = 'boke-personal-inbox-v1'
     const WIDGET_ORDER_KEY = 'boke-personal-widget-order-v1'
+    const WORKSPACE_KEY = 'boke-nav-workspace-v1'
     let activeCategory = 'all'
     let favoritesOnly = false
 
@@ -257,11 +266,11 @@ const getHost = (url: string) => {
     }
 
     function renderCard(item: NavItem, index: number) {
-      const href = normalizeUrl(item.url); const host = getHost(item.url); const category = item.category || '常用'; const avatar = resolveMedia(item.avatar); const title = item.title || host || '未命名资源'
+      const href = normalizeUrl(item.url); const host = getHost(item.url); const category = item.category || '常用'; const fallbackFavicon = href.startsWith('http') ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64` : ''; const avatar = resolveMedia(item.avatar) || fallbackFavicon; const title = item.title || host || '未命名资源'
       const icon = `${avatar ? `<img src="${escapeHtml(avatar)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}<b>${escapeHtml(item.icon || title.slice(0, 1))}</b>`
       const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
       const search = `${title} ${item.description || ''} ${category} ${host} ${item.url || ''}`.toLowerCase()
-      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-order="${index}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span><span class="bookmark-usage" hidden></span></article>`
+      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-order="${index}" data-workspace="${escapeHtml(item.workspace || 'general')}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span><span class="bookmark-usage" hidden></span>${index < 9 ? `<span class="bookmark-hotkey">${index + 1}</span>` : ''}</article>`
     }
 
     function getCards() { return Array.from(document.querySelectorAll<HTMLElement>('.bookmark-card')) }
@@ -285,8 +294,9 @@ const getHost = (url: string) => {
       }).forEach((card) => grid.append(card))
     }
     function applyFilter() {
-      const keyword = input?.value.trim().toLowerCase() || ''; const favorites = getFavorites(); let visible = 0
-      getCards().forEach((card) => { const show = (activeCategory === 'all' || card.dataset.category === activeCategory) && (!keyword || (card.dataset.search || '').includes(keyword)) && (!favoritesOnly || favorites.has(card.dataset.id || '')); card.hidden = !show; if (show) visible += 1 })
+      const keyword = input?.value.trim().toLowerCase() || ''; const favorites = getFavorites(); const workspace = (document.getElementById('nav-workspace') as HTMLSelectElement | null)?.value || 'all'; let visible = 0
+      const hints: Record<string, string[]> = { work: ['work', '工作', '工具', '开发', '设计', '效率'], study: ['study', '学习', '文档', '教程', '阅读', '知识'], fun: ['fun', '娱乐', '游戏', '视频', '音乐', '社交'] }
+      getCards().forEach((card) => { const explicit = card.dataset.workspace || 'general'; const inferred = hints[workspace]?.some((hint) => (card.dataset.search || '').includes(hint)); const workspaceMatch = workspace === 'all' || explicit === workspace || (explicit === 'general' && inferred); const show = workspaceMatch && (activeCategory === 'all' || card.dataset.category === activeCategory) && (!keyword || (card.dataset.search || '').includes(keyword)) && (!favoritesOnly || favorites.has(card.dataset.id || '')); card.hidden = !show; if (show) visible += 1 })
       if (count) count.textContent = String(visible)
       empty?.toggleAttribute('hidden', visible > 0)
     }
@@ -339,7 +349,7 @@ const getHost = (url: string) => {
       const inboxForm = document.getElementById('inbox-form') as HTMLFormElement | null
       const inboxInput = document.getElementById('inbox-input') as HTMLInputElement | null
       const inboxType = document.getElementById('inbox-type') as HTMLSelectElement | null
-      const typeLabels: Record<InboxItem['type'], string> = { idea: '想法', link: '网址', write: '待写', watch: '待看' }
+      const typeLabels: Record<InboxItem['type'], string> = { idea: '想法', link: '网址', write: '待写', watch: '待看', organize: '整理' }
       let inbox = readStorage<InboxItem[]>(INBOX_KEY, [])
       const saveInbox = () => localStorage.setItem(INBOX_KEY, JSON.stringify(inbox))
       const renderInbox = () => {
@@ -347,7 +357,7 @@ const getHost = (url: string) => {
         if (inboxList) inboxList.innerHTML = inbox.length ? inbox.map((item) => { const content = item.type === 'link' ? `<a href="${escapeHtml(normalizeUrl(item.text))}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.text)}</a>` : `<span>${escapeHtml(item.text)}</span>`; return `<div class="personal-list-item inbox-list-item${item.done ? ' is-done' : ''}" data-id="${escapeHtml(item.id)}"><button type="button" data-action="toggle" aria-label="${item.done ? '恢复' : '处理完成'}">${item.done ? '✓' : ''}</button><small>${typeLabels[item.type]}</small>${content}<button type="button" data-action="delete" aria-label="删除">×</button></div>` }).join('') : '<p class="personal-list-empty">看到好东西时，先把它收在这里。</p>'
         const summary = document.getElementById('inbox-summary'); if (summary) summary.textContent = inbox.length ? `${openCount} 项等你处理` : '收集箱是空的'
       }
-      inboxForm?.addEventListener('submit', (event) => { event.preventDefault(); const text = inboxInput?.value.trim(); if (!text) return; inbox.unshift({ id: makeId(), type: (inboxType?.value || 'idea') as InboxItem['type'], text, done: false, createdAt: Date.now() }); saveInbox(); renderInbox(); if (inboxInput) { inboxInput.value = ''; inboxInput.focus() } })
+      inboxForm?.addEventListener('submit', async (event) => { event.preventDefault(); const text = inboxInput?.value.trim(); if (!text) return; const item: InboxItem = { id: makeId(), type: (inboxType?.value || 'idea') as InboxItem['type'], text, done: false, createdAt: Date.now() }; inbox.unshift(item); saveInbox(); renderInbox(); if (inboxInput) { inboxInput.value = ''; inboxInput.focus() }; try { const response = await fetch(`${apiBase}/hub/inbox`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: item.type, content: item.text, url: item.type === 'link' ? item.text : '', source: 'nav-home' }) }); const json = await response.json(); if (response.ok && json.data?.id) { item.serverId = json.data.id; saveInbox() } } catch {} })
       inboxList?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-action]'); const row = button?.closest<HTMLElement>('[data-id]'); if (!button || !row) return; const index = inbox.findIndex((item) => item.id === row.dataset.id); if (index < 0) return; if (button.dataset.action === 'toggle') inbox[index].done = !inbox[index].done; else inbox.splice(index, 1); saveInbox(); renderInbox() })
       document.getElementById('clear-done-inbox')?.addEventListener('click', () => { inbox = inbox.filter((item) => !item.done); saveInbox(); renderInbox() })
       renderInbox()
@@ -381,7 +391,9 @@ const getHost = (url: string) => {
     }
 
     const navSort = document.getElementById('nav-sort') as HTMLSelectElement | null
+    const navWorkspace = document.getElementById('nav-workspace') as HTMLSelectElement | null
     if (navSort) navSort.value = localStorage.getItem(SORT_KEY) || 'original'
+    if (navWorkspace) navWorkspace.value = localStorage.getItem(WORKSPACE_KEY) || 'all'
     updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); initPersonalDashboard(); initMemories(); renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
     input?.addEventListener('input', applyFilter)
     favoritesButton?.addEventListener('click', () => { favoritesOnly = !favoritesOnly; favoritesButton.classList.toggle('is-active', favoritesOnly); favoritesButton.setAttribute('aria-pressed', String(favoritesOnly)); applyFilter() })
@@ -389,6 +401,7 @@ const getHost = (url: string) => {
     if (localStorage.getItem('boke-nav-compact') === 'true') grid?.classList.add('is-compact')
     document.getElementById('clear-recents')?.addEventListener('click', () => { localStorage.removeItem(RECENTS_KEY); renderRecents() })
     navSort?.addEventListener('change', () => { localStorage.setItem(SORT_KEY, navSort.value); sortCards(); applyFilter() })
-    document.addEventListener('keydown', (event) => { if (event.key === '/' && document.activeElement?.tagName !== 'INPUT') { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && document.activeElement === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click() })
+    navWorkspace?.addEventListener('change', () => { localStorage.setItem(WORKSPACE_KEY, navWorkspace.value); activeCategory = 'all'; document.querySelectorAll('[data-nav-category]').forEach((item, index) => item.classList.toggle('is-active', index === 0)); applyFilter() })
+    document.addEventListener('keydown', (event) => { const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || ''); if (event.key === '/' && !editing) { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && document.activeElement === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click(); if (!editing && /^[1-9]$/.test(event.key)) { const card = getCards().filter((item) => !item.hidden)[Number(event.key) - 1]; card?.querySelector<HTMLAnchorElement>('.bookmark-card-link')?.click() } })
   </script>
 </BaseLayout>

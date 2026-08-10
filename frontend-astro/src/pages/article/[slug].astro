@@ -90,6 +90,7 @@ const structuredData = JSON.stringify({
         <header class="article-content-head mb-10 border-b border-base-content/10 pb-8 text-center">
           <div class="mb-4 flex flex-wrap justify-center gap-2">
             {article.category_name && <span class="badge badge-primary badge-outline">{article.category_name}</span>}
+            {article.series_title && <a class="badge badge-secondary badge-outline" href={`/series/${article.series_slug}`}>专题 · {article.series_title}</a>}
             <span class="badge badge-ghost">{formatDate(article.published_at || article.created_at)}</span>
           </div>
           <h1 class="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl" style={titleFontStyle}>{article.title}</h1>
@@ -99,6 +100,24 @@ const structuredData = JSON.stringify({
             {wordCountEnabled && <> · <span data-reading-stats>{articleWordCount} 字 · 约 {articleReadingMinutes} 分钟</span></>}
           </p>
         </header>
+
+        {article.series_title && article.series_articles?.length ? (
+          <aside class="article-series-progress">
+            <div><small>ARTICLE SERIES</small><strong>{article.series_title}</strong><span>第 {article.series_position || 1} / {article.series_articles.length} 篇</span></div>
+            <ol>
+              {article.series_articles.map((item, index) => (
+                <li class:list={[item.id === article.id && 'is-current']}><a href={`/article/${item.slug}`}><span>{index + 1}</span>{item.title}</a></li>
+              ))}
+            </ol>
+            <i style={`--series-progress:${Math.round(((article.series_position || 1) / article.series_articles.length) * 100)}%`}></i>
+          </aside>
+        ) : null}
+
+        {article.music_track_id && (
+          <button class="article-music-binding" type="button" data-article-music={article.music_track_id}>
+            <span>♪</span><div><small>这篇文章的背景音乐</small><strong>{article.music_title || '播放关联音乐'} · {article.music_artist || '未知歌手'}</strong></div><b>播放</b>
+          </button>
+        )}
 
         <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
       </BaseCard>
@@ -310,6 +329,11 @@ const structuredData = JSON.stringify({
     let readingSaveTimer
     let savedReadingEntry = null
     let commentsLoaded = false
+
+    document.querySelector('[data-article-music]')?.addEventListener('click', (event) => {
+      const trackId = Number(event.currentTarget?.dataset.articleMusic || 0)
+      if (trackId) window.dispatchEvent(new CustomEvent('boke:play-track', { detail: { trackId } }))
+    })
 
     // 脱离带 transform 动画的页面容器，确保 fixed 进度条以浏览器窗口为定位基准。
     if (progressRoot && progressRoot.parentElement !== document.body) document.body.append(progressRoot)

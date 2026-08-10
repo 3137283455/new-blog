@@ -608,6 +608,8 @@ function openMusicTrackDialog(index = -1) {
     form.elements.namedItem('url').value = song.url || '';
     form.elements.namedItem('cover').value = song.cover || '';
     form.elements.namedItem('lyrics').value = song.lyrics || '';
+    form.elements.namedItem('article_id').value = song.article_id || '';
+    form.elements.namedItem('photo_id').value = song.photo_id || '';
   }
   $('#music-track-dialog-title').textContent = song ? '编辑歌曲' : '新增歌曲';
   window.updateAdminFieldPreview?.('music-form', 'url');
@@ -1315,6 +1317,8 @@ async function addMusic(event) {
     url: fields.namedItem('url').value.trim(),
     cover: fields.namedItem('cover').value.trim(),
     lyrics: fields.namedItem('lyrics').value.trim(),
+    article_id: Number(fields.namedItem('article_id').value) || null,
+    photo_id: Number(fields.namedItem('photo_id').value) || null,
   };
   if (!song.title || !song.url) return;
   const editingIndex = Number(event.currentTarget.dataset.editingIndex ?? -1);

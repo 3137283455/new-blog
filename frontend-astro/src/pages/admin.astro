@@ -33,6 +33,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         <button class="admin-nav" data-panel="media">媒体库</button>
         <button class="admin-nav" data-panel="fonts">字体库</button>
         <button class="admin-nav" data-panel="appearance">主题外观</button>
+        <button class="admin-nav" data-panel="personal">个人中心</button>
         <button class="admin-nav" data-panel="backup">备份导出</button>
         <button class="admin-nav" data-panel="settings">设置</button>
       </nav>
@@ -614,6 +615,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <input class="input input-bordered rounded-xl" name="title" maxlength="80" placeholder="标题" required />
             <input class="input input-bordered rounded-xl" name="url" maxlength="500" placeholder="链接地址" required />
             <input class="input input-bordered rounded-xl" name="category" maxlength="40" placeholder="分类，如 工具 / 设计 / 站点" />
+            <select class="select select-bordered rounded-xl" name="workspace"><option value="general">通用布局</option><option value="work">工作布局</option><option value="study">学习布局</option><option value="fun">娱乐布局</option></select>
             <input class="input input-bordered rounded-xl" name="icon" maxlength="40" placeholder="图标字符，如 ◎ / ☆ / GitHub" />
             <div class="join w-full">
               <input class="input join-item input-bordered w-full rounded-l-xl" name="avatar" maxlength="500" placeholder="图片地址 /uploads/..." />
@@ -661,6 +663,12 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               <input class="input input-bordered rounded-xl" name="external_id" maxlength="40" placeholder="Bangumi ID" />
               <input class="input input-bordered rounded-xl" name="type" maxlength="60" placeholder="类型，如 TV / 剧场版" />
               <input class="input input-bordered rounded-xl" name="total_episodes" type="number" min="0" max="9999" placeholder="总集数" />
+            </div>
+            <div class="grid gap-3 md:grid-cols-4">
+              <input class="input input-bordered rounded-xl" name="watched_episodes" type="number" min="0" placeholder="已看集数" />
+              <input class="input input-bordered rounded-xl" name="episode_duration" type="number" min="1" value="24" placeholder="单集分钟" />
+              <select class="select select-bordered rounded-xl" name="update_weekday"><option value="0">无固定更新</option><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select>
+              <input class="input input-bordered rounded-xl" name="article_id" type="number" min="1" placeholder="观后感文章 ID" />
             </div>
             <div class="grid gap-3 md:grid-cols-3">
               <select class="select select-bordered rounded-xl" name="status">
@@ -718,6 +726,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <input class="input input-bordered rounded-xl" name="icon" maxlength="40" placeholder="图标字符" />
             <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
             <textarea class="textarea textarea-bordered rounded-xl" name="description" maxlength="500" placeholder="相册描述"></textarea>
+            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="story_mode" type="checkbox" />多图故事模式</label>
             <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="is_active" type="checkbox" checked />前台显示</label>
             <div class="flex gap-2">
               <button class="ryu-btn-primary" type="submit">保存相册</button>
@@ -744,6 +753,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               <option value="16x9">宽图 16:9</option>
             </select>
             <input class="input input-bordered rounded-xl" name="sort_order" type="number" min="-9999" max="9999" placeholder="排序" />
+            <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="captured_at" type="datetime-local" /><input class="input input-bordered rounded-xl" name="camera" maxlength="160" placeholder="相机 / 手机（上传后自动读取）" /></div>
+            <input class="input input-bordered rounded-xl" name="photo_location" maxlength="160" placeholder="拍摄地点或 GPS（上传后自动读取）" />
+            <textarea class="textarea textarea-bordered rounded-xl" name="story_text" maxlength="2000" placeholder="这张照片在故事中的文字"></textarea>
             <textarea class="textarea textarea-bordered rounded-xl" name="description" maxlength="500" placeholder="照片描述"></textarea>
             <button class="ryu-btn-primary" type="submit">添加照片</button>
             <p id="album-photo-message" class="min-h-6 text-sm"></p>
@@ -751,6 +763,65 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <div class="ryu-card p-5">
             <h3 class="text-xl font-black">相册列表</h3>
             <div id="albums-list" class="mt-4 grid gap-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="personal-panel" class="admin-panel hidden">
+        <header class="admin-personal-hero">
+          <div><p>PERSONAL WORKSPACE</p><h2>个人博客长期中心</h2><span>统一整理灵感、专题、待办、年度记录与主题外观。</span></div>
+          <a class="ryu-btn" href="/memories" target="_blank">查看年度回顾 ↗</a>
+        </header>
+        <nav class="admin-personal-tabs">
+          <button class="is-active" type="button" data-personal-tab="inbox">稍后处理</button>
+          <button type="button" data-personal-tab="series">文章专题</button>
+          <button type="button" data-personal-tab="report">写作报告</button>
+          <button type="button" data-personal-tab="theme">主题编辑器</button>
+        </nav>
+
+        <div class="admin-personal-section" data-personal-section="inbox">
+          <div class="admin-personal-columns">
+            <section class="ryu-card p-5"><div class="flex items-center justify-between"><div><h3 class="text-xl font-black">灵感收集箱</h3><p class="text-sm text-base-content/50">首页记录会自动同步到这里。</p></div><select id="personal-inbox-filter" class="select select-bordered select-sm rounded-xl"><option value="all">全部</option><option value="pending">待处理</option><option value="done">已转换</option></select></div><div id="personal-inbox-list" class="admin-personal-list mt-4"></div></section>
+            <section class="ryu-card p-5"><h3 class="text-xl font-black">个人待办</h3><p class="text-sm text-base-content/50">由收集箱转换而来，可在这里完成或删除。</p><div id="personal-todo-list" class="admin-personal-list mt-4"></div></section>
+          </div>
+        </div>
+
+        <div class="admin-personal-section hidden" data-personal-section="series">
+          <div class="admin-personal-columns">
+            <form id="personal-series-form" class="ryu-card grid gap-3 p-5">
+              <div><h3 class="text-xl font-black">专题信息</h3><p class="text-sm text-base-content/50">适合持续记录项目、旅行或兴趣。</p></div>
+              <input name="id" type="hidden" />
+              <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="专题标题" required />
+              <input class="input input-bordered rounded-xl" name="slug" maxlength="120" placeholder="URL 标识（可留空）" />
+              <input class="input input-bordered rounded-xl" name="cover" maxlength="500" placeholder="专题封面地址" />
+              <textarea class="textarea textarea-bordered min-h-28 rounded-xl" name="description" maxlength="1000" placeholder="专题介绍"></textarea>
+              <div class="grid grid-cols-2 gap-3"><input class="input input-bordered rounded-xl" name="sort_order" type="number" placeholder="排序" /><select class="select select-bordered rounded-xl" name="status"><option value="published">公开</option><option value="draft">草稿</option></select></div>
+              <label class="label cursor-pointer justify-start gap-2"><input class="checkbox checkbox-sm" name="is_featured" type="checkbox" />首页展示这个专题</label>
+              <div class="flex gap-2"><button class="ryu-btn-primary" type="submit">保存专题</button><button id="personal-series-reset" class="ryu-btn" type="button">新建</button></div>
+            </form>
+            <section class="ryu-card p-5"><div class="flex items-center justify-between"><h3 class="text-xl font-black">专题列表</h3><a class="text-sm font-bold text-primary" href="/series" target="_blank">前台查看 ↗</a></div><div id="personal-series-list" class="admin-personal-list mt-4"></div></section>
+          </div>
+        </div>
+
+        <div class="admin-personal-section hidden" data-personal-section="report">
+          <section class="ryu-card p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-xl font-black">年度写作报告</h3><p class="text-sm text-base-content/50">文章发布、字数、阅读与连续写作统计。</p></div><select id="personal-report-year" class="select select-bordered rounded-xl"></select></div><div id="personal-report-stats" class="admin-stats-grid mt-5"></div><div id="personal-report-heatmap" class="memory-heatmap mt-5"></div><div id="personal-report-months" class="admin-personal-months mt-5"></div></section>
+        </div>
+
+        <div class="admin-personal-section hidden" data-personal-section="theme">
+          <div class="admin-personal-columns">
+            <form id="personal-theme-form" class="ryu-card grid gap-4 p-5">
+              <div><h3 class="text-xl font-black">可视化主题编辑器</h3><p class="text-sm text-base-content/50">即时调整字体、圆角、透明度和页面宽度。</p></div>
+              <select id="personal-theme-select" class="select select-bordered rounded-xl" name="id"></select>
+              <label class="grid gap-1"><span class="text-sm font-bold">季节预设</span><select class="select select-bordered rounded-xl" name="season"><option value="custom">自定义</option><option value="spring">春日</option><option value="summer">盛夏</option><option value="autumn">秋色</option><option value="winter">冬夜</option></select></label>
+              <div class="grid grid-cols-3 gap-3"><label class="grid gap-1 text-xs">主色<input name="primary" type="color" value="#5e7c61" /></label><label class="grid gap-1 text-xs">悬停色<input name="primary_hover" type="color" value="#456248" /></label><label class="grid gap-1 text-xs">浅色<input name="primary_light" type="color" value="#dce8dc" /></label></div>
+              <label class="grid gap-1"><span class="text-sm font-bold">正文字体</span><input class="input input-bordered rounded-xl" name="body_font" placeholder="system-ui" /></label>
+              <label class="grid gap-1"><span class="text-sm font-bold">标题字体</span><input class="input input-bordered rounded-xl" name="title_font" placeholder="Georgia, serif" /></label>
+              <label class="grid gap-1"><span class="text-sm font-bold">卡片圆角 <b data-theme-value="card_radius">18</b>px</span><input name="card_radius" type="range" min="0" max="40" value="18" /></label>
+              <label class="grid gap-1"><span class="text-sm font-bold">卡片透明度 <b data-theme-value="card_opacity">86</b>%</span><input name="card_opacity" type="range" min="35" max="100" value="86" /></label>
+              <label class="grid gap-1"><span class="text-sm font-bold">页面宽度 <b data-theme-value="content_width">72</b>rem</span><input name="content_width" type="range" min="48" max="96" value="72" /></label>
+              <div class="flex flex-wrap gap-2"><button class="ryu-btn-primary" type="submit">保存配置</button><button id="personal-theme-export" class="ryu-btn" type="button">导出</button><label class="ryu-btn cursor-pointer">导入<input id="personal-theme-import" class="hidden" type="file" accept="application/json,.json" /></label></div>
+            </form>
+            <section class="ryu-card p-5"><h3 class="text-xl font-black">实时预览</h3><div id="personal-theme-preview" class="admin-theme-live-preview mt-4"><small>PERSONAL THEME</small><h2>记录每个季节</h2><p>字体、圆角、透明度与页面宽度会在保存后应用到整个前台。</p><div><span></span><span></span><span></span></div></div></section>
           </div>
         </div>
       </section>
@@ -982,6 +1053,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <span class="label-text">歌词</span>
             <textarea class="textarea textarea-bordered min-h-36 rounded-xl" name="lyrics" placeholder="支持逐行歌词，也可以粘贴 LRC 文本"></textarea>
           </label>
+          <div class="grid gap-3 md:grid-cols-2"><label class="form-control"><span class="label-text">关联文章 ID</span><input class="input input-bordered rounded-xl" name="article_id" type="number" min="1" placeholder="可选" /></label><label class="form-control"><span class="label-text">关联照片 ID</span><input class="input input-bordered rounded-xl" name="photo_id" type="number" min="1" placeholder="可选" /></label></div>
           <div class="flex justify-end gap-2">
             <button id="cancel-music-track" class="ryu-btn" type="button">取消</button>
             <button class="ryu-btn-primary" type="submit">保存歌曲</button>
@@ -1015,6 +1087,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     <script>
       import '../scripts/admin-core.js';
       import '../scripts/admin-extra.js';
+      import '../scripts/admin-personal.js';
     </script>
   </body>
 </html>

@@ -1,11 +1,13 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
-import { formatDate, getActivePlugins, getArticles } from '@/lib/api'
+import { formatDate, getActivePlugins, getArticles, getSeries } from '@/lib/api'
 
-const [{ articles, pagination }, activePlugins] = await Promise.all([
+const [{ articles, pagination }, activePlugins, series] = await Promise.all([
   getArticles({ page: 1, pageSize: 10 }),
   getActivePlugins(),
+  getSeries(),
 ])
+const featuredSeries = series.filter((item) => item.is_featured).slice(0, 3)
 const readingHistoryEnabled = activePlugins.some((plugin) => plugin.id === 'reading-history')
 const articleBookmarkEnabled = activePlugins.some((plugin) => plugin.id === 'article-bookmark')
 const featured = articles.find((post) => post.is_pinned || post.is_recommended) || articles[0]
@@ -45,6 +47,24 @@ const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320))
       <a href="/admin/write"><span>开始写作</span><small>新建草稿</small></a>
     </nav>
   </section>
+
+  {featuredSeries.length > 0 && (
+    <section class="home-series">
+      <header class="section-heading">
+        <div><span class="section-number">S</span><div><p>Ongoing series</p><h2>持续更新的专题</h2></div></div>
+        <a href="/series">全部专题 <span>↗</span></a>
+      </header>
+      <div>
+        {featuredSeries.map((item, index) => (
+          <a href={`/series/${item.slug}`}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <div><small>{item.article_count || 0} 篇文章</small><h3>{item.title}</h3><p>{item.description || '持续记录中'}</p></div>
+            <b>↗</b>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
 
   {readingHistoryEnabled && (
     <section id="home-reading-history" class="home-reading-history" hidden aria-label="最近阅读">

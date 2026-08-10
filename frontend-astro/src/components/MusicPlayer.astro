@@ -75,7 +75,7 @@ const payload = JSON.stringify(tracks)
       if (root.dataset.ready === 'true') return;
       root.dataset.ready = 'true';
 
-      const tracks = JSON.parse(root.getAttribute('data-tracks') || '[]');
+      const tracks: Array<{ id?: number; title?: string; artist?: string; url: string; cover?: string }> = JSON.parse(root.getAttribute('data-tracks') || '[]');
       const audio = root.querySelector<HTMLAudioElement>('[data-music-audio]');
       const title = root.querySelector<HTMLElement>('[data-music-title]');
       const artist = root.querySelector<HTMLElement>('[data-music-artist]');
@@ -87,6 +87,7 @@ const payload = JSON.stringify(tracks)
       const detail = root.querySelector<HTMLAnchorElement>('[data-music-detail]');
       let current = 0;
       let isSeeking = false;
+      let loggedTrackId: number | null = null;
 
       const stored = readMusicState();
       if (stored && tracks[stored.index]?.url === stored.url) {
@@ -190,6 +191,12 @@ const payload = JSON.stringify(tracks)
       });
       audio?.addEventListener('play', () => {
         if (toggle) toggle.textContent = 'Ⅱ';
+        const trackId = Number(tracks[current]?.id || 0);
+        if (trackId && loggedTrackId !== trackId) {
+          loggedTrackId = trackId;
+          const apiBase = (window as typeof window & { __PUBLIC_API_BASE__?: string }).__PUBLIC_API_BASE__ || '/api';
+          fetch(`${apiBase}/music/${trackId}/play`, { method: 'POST', keepalive: true }).catch(() => {});
+        }
         save();
       });
       audio?.addEventListener('pause', () => {
@@ -197,6 +204,14 @@ const payload = JSON.stringify(tracks)
         save();
       });
       audio?.addEventListener('ended', () => move(1));
+      window.addEventListener('boke:play-track', (event) => {
+        const trackId = Number((event as CustomEvent<{ trackId?: number }>).detail?.trackId || 0);
+        const index = tracks.findIndex((track) => Number(track.id) === trackId);
+        if (index < 0) return;
+        current = index;
+        render(false);
+        play();
+      });
       render(true);
     });
   }

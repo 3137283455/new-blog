@@ -136,3 +136,51 @@ export function remove(req: AuthRequest, res: Response) {
   db.prepare('DELETE FROM themes WHERE id = ?').run(id)
   return success(res, null, '主题已删除')
 }
+
+function normalizeEditorConfig(input: any, current: any = {}) {
+  const number = (value: unknown, fallback: number, min: number, max: number) => {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback
+  }
+  const font = (value: unknown, fallback: string) => cleanText(value || fallback, 120).replace(/[{};]/g, '')
+  return {
+    ...current,
+    primary: isColor(String(input?.primary || '')) ? input.primary : current.primary,
+    primary_hover: isColor(String(input?.primary_hover || '')) ? input.primary_hover : current.primary_hover,
+    primary_light: isColor(String(input?.primary_light || '')) ? input.primary_light : current.primary_light,
+    body_font: font(input?.body_font, current.body_font || 'system-ui'),
+    title_font: font(input?.title_font, current.title_font || 'Georgia, serif'),
+    card_radius: number(input?.card_radius, Number(current.card_radius || 18), 0, 40),
+    card_opacity: number(input?.card_opacity, Number(current.card_opacity || 0.86), 0.35, 1),
+    content_width: number(input?.content_width, Number(current.content_width || 72), 48, 96),
+    season: cleanText(input?.season || current.season || 'custom', 30),
+  }
+}
+
+export function updateConfig(req: AuthRequest, res: Response) {
+  const theme = db.prepare('SELECT * FROM themes WHERE id = ?').get(req.params.id) as any
+  if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
+  const config = normalizeEditorConfig(req.body?.config || req.body, parseConfig(theme.config))
+  db.prepare('UPDATE themes SET config = ? WHERE id = ?').run(JSON.stringify(config), theme.id)
+  return success(res, { ...theme, config }, '主题外观已保存')
+}
+
+export function exportConfig(req: AuthRequest, res: Response) {
+  const theme = db.prepare('SELECT * FROM themes WHERE id = ?').get(req.params.id) as any
+  if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
+  return success(res, { ...theme, is_active: Boolean(theme.is_active), config: parseConfig(theme.config) })
+}
+
+export function importConfig(req: AuthRequest, res: Response) {
+  const source = req.body?.theme || req.body
+  const name = cleanText(source?.name || '导入主题', THEME_LIMITS.name)
+  const idBase = cleanText(source?.id || `personal-${Date.now()}`, THEME_LIMITS.id).replace(/[^a-z0-9_-]/gi, '-')
+  let id = isSafeId(idBase) ? idBase : `personal-${Date.now()}`
+  let index = 1
+  while (db.prepare('SELECT 1 FROM themes WHERE id = ?').get(id)) id = `${idBase}-${index++}`.slice(0, THEME_LIMITS.id)
+  const config = normalizeEditorConfig(source?.config || source)
+  db.prepare(`INSERT INTO themes (id, name, version, author, description, screenshot, is_active, config)
+    VALUES (?, ?, ?, ?, ?, ?, 0, ?)`)
+    .run(id, name, cleanText(source?.version || '1.0.0', 20), cleanText(source?.author || '个人主题', THEME_LIMITS.author), cleanText(source?.description || '导入的个人主题配置', THEME_LIMITS.description), cleanText(source?.screenshot, 500), JSON.stringify(config))
+  return success(res, { id, name, config }, '主题配置已导入')
+}

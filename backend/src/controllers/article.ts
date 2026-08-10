@@ -91,9 +91,11 @@ export function list(req: AuthRequest, res: Response) {
   const offset = (page - 1) * pageSize
 
   let query = `
-    SELECT a.*, c.name as category_name, c.slug as category_slug
+    SELECT a.*, c.name as category_name, c.slug as category_slug,
+      s.title as series_title, s.slug as series_slug
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
+    LEFT JOIN article_series s ON a.series_id = s.id
   `
   if (tag) {
     query += `
@@ -187,12 +189,15 @@ export function adminList(req: AuthRequest, res: Response) {
   const selectFields = summary
     ? `a.id, a.title, a.slug, a.excerpt, a.status, a.visibility, a.category_id,
        a.is_pinned, a.is_recommended, a.view_count, a.comment_count,
+       a.series_id, a.series_order, a.music_track_id,
        a.published_at, a.created_at, a.updated_at, a.deleted_at`
     : 'a.*'
   let query = `
-    SELECT ${selectFields}, c.name as category_name, c.slug as category_slug
+    SELECT ${selectFields}, c.name as category_name, c.slug as category_slug,
+      s.title as series_title, s.slug as series_slug
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
+    LEFT JOIN article_series s ON a.series_id = s.id
   `
   if (tag) {
     query += `
@@ -231,9 +236,13 @@ export function detail(req: AuthRequest, res: Response) {
   const { slug } = req.params
 
   const article = db.prepare(`
-    SELECT a.*, c.name as category_name, c.slug as category_slug
+    SELECT a.*, c.name as category_name, c.slug as category_slug,
+      s.title as series_title, s.slug as series_slug,
+      mt.title as music_title, mt.artist as music_artist, mt.url as music_url, mt.cover as music_cover
     FROM articles a
     LEFT JOIN categories c ON a.category_id = c.id
+    LEFT JOIN article_series s ON a.series_id = s.id
+    LEFT JOIN music_tracks mt ON a.music_track_id = mt.id
     WHERE a.slug = ? AND a.status = 'published' AND a.visibility = 'public' AND a.deleted_at IS NULL
   `).get(slug) as any
 
@@ -253,13 +262,13 @@ export function detail(req: AuthRequest, res: Response) {
 
   const publishedAt = article.published_at || article.created_at
   const publicWhere = "status = 'published' AND visibility = 'public' AND deleted_at IS NULL"
-  const previous = db.prepare(`
+  let previous = db.prepare(`
     SELECT id, title, slug, excerpt, published_at, created_at
     FROM articles
     WHERE ${publicWhere} AND id != ? AND COALESCE(published_at, created_at) < ?
     ORDER BY COALESCE(published_at, created_at) DESC LIMIT 1
   `).get(article.id, publishedAt)
-  const next = db.prepare(`
+  let next = db.prepare(`
     SELECT id, title, slug, excerpt, published_at, created_at
     FROM articles
     WHERE ${publicWhere} AND id != ? AND COALESCE(published_at, created_at) > ?
@@ -280,6 +289,19 @@ export function detail(req: AuthRequest, res: Response) {
     LIMIT 3
   `).all(article.category_id || 0, article.id, article.id)
 
+  let seriesArticles: any[] = []
+  if (article.series_id) {
+    seriesArticles = db.prepare(`
+      SELECT id, title, slug, excerpt, series_order, view_count, published_at, created_at
+      FROM articles
+      WHERE series_id = ? AND status = 'published' AND visibility = 'public' AND deleted_at IS NULL
+      ORDER BY series_order ASC, COALESCE(published_at, created_at) ASC
+    `).all(article.series_id) as any[]
+    const position = seriesArticles.findIndex((item) => item.id === article.id)
+    previous = position > 0 ? seriesArticles[position - 1] : null
+    next = position >= 0 && position < seriesArticles.length - 1 ? seriesArticles[position + 1] : null
+  }
+
   return success(res, {
     ...article,
     is_pinned: !!article.is_pinned,
@@ -288,6 +310,8 @@ export function detail(req: AuthRequest, res: Response) {
     previous,
     next,
     related,
+    series_articles: seriesArticles,
+    series_position: seriesArticles.findIndex((item) => item.id === article.id) + 1,
   })
 }
 
@@ -402,8 +426,12 @@ export function like(req: AuthRequest, res: Response) {
 
 export function getById(req: AuthRequest, res: Response) {
   const article = db.prepare(`
-    SELECT a.*, c.name as category_name, c.slug as category_slug
-    FROM articles a LEFT JOIN categories c ON a.category_id = c.id WHERE a.id = ?
+    SELECT a.*, c.name as category_name, c.slug as category_slug,
+      s.title as series_title, s.slug as series_slug
+    FROM articles a
+    LEFT JOIN categories c ON a.category_id = c.id
+    LEFT JOIN article_series s ON a.series_id = s.id
+    WHERE a.id = ?
   `).get(Number(req.params.id)) as any
   if (!article) return error(res, '文章不存在', 'NOT_FOUND', 404)
   const tags = db.prepare('SELECT t.* FROM tags t JOIN article_tags at2 ON t.id = at2.tag_id WHERE at2.article_id = ?').all(article.id)
@@ -413,7 +441,7 @@ export function getById(req: AuthRequest, res: Response) {
 export function create(req: AuthRequest, res: Response) {
   const {
     title, content, excerpt, cover_image, status, visibility, category_id, tag_ids, is_pinned, is_recommended,
-    title_font_family, title_font_url, body_font_family, body_font_url,
+    title_font_family, title_font_url, body_font_family, body_font_url, series_id, series_order, music_track_id,
   } = req.body
   if (!title || !content) {
     return error(res, '标题和内容不能为空', 'VALIDATION_ERROR')
@@ -432,13 +460,15 @@ export function create(req: AuthRequest, res: Response) {
   const result = db.prepare(`
     INSERT INTO articles
       (title, slug, content, content_html, excerpt, cover_image, status, visibility, is_pinned, is_recommended,
-       title_font_family, title_font_url, body_font_family, body_font_url, author_id, category_id, published_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       title_font_family, title_font_url, body_font_family, body_font_url, author_id, category_id, published_at,
+       series_id, series_order, music_track_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     title, slug, content, contentHtml, excerpt || '', cover_image || '',
     status || 'draft', visibility || 'public', is_pinned ? 1 : 0, is_recommended ? 1 : 0,
     title_font_family || '', title_font_url || '', body_font_family || '', body_font_url || '',
-    req.userId!, category_id || null, publishedAt
+    req.userId!, category_id || null, publishedAt,
+    Number(series_id) || null, Number(series_order) || 0, Number(music_track_id) || null
   )
 
   // 关联标签
@@ -457,7 +487,7 @@ export function update(req: AuthRequest, res: Response) {
   const { id } = req.params
   const {
     title, content, excerpt, cover_image, status, visibility, category_id, tag_ids, is_pinned, is_recommended,
-    title_font_family, title_font_url, body_font_family, body_font_url,
+    title_font_family, title_font_url, body_font_family, body_font_url, series_id, series_order, music_track_id,
   } = req.body
 
   const existing = db.prepare('SELECT * FROM articles WHERE id = ?').get(Number(id)) as any
@@ -479,7 +509,7 @@ export function update(req: AuthRequest, res: Response) {
     UPDATE articles SET title=?, slug=?, content=?, content_html=?, excerpt=?, cover_image=?,
       status=?, visibility=?, is_pinned=?, is_recommended=?,
       title_font_family=?, title_font_url=?, body_font_family=?, body_font_url=?,
-      category_id=?, published_at=?, updated_at=datetime('now')
+      category_id=?, published_at=?, series_id=?, series_order=?, music_track_id=?, updated_at=datetime('now')
     WHERE id=?
   `).run(
     title || existing.title, slug, content || existing.content, contentHtml,
@@ -493,7 +523,11 @@ export function update(req: AuthRequest, res: Response) {
     body_font_family !== undefined ? body_font_family : existing.body_font_family,
     body_font_url !== undefined ? body_font_url : existing.body_font_url,
     category_id !== undefined ? category_id : existing.category_id,
-    publishedAt, Number(id)
+    publishedAt,
+    series_id !== undefined ? (Number(series_id) || null) : existing.series_id,
+    series_order !== undefined ? (Number(series_order) || 0) : existing.series_order,
+    music_track_id !== undefined ? (Number(music_track_id) || null) : existing.music_track_id,
+    Number(id)
   )
 
   // 更新标签关联

@@ -1,0 +1,33 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { formatDate, getSeriesDetail } from '@/lib/api'
+import { resolveUploadUrl } from '@/lib/media'
+
+const { slug } = Astro.params
+const series = slug ? await getSeriesDetail(slug) : null
+if (!series) return Astro.redirect('/404')
+---
+
+<BaseLayout title={series.title} subtitle={series.description || '文章专题'} showSidebar={false} image={series.cover}>
+  <article class="series-detail">
+    <header class="series-detail-hero">
+      <div>{series.cover && <img src={resolveUploadUrl(series.cover)} alt="" />}</div>
+      <section>
+        <p>ARTICLE SERIES · {series.article_count || 0} CHAPTERS</p>
+        <h1>{series.title}</h1>
+        <span>{series.description || '持续更新中的文章专题。'}</span>
+      </section>
+    </header>
+    <ol class="series-chapters">
+      {(series.articles || []).map((article, index) => (
+        <li>
+          <a href={`/article/${article.slug}`}>
+            <span>{String(index + 1).padStart(2, '0')}</span>
+            <div><h2>{article.title}</h2><p>{article.excerpt || '阅读这一章'}</p></div>
+            <small>{formatDate(article.published_at || article.created_at)} · {article.view_count || 0} 阅读</small>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </article>
+</BaseLayout>

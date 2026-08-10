@@ -250,7 +250,7 @@
 
   function openNavigationDialog(item = null) {
     resetForm('navigation-form');
-    if (item) fill($('#navigation-form'), item, ['id', 'title', 'url', 'category', 'icon', 'avatar', 'sort_order', 'description', 'is_active']);
+    if (item) fill($('#navigation-form'), item, ['id', 'title', 'url', 'category', 'workspace', 'icon', 'avatar', 'sort_order', 'description', 'is_active']);
     $('#navigation-dialog-title').textContent = item ? '编辑导航' : '新增导航';
     setPanelMessage('navigation-message', '');
     $('#navigation-dialog')?.showModal();
@@ -258,7 +258,7 @@
 
   function openAlbumDialog(item = null) {
     resetForm('album-form');
-    if (item) fill($('#album-form'), item, ['id', 'title', 'cover', 'event_date', 'location', 'icon', 'sort_order', 'description', 'is_active']);
+    if (item) fill($('#album-form'), item, ['id', 'title', 'cover', 'event_date', 'location', 'icon', 'story_mode', 'sort_order', 'description', 'is_active']);
     $('#album-dialog-title').textContent = item ? '编辑相册' : '新建相册';
     setPanelMessage('album-message', '');
     $('#album-dialog')?.showModal();
@@ -301,7 +301,7 @@
     const form = $('#album-photo-form');
     resetForm('album-photo-form');
     form.elements.namedItem('album_id').value = state.activeAlbumId || '';
-    if (photo) fill(form, photo, ['id', 'image', 'title', 'variant', 'sort_order', 'description']);
+    if (photo) fill(form, photo, ['id', 'image', 'title', 'variant', 'sort_order', 'captured_at', 'camera', 'photo_location', 'story_text', 'description']);
     if (image) form.elements.namedItem('image').value = image;
     updateFieldPreview('album-photo-form', 'image');
     $('#album-photo-dialog-title').textContent = photo ? '编辑照片信息' : '填写照片信息';
@@ -809,6 +809,7 @@
         title: fields.namedItem('title').value.trim(),
         url: fields.namedItem('url').value.trim(),
         category: fields.namedItem('category').value.trim() || '默认',
+        workspace: fields.namedItem('workspace').value,
         icon: fields.namedItem('icon').value.trim(),
         avatar: fields.namedItem('avatar').value.trim(),
         sort_order: Number(fields.namedItem('sort_order').value || 0),
@@ -840,6 +841,10 @@
         source: fields.namedItem('external_id').value.trim() ? 'bangumi' : '',
         type: fields.namedItem('type').value.trim(),
         total_episodes: Number(fields.namedItem('total_episodes').value || 0),
+        watched_episodes: Number(fields.namedItem('watched_episodes').value || 0),
+        episode_duration: Number(fields.namedItem('episode_duration').value || 24),
+        update_weekday: Number(fields.namedItem('update_weekday').value || 0),
+        article_id: Number(fields.namedItem('article_id').value) || null,
         play_sources: state.bangumiPlaySources,
         status: fields.namedItem('status').value,
         progress: fields.namedItem('progress').value.trim(),
@@ -894,6 +899,7 @@
         icon: fields.namedItem('icon').value.trim(),
         sort_order: Number(fields.namedItem('sort_order').value || 0),
         description: fields.namedItem('description').value.trim(),
+        story_mode: fields.namedItem('story_mode').checked,
         is_active: fields.namedItem('is_active').checked,
       };
       await api(id ? `/admin/albums/${id}` : '/admin/albums', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) });
@@ -919,6 +925,10 @@
           title: fields.namedItem('title').value.trim(),
           variant: fields.namedItem('variant').value,
           sort_order: Number(fields.namedItem('sort_order').value || 0),
+          captured_at: fields.namedItem('captured_at').value,
+          camera: fields.namedItem('camera').value.trim(),
+          photo_location: fields.namedItem('photo_location').value.trim(),
+          story_text: fields.namedItem('story_text').value.trim(),
           description: fields.namedItem('description').value.trim(),
         }),
       });
@@ -985,7 +995,7 @@
     if (target.dataset.extraEditBangumi) {
       const item = state.bangumi.find((row) => String(row.id) === target.dataset.extraEditBangumi);
       if (item) {
-        fill($('#bangumi-form'), item, ['id', 'title', 'original_title', 'cover', 'url', 'external_id', 'type', 'total_episodes', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
+        fill($('#bangumi-form'), item, ['id', 'title', 'original_title', 'cover', 'url', 'external_id', 'type', 'total_episodes', 'watched_episodes', 'episode_duration', 'update_weekday', 'article_id', 'status', 'progress', 'rating', 'season', 'sort_order', 'summary', 'is_active']);
         state.bangumiPlaySources = normalizePlaySources(item.play_sources || item.play_links);
         renderBangumiPlaySources();
       }

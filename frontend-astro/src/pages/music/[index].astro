@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
-import { getMusicTracks, getPublicSettings, type MusicTrack } from '../../lib/api'
+import { getMusicStats, getMusicTracks, getPublicSettings, type MusicTrack } from '../../lib/api'
 import { resolveUploadUrl } from '../../lib/media'
 
 const settings = await getPublicSettings()
 const publicTracks = await getMusicTracks()
+const musicStats = await getMusicStats()
 const resolveAsset = (src = '') => resolveUploadUrl(src)
 const rawPlaylist = (publicTracks.length ? publicTracks : settings.music_playlist || []).filter((track: MusicTrack) => track?.title && track?.url)
 const playlist = rawPlaylist.map((track: MusicTrack, index: number) => ({
@@ -26,6 +27,28 @@ const profileBio = settings.profile_bio || settings.site_description || '清风�
 
 <BaseLayout title={track?.title || '音乐详情'} subtitle="歌单、歌词和播放详情" showSidebar={false} showBanner={false}>
   <section class="music-stage" data-music-detail data-index={safeIndex} data-playlist={payload}>
+    <div class="music-personal-summary">
+      <div><small>{musicStats?.year || new Date().getFullYear()} 播放</small><strong>{Number(musicStats?.total?.plays || 0)}</strong><span>次播放记录</span></div>
+      <div class="music-month-bars">
+        <small>年度节奏</small>
+        <p>{Array.from({ length: 12 }, (_, index) => {
+          const plays = Number(musicStats?.months?.find((item) => Number(item.month) === index + 1)?.plays || 0)
+          const max = Math.max(1, ...(musicStats?.months || []).map((item) => Number(item.plays || 0)))
+          return <i style={`--music-bar:${Math.max(8, Math.round((plays / max) * 100))}%`} title={`${index + 1} 月：${plays} 次`}></i>
+        })}</p>
+      </div>
+      <div class="music-recent-wall">
+        <small>最近在听</small>
+        <p>{(musicStats?.recent || []).slice(0, 6).map((item) => {
+          const index = playlist.findIndex((song) => Number(song.id) === Number(item.id))
+          return <a href={`/music/${Math.max(0, index)}`} title={`${item.title} · ${item.artist || ''}`}><img src={resolveAsset(item.cover || '/image2.webp')} alt={item.title} /></a>
+        })}</p>
+      </div>
+    </div>
+    {playlist.length > 0 && <section class="music-cover-wall" aria-label="歌单封面墙">
+      <header><div><small>PLAYLIST WALL</small><h2>歌单封面墙</h2></div><span>{playlist.length} 首</span></header>
+      <div>{playlist.slice(0, 18).map((item) => <a class:list={[item.index === safeIndex && 'is-active']} href={`/music/${item.index}`} title={`${item.title} · ${item.artist || '未知歌手'}`}><img src={item.resolvedCover} alt={item.title} /><span><strong>{item.title}</strong><small>{item.artist || item.playlist}</small></span></a>)}</div>
+    </section>}
     {track ? (
       <div class="music-room">
         <aside class="music-profile-panel">
@@ -71,6 +94,10 @@ const profileBio = settings.profile_bio || settings.site_description || '清风�
               ))}
             </div>
           </div>
+          {(track.article_slug || track.photo_album_id) && <div class="music-related-links">
+            {track.article_slug && <a href={`/article/${track.article_slug}`}>阅读与这首歌关联的文章</a>}
+            {track.photo_album_id && <a href={`/albums/${track.photo_album_id}`}>查看与这首歌关联的照片</a>}
+          </div>}
         </main>
 
         <aside class="music-lyrics-panel">
@@ -104,6 +131,7 @@ const profileBio = settings.profile_bio || settings.site_description || '清风�
 
 <script>
   type Track = {
+    id?: number
     title: string
     artist?: string
     url: string
@@ -113,6 +141,8 @@ const profileBio = settings.profile_bio || settings.site_description || '清风�
     index: number
     resolvedUrl: string
     resolvedCover: string
+    article_slug?: string
+    photo_album_id?: number
   }
   type LyricLine = { time: number; text: string; translation?: string }
   type StoredMusicState = { index: number; time: number; playing: boolean; url?: string; updatedAt: number }
@@ -196,6 +226,7 @@ const profileBio = settings.profile_bio || settings.site_description || '清风�
     let lyrics: LyricLine[] = []
     let activeLyricIndex = -1
     let isSeeking = false
+    let loggedTrackId: number | null = null
 
     const audio = root.querySelector<HTMLAudioElement>('[data-detail-audio]')
     const seek = root.querySelector<HTMLInputElement>('[data-detail-seek]')
@@ -361,6 +392,12 @@ const profileBio = settings.profile_bio || settings.site_description || '清风�
     })
     audio.addEventListener('play', () => {
       if (toggle) toggle.textContent = 'Ⅱ'
+      const trackId = Number(currentTrack.id || 0)
+      if (trackId && loggedTrackId !== trackId) {
+        loggedTrackId = trackId
+        const apiBase = (window as typeof window & { __PUBLIC_API_BASE__?: string }).__PUBLIC_API_BASE__ || '/api'
+        fetch(`${apiBase}/music/${trackId}/play`, { method: 'POST', keepalive: true }).catch(() => {})
+      }
       save()
     })
     audio.addEventListener('pause', () => {

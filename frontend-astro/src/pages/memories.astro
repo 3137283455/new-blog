@@ -1,0 +1,55 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { getPersonalInsights } from '@/lib/api'
+import { resolveUploadUrl } from '@/lib/media'
+
+const requestedYear = Number(Astro.url.searchParams.get('year')) || new Date().getFullYear()
+const insights = await getPersonalInsights(requestedYear)
+const heatmap = insights?.heatmap || []
+const heatMap = new Map(heatmap.map((item: any) => [item.day, item.count]))
+const today = new Date()
+const days = Array.from({ length: 365 }, (_, offset) => {
+  const date = new Date(today)
+  date.setDate(today.getDate() - (364 - offset))
+  const key = date.toISOString().slice(0, 10)
+  return { key, count: Number(heatMap.get(key) || 0) }
+})
+const maxCount = Math.max(1, ...days.map((item) => item.count))
+const years = Array.from({ length: 5 }, (_, index) => today.getFullYear() - index)
+---
+
+<BaseLayout title="个人回忆" subtitle="写作、照片与时间留下的长期记录" showSidebar={false}>
+  <main class="memory-report">
+    <header class="memory-report-hero">
+      <div><p>PERSONAL ARCHIVE</p><h1>{insights?.year || requestedYear} 年度回顾</h1><span>把零散记录重新连成时间线。</span></div>
+      <nav>{years.map((year) => <a class:list={[year === insights?.year && 'is-active']} href={`/memories?year=${year}`}>{year}</a>)}</nav>
+    </header>
+
+    <section class="memory-stat-grid">
+      <article><small>年度文章</small><strong>{insights?.totals?.articles || 0}</strong><span>篇公开记录</span></article>
+      <article><small>写作字数</small><strong>{Number(insights?.totals?.words || 0).toLocaleString('zh-CN')}</strong><span>字</span></article>
+      <article><small>连续写作</small><strong>{insights?.streak?.current || 0}</strong><span>天 · 最长 {insights?.streak?.longest || 0} 天</span></article>
+      <article><small>本月回顾</small><strong>{insights?.current_month?.articles || 0}</strong><span>篇 · {insights?.current_month?.views || 0} 阅读</span></article>
+    </section>
+
+    <section class="memory-heatmap-card">
+      <header><div><p>365 DAYS</p><h2>发布热力图</h2></div><span>颜色越深，记录越多</span></header>
+      <div class="memory-heatmap" aria-label="最近一年文章发布热力图">
+        {days.map((item) => <i title={`${item.key} · ${item.count} 篇`} style={`--heat:${item.count / maxCount}`} class:list={[item.count > 0 && 'has-post']}></i>)}
+      </div>
+    </section>
+
+    <div class="memory-report-columns">
+      <section class="memory-months">
+        <header><p>YEAR IN MONTHS</p><h2>月度写作</h2></header>
+        <div>{(insights?.months || []).map((month: any) => <article><span>{month.month} 月</span><i style={`--month-value:${Math.min(100, Number(month.articles) * 14)}%`}></i><strong>{month.articles} 篇</strong><small>{Number(month.words || 0).toLocaleString('zh-CN')} 字</small></article>)}</div>
+      </section>
+      <section class="memory-top-posts">
+        <header><p>MOST READ</p><h2>年度文章</h2></header>
+        <ol>{(insights?.top_articles || []).map((article: any, index: number) => <li><a href={`/article/${article.slug}`}><span>{index + 1}</span><strong>{article.title}</strong><small>{article.view_count || 0} 阅读</small></a></li>)}</ol>
+      </section>
+    </div>
+
+    {insights?.random_photo && <a class="memory-random-photo" href={`/albums/${insights.random_photo.album_id}`}><img src={resolveUploadUrl(insights.random_photo.image)} alt="" /><div><small>RANDOM MEMORY</small><h2>{insights.random_photo.title || insights.random_photo.album_title}</h2><p>{insights.random_photo.description || '随机翻到的一张旧照片'}</p></div></a>}
+  </main>
+</BaseLayout>

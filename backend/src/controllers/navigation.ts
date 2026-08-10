@@ -4,7 +4,7 @@ import { success, error } from '../utils/response'
 import { AuthRequest } from '../middleware/auth'
 
 const selectSql = `
-  SELECT id, title, url, description, category, icon, avatar, sort_order, is_active, created_at, updated_at
+  SELECT id, title, url, description, category, icon, avatar, workspace, sort_order, is_active, created_at, updated_at
   FROM navigation_links
 `
 
@@ -43,14 +43,14 @@ export function list(_req: AuthRequest, res: Response) {
 }
 
 export function create(req: AuthRequest, res: Response) {
-  const { title, url, description, category, icon, avatar, sort_order, is_active } = req.body
+  const { title, url, description, category, icon, avatar, workspace, sort_order, is_active } = req.body
   const safeTitle = cleanText(title, LIMITS.title)
   const safeUrl = cleanText(url, LIMITS.url)
   if (!safeTitle || !safeUrl) return error(res, '标题和链接不能为空')
   if (!isSafeLink(safeUrl)) return error(res, '链接需以 http(s)、/、#、mailto: 或 tel: 开头', 'INVALID_URL', 400)
   db.prepare(`
-    INSERT INTO navigation_links (title, url, description, category, icon, avatar, sort_order, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO navigation_links (title, url, description, category, icon, avatar, workspace, sort_order, is_active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     safeTitle,
     safeUrl,
@@ -58,6 +58,7 @@ export function create(req: AuthRequest, res: Response) {
     cleanText(category, LIMITS.category) || '默认',
     cleanText(icon, LIMITS.icon),
     cleanText(avatar, LIMITS.url),
+    ['work', 'study', 'fun', 'general'].includes(String(workspace)) ? workspace : 'general',
     cleanSortOrder(sort_order),
     is_active === false ? 0 : 1,
   )
@@ -114,7 +115,7 @@ export function reorder(req: AuthRequest, res: Response) {
 }
 
 export function update(req: AuthRequest, res: Response) {
-  const { title, url, description, category, icon, avatar, sort_order, is_active } = req.body
+  const { title, url, description, category, icon, avatar, workspace, sort_order, is_active } = req.body
   if (title !== undefined && !cleanText(title, LIMITS.title)) return error(res, '标题不能为空')
   if (url !== undefined && !cleanText(url, LIMITS.url)) return error(res, '链接不能为空')
   if (url !== undefined && !isSafeLink(cleanText(url, LIMITS.url))) return error(res, '链接需以 http(s)、/、#、mailto: 或 tel: 开头', 'INVALID_URL', 400)
@@ -126,6 +127,7 @@ export function update(req: AuthRequest, res: Response) {
         category = COALESCE(?, category),
         icon = COALESCE(?, icon),
         avatar = COALESCE(?, avatar),
+        workspace = COALESCE(?, workspace),
         sort_order = COALESCE(?, sort_order),
         is_active = COALESCE(?, is_active),
         updated_at = datetime('now')
@@ -137,6 +139,7 @@ export function update(req: AuthRequest, res: Response) {
     category === undefined ? null : cleanText(category, LIMITS.category),
     icon === undefined ? null : cleanText(icon, LIMITS.icon),
     avatar === undefined ? null : cleanText(avatar, LIMITS.url),
+    workspace === undefined ? null : (['work', 'study', 'fun', 'general'].includes(String(workspace)) ? workspace : 'general'),
     sort_order === undefined ? null : cleanSortOrder(sort_order),
     is_active === undefined ? null : (is_active ? 1 : 0),
     Number(req.params.id),

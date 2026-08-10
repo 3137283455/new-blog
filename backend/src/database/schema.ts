@@ -269,6 +269,51 @@ export function migrate() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- 文章专题 / 系列
+    CREATE TABLE IF NOT EXISTS article_series (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      description TEXT DEFAULT '',
+      cover TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      is_featured INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'published',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 个人收集箱
+    CREATE TABLE IF NOT EXISTS personal_inbox (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT DEFAULT 'idea',
+      content TEXT NOT NULL,
+      url TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',
+      source TEXT DEFAULT 'homepage',
+      converted_type TEXT DEFAULT '',
+      converted_id INTEGER,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 个人待办
+    CREATE TABLE IF NOT EXISTS personal_todos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      done INTEGER DEFAULT 0,
+      source_inbox_id INTEGER REFERENCES personal_inbox(id) ON DELETE SET NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 音乐播放记录
+    CREATE TABLE IF NOT EXISTS music_play_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      track_id INTEGER NOT NULL REFERENCES music_tracks(id) ON DELETE CASCADE,
+      played_at TEXT DEFAULT (datetime('now'))
+    );
+
     -- 全文搜索 FTS5
     CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
       title,
@@ -327,6 +372,14 @@ export function migrate() {
       ON music_playlists(is_active, sort_order);
     CREATE INDEX IF NOT EXISTS idx_music_tracks_public
       ON music_tracks(is_active, playlist_id, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_article_series_public
+      ON article_series(status, is_featured, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_personal_inbox_status
+      ON personal_inbox(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_personal_todos_done
+      ON personal_todos(done, created_at);
+    CREATE INDEX IF NOT EXISTS idx_music_play_logs_track
+      ON music_play_logs(track_id, played_at);
   `)
 
   try {
@@ -417,6 +470,29 @@ export function migrate() {
   addArticleColumn('title_font_url')
   addArticleColumn('body_font_family')
   addArticleColumn('body_font_url')
+
+  const addColumn = (table: string, column: string, definition: string) => {
+    try {
+      db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run()
+    } catch {
+      // Existing databases already have the column.
+    }
+  }
+  addColumn('articles', 'series_id', 'INTEGER REFERENCES article_series(id) ON DELETE SET NULL')
+  addColumn('articles', 'series_order', 'INTEGER DEFAULT 0')
+  addColumn('articles', 'music_track_id', 'INTEGER REFERENCES music_tracks(id) ON DELETE SET NULL')
+  addColumn('navigation_links', 'workspace', "TEXT DEFAULT 'general'")
+  addColumn('albums', 'story_mode', 'INTEGER DEFAULT 0')
+  addColumn('album_photos', 'captured_at', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'camera', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'photo_location', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'story_text', "TEXT DEFAULT ''")
+  addColumn('bangumi_items', 'watched_episodes', 'INTEGER DEFAULT 0')
+  addColumn('bangumi_items', 'episode_duration', 'INTEGER DEFAULT 24')
+  addColumn('bangumi_items', 'update_weekday', 'INTEGER DEFAULT 0')
+  addColumn('bangumi_items', 'article_id', 'INTEGER REFERENCES articles(id) ON DELETE SET NULL')
+  addColumn('music_tracks', 'article_id', 'INTEGER REFERENCES articles(id) ON DELETE SET NULL')
+  addColumn('music_tracks', 'photo_id', 'INTEGER REFERENCES album_photos(id) ON DELETE SET NULL')
 
   try {
     db.prepare("ALTER TABLE media ADD COLUMN deleted_at TEXT").run()

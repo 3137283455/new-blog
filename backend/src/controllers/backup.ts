@@ -12,6 +12,7 @@ const APP_TABLES = [
   'users',
   'categories',
   'tags',
+  'article_series',
   'articles',
   'article_tags',
   'comments',
@@ -29,6 +30,9 @@ const APP_TABLES = [
   'album_photos',
   'music_playlists',
   'music_tracks',
+  'music_play_logs',
+  'personal_inbox',
+  'personal_todos',
 ] as const
 
 const DELETE_ORDER = [...APP_TABLES].reverse()

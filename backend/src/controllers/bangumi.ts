@@ -20,6 +20,8 @@ const BANGUMI_PAGE_BASE = (process.env.BANGUMI_PAGE_BASE || 'https://bangumi.lol
 
 const selectSql = `
   SELECT id, title, original_title, cover, url, external_id, source, type, total_episodes, play_links, status, progress, rating, season, summary,
+         watched_episodes, episode_duration, update_weekday, article_id,
+         (SELECT slug FROM articles WHERE articles.id = bangumi_items.article_id) AS article_slug,
          sort_order, is_active, created_at, updated_at
   FROM bangumi_items
 `
@@ -73,6 +75,39 @@ export function publicList(_req: AuthRequest, res: Response) {
 export function list(_req: AuthRequest, res: Response) {
   const rows = db.prepare(`${selectSql} ORDER BY sort_order ASC, id DESC`).all() as any[]
   return success(res, attachPlaySources(rows))
+}
+
+export function stats(_req: AuthRequest, res: Response) {
+  const summary = db.prepare(`
+    SELECT COUNT(*) AS total,
+      SUM(CASE WHEN status = 'watching' THEN 1 ELSE 0 END) AS watching,
+      SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
+      COALESCE(SUM(watched_episodes * episode_duration), 0) AS watched_minutes
+    FROM bangumi_items WHERE is_active = 1
+  `).get()
+  const calendar = db.prepare(`
+    SELECT id, title, cover, update_weekday, watched_episodes, total_episodes
+    FROM bangumi_items WHERE is_active = 1 AND update_weekday BETWEEN 1 AND 7
+    ORDER BY update_weekday ASC, sort_order ASC
+  `).all()
+  const recommendation = db.prepare(`
+    SELECT id, title, cover, summary, watched_episodes, total_episodes
+    FROM bangumi_items
+    WHERE is_active = 1 AND status IN ('paused', 'plan', 'planned')
+    ORDER BY RANDOM() LIMIT 1
+  `).get()
+  return success(res, { summary, calendar, recommendation })
+}
+
+export function incrementProgress(req: AuthRequest, res: Response) {
+  const id = Number(req.params.id)
+  const item = db.prepare('SELECT id, watched_episodes, total_episodes FROM bangumi_items WHERE id = ? AND is_active = 1').get(id) as any
+  if (!item) return error(res, '追番不存在', 'NOT_FOUND', 404)
+  const next = Math.min(Math.max(0, Number(item.total_episodes) || 9999), Number(item.watched_episodes || 0) + 1)
+  const status = item.total_episodes > 0 && next >= item.total_episodes ? 'done' : 'watching'
+  db.prepare("UPDATE bangumi_items SET watched_episodes = ?, progress = ?, status = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(next, item.total_episodes > 0 ? `${next}/${item.total_episodes}` : String(next), status, id)
+  return success(res, { watched_episodes: next, total_episodes: item.total_episodes, status }, '观看进度已更新')
 }
 
 function stripHtml(value: unknown) {
@@ -252,15 +287,16 @@ export async function sourceDetail(req: AuthRequest, res: Response) {
 }
 
 export function create(req: AuthRequest, res: Response) {
-  const { title, original_title, cover, url, external_id, source, type, total_episodes, play_links, play_sources, status, progress, rating, season, summary, sort_order, is_active } = req.body
+  const { title, original_title, cover, url, external_id, source, type, total_episodes, play_links, play_sources, status, progress, rating, season, summary, sort_order, is_active, watched_episodes, episode_duration, update_weekday, article_id } = req.body
   const safeTitle = cleanText(title, LIMITS.title)
   if (!safeTitle) return error(res, '番剧标题不能为空')
   const sources = normalizePlaySources(play_sources ?? play_links)
   const createItem = db.transaction(() => {
     const result = db.prepare(`
       INSERT INTO bangumi_items
-        (title, original_title, cover, url, external_id, source, type, total_episodes, play_links, status, progress, rating, season, summary, sort_order, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (title, original_title, cover, url, external_id, source, type, total_episodes, play_links, status, progress, rating, season, summary, sort_order, is_active,
+         watched_episodes, episode_duration, update_weekday, article_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       safeTitle,
       cleanText(original_title, LIMITS.title),
@@ -278,6 +314,10 @@ export function create(req: AuthRequest, res: Response) {
       cleanText(summary, LIMITS.summary),
       cleanSortOrder(sort_order),
       is_active === false ? 0 : 1,
+      cleanEpisodes(watched_episodes),
+      Math.max(1, Math.min(300, cleanEpisodes(episode_duration) || 24)),
+      Math.max(0, Math.min(7, cleanEpisodes(update_weekday))),
+      Number(article_id) || null,
     )
     const id = Number(result.lastInsertRowid)
     replacePlaySources(id, sources)
@@ -288,7 +328,7 @@ export function create(req: AuthRequest, res: Response) {
 }
 
 export function update(req: AuthRequest, res: Response) {
-  const { title, original_title, cover, url, external_id, source, type, total_episodes, play_links, play_sources, status, progress, rating, season, summary, sort_order, is_active } = req.body
+  const { title, original_title, cover, url, external_id, source, type, total_episodes, play_links, play_sources, status, progress, rating, season, summary, sort_order, is_active, watched_episodes, episode_duration, update_weekday, article_id } = req.body
   if (title !== undefined && !cleanText(title, LIMITS.title)) return error(res, '番剧标题不能为空')
   const id = Number(req.params.id)
   const suppliedSources = play_sources ?? play_links
@@ -312,6 +352,10 @@ export function update(req: AuthRequest, res: Response) {
           summary = COALESCE(?, summary),
           sort_order = COALESCE(?, sort_order),
           is_active = COALESCE(?, is_active),
+          watched_episodes = COALESCE(?, watched_episodes),
+          episode_duration = COALESCE(?, episode_duration),
+          update_weekday = COALESCE(?, update_weekday),
+          article_id = COALESCE(?, article_id),
           updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -331,6 +375,10 @@ export function update(req: AuthRequest, res: Response) {
       summary === undefined ? null : cleanText(summary, LIMITS.summary),
       sort_order === undefined ? null : cleanSortOrder(sort_order),
       is_active === undefined ? null : (is_active ? 1 : 0),
+      watched_episodes === undefined ? null : cleanEpisodes(watched_episodes),
+      episode_duration === undefined ? null : Math.max(1, Math.min(300, cleanEpisodes(episode_duration) || 24)),
+      update_weekday === undefined ? null : Math.max(0, Math.min(7, cleanEpisodes(update_weekday))),
+      article_id === undefined ? null : (Number(article_id) || null),
       id,
     )
     if (result.changes && sources !== null) replacePlaySources(id, sources)

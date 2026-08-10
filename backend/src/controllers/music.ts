@@ -5,12 +5,16 @@ import { AuthRequest } from '../middleware/auth'
 
 const trackSelect = `
   SELECT
-    t.id, t.playlist_id, t.title, t.artist, t.url, t.cover, t.lyrics,
+    t.id, t.playlist_id, t.title, t.artist, t.url, t.cover, t.lyrics, t.article_id, t.photo_id,
     t.sort_order, t.is_active, t.created_at, t.updated_at,
     p.name AS playlist,
-    p.name AS collection
+    p.name AS collection,
+    a.slug AS article_slug,
+    ap.album_id AS photo_album_id
   FROM music_tracks t
   LEFT JOIN music_playlists p ON p.id = t.playlist_id
+  LEFT JOIN articles a ON a.id = t.article_id
+  LEFT JOIN album_photos ap ON ap.id = t.photo_id
 `
 
 function ensurePlaylist(name?: string, sortOrder = 0) {
@@ -58,6 +62,36 @@ const MUSIC_LIMITS = {
 
 export function publicList(_req: AuthRequest, res: Response) {
   return success(res, listTracks(false))
+}
+
+export function recordPlay(req: AuthRequest, res: Response) {
+  const trackId = Number(req.params.id)
+  const track = db.prepare('SELECT id FROM music_tracks WHERE id = ? AND is_active = 1').get(trackId)
+  if (!track) return error(res, '音乐不存在', 'NOT_FOUND', 404)
+  db.prepare('INSERT INTO music_play_logs (track_id) VALUES (?)').run(trackId)
+  return success(res, null, '播放已记录')
+}
+
+export function stats(req: AuthRequest, res: Response) {
+  const year = /^\d{4}$/.test(String(req.query.year || '')) ? String(req.query.year) : String(new Date().getFullYear())
+  const recent = db.prepare(`
+    SELECT t.id, t.title, t.artist, t.cover, MAX(l.played_at) AS played_at, COUNT(l.id) AS plays
+    FROM music_play_logs l JOIN music_tracks t ON t.id = l.track_id
+    GROUP BY t.id ORDER BY played_at DESC LIMIT 12
+  `).all()
+  const top = db.prepare(`
+    SELECT t.id, t.title, t.artist, t.cover, COUNT(l.id) AS plays
+    FROM music_play_logs l JOIN music_tracks t ON t.id = l.track_id
+    WHERE strftime('%Y', l.played_at) = ?
+    GROUP BY t.id ORDER BY plays DESC, t.title ASC LIMIT 20
+  `).all(year)
+  const months = db.prepare(`
+    SELECT strftime('%m', played_at) AS month, COUNT(*) AS plays
+    FROM music_play_logs WHERE strftime('%Y', played_at) = ?
+    GROUP BY month ORDER BY month ASC
+  `).all(year)
+  const total = db.prepare("SELECT COUNT(*) AS plays FROM music_play_logs WHERE strftime('%Y', played_at) = ?").get(year)
+  return success(res, { year: Number(year), recent, top, months, total })
 }
 
 export function list(_req: AuthRequest, res: Response) {
@@ -143,6 +177,8 @@ export function replaceAll(req: AuthRequest, res: Response) {
         lyrics: cleanText(track?.lyrics).slice(0, MUSIC_LIMITS.lyrics),
         sort_order: Number(track?.sort_order ?? index),
         is_active: track?.is_active === false ? 0 : 1,
+        article_id: Number(track?.article_id) || null,
+        photo_id: Number(track?.photo_id) || null,
       }
       if (!item.title || !item.url) invalidIndexes.push(index + 1)
       return item
@@ -154,8 +190,8 @@ export function replaceAll(req: AuthRequest, res: Response) {
   const replace = db.transaction((items: any[]) => {
     db.prepare('DELETE FROM music_tracks').run()
     const insertTrack = db.prepare(`
-      INSERT INTO music_tracks (playlist_id, title, artist, url, cover, lyrics, sort_order, is_active)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO music_tracks (playlist_id, title, artist, url, cover, lyrics, sort_order, is_active, article_id, photo_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     items.forEach((track, index) => {
       const playlist = ensurePlaylist(track.playlist, index)
@@ -168,6 +204,8 @@ export function replaceAll(req: AuthRequest, res: Response) {
         track.lyrics,
         Number.isFinite(track.sort_order) ? track.sort_order : index,
         track.is_active,
+        track.article_id,
+        track.photo_id,
       )
     })
   })

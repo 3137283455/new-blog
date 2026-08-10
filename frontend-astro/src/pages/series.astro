@@ -1,0 +1,31 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro'
+import { getSeries } from '@/lib/api'
+import { resolveUploadUrl } from '@/lib/media'
+
+const series = await getSeries()
+---
+
+<BaseLayout title="文章专题" subtitle="把持续记录的项目与兴趣整理成册" showSidebar={false}>
+  <section class="series-index">
+    <header class="series-hero">
+      <p>LONG-RUNNING STORIES</p>
+      <h1>专题与系列</h1>
+      <span>{series.length} 个持续更新的主题</span>
+    </header>
+    <div class="series-grid">
+      {series.map((item, index) => (
+        <a href={`/series/${item.slug}`} class="series-card">
+          <div>{item.cover && <img src={resolveUploadUrl(item.cover)} alt="" loading="lazy" />}<span>{String(index + 1).padStart(2, '0')}</span></div>
+          <section>
+            <small>{item.article_count || 0} 篇 · {item.total_views || 0} 阅读</small>
+            <h2>{item.title}</h2>
+            <p>{item.description || '这个专题正在持续记录中。'}</p>
+            <b>进入专题 ↗</b>
+          </section>
+        </a>
+      ))}
+    </div>
+    {!series.length && <div class="series-empty"><h2>第一个专题还在构思</h2><a href="/admin">去后台创建</a></div>}
+  </section>
+</BaseLayout>

@@ -2,7 +2,7 @@
 import Navbar from '@components/Navbar.astro'
 import Banner from '@components/Banner.astro'
 import Sidebar from '@components/Sidebar.astro'
-import { getMusicTracks, getPublicSettings } from '../lib/api'
+import { getActiveTheme, getMusicTracks, getPublicSettings } from '../lib/api'
 import '../styles/global.scss'
 
 interface Props {
@@ -31,8 +31,11 @@ const {
   sidebarProps = {},
 } = Astro.props
 
-const publicSettings = await getPublicSettings()
-const publicMusicTracks = await getMusicTracks()
+const [publicSettings, publicMusicTracks, activeTheme] = await Promise.all([getPublicSettings(), getMusicTracks(), getActiveTheme()])
+const themeConfig = activeTheme?.config || {}
+const safePrimary = String(themeConfig.primary || '#2f6f4e').replace(/[^#a-zA-Z0-9(),.%\s-]/g, '')
+const safePrimaryHover = String(themeConfig.primary_hover || themeConfig.primary || '#245a3e').replace(/[^#a-zA-Z0-9(),.%\s-]/g, '')
+const themeCss = `:root{--theme-primary:${safePrimary};--brand:${safePrimary};--theme-primary-hover:${safePrimaryHover};--theme-card-radius:${Number(themeConfig.card_radius || 18)}px;--theme-card-opacity:${Number(themeConfig.card_opacity || 0.86)};--theme-content-width:${Number(themeConfig.content_width || 72)}rem;--theme-body-font:${String(themeConfig.body_font || 'system-ui').replace(/[{};]/g, '')};--theme-title-font:${String(themeConfig.title_font || 'Georgia, serif').replace(/[{};]/g, '')};}`
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 const bannerImages = Array.isArray(publicSettings.banner_images)
   ? publicSettings.banner_images
@@ -55,7 +58,7 @@ const mergedSidebarProps = {
 ---
 
 <!doctype html>
-<html lang="zh-CN" data-theme="boke-green" data-theme-type="light">
+<html lang="zh-CN" data-theme="boke-green" data-theme-type="light" data-personal-season={themeConfig.season || 'custom'}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -78,6 +81,7 @@ const mergedSidebarProps = {
     <meta name="twitter:description" content={pageDescription} />
     <meta name="twitter:image" content={shareImage} />
     <title>{title} - {siteTitle}</title>
+    <style set:html={themeCss}></style>
     <script is:inline define:vars={{ apiBase }}>
       const themeTypes = { 'boke-night': 'dark', 'boke-punk': 'dark', 'boke-green': 'light' };
       const storedTheme = localStorage.getItem('theme') || 'boke-green';
