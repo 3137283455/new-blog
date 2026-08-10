@@ -99,7 +99,7 @@ const structuredData = JSON.stringify({
         <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
       </BaseCard>
 
-      {Boolean(article.previous || article.next || article.related?.length) && (
+      {(Boolean(article.previous) || Boolean(article.next) || (article.related?.length ?? 0) > 0) && (
         <section class="article-discovery" aria-label="继续阅读">
           {(article.previous || article.next) && (
             <div class="article-neighbors">

@@ -981,7 +981,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       // @ts-nocheck
       const API_BASE = document.body.dataset.apiBase || '/api'
       const tokenKey = 'boke_admin_token'
-      const token = localStorage.getItem(tokenKey) || ''
+      let token = localStorage.getItem(tokenKey) || ''
+      if (!token) location.replace('/admin')
       const params = new URLSearchParams(location.search)
       let articleId = params.get('id') || ''
       let articles = []
@@ -993,6 +994,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       let previewRequestId = 0
       let isDirty = false
       let autosaveTimer = null
+      let previewLocalTimer = null
+      let previewRemoteTimer = null
+      let previewController = null
+      let editorUpdateFrame = null
+      let articleListController = null
+      let currentArticleController = null
+      let searchTimer = null
+      let trashLoaded = false
 
       const $ = (selector) => document.querySelector(selector)
       const $$ = (selector) => Array.from(document.querySelectorAll(selector))
@@ -1161,25 +1170,55 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         return writerUtils.markdownToHtml(markdown)
       }
 
-      async function updatePreview() {
+      function renderPreviewSnapshot(snapshot, contentHtml) {
+        $('#preview-panel').innerHTML = writerUtils.buildPreviewHtml({
+          title: snapshot.title,
+          contentHtml,
+          fontCss: snapshot.fontCss,
+          titleFont: snapshot.titleFont,
+          bodyFont: snapshot.bodyFont,
+        })
+      }
+
+      function updatePreview({ immediate = false } = {}) {
+        if (!previewEnabled) return
         const requestId = ++previewRequestId
-        const title = $('#title').value.trim()
-        const content = $('#content').value
-        const fontCss = fontStyleBlock()
-        const titleFont = parseFontSelection($('#title-font-select')?.value || '')
-        const bodyFont = parseFontSelection($('#body-font-select')?.value || '')
-        let contentHtml = markdownToHtml(content)
-        try {
-          const json = await request('/admin/markdown/preview', {
-            method: 'POST',
-            body: JSON.stringify({ content }),
-          })
-          contentHtml = json.data?.html || ''
-        } catch {
-          // Keep the local renderer as a fallback when the API is temporarily unavailable.
+        const snapshot = {
+          title: $('#title').value.trim(),
+          content: $('#content').value,
+          fontCss: fontStyleBlock(),
+          titleFont: parseFontSelection($('#title-font-select')?.value || ''),
+          bodyFont: parseFontSelection($('#body-font-select')?.value || ''),
         }
-        if (requestId !== previewRequestId) return
-        $('#preview-panel').innerHTML = writerUtils.buildPreviewHtml({ title, contentHtml, fontCss, titleFont, bodyFont })
+
+        window.clearTimeout(previewLocalTimer)
+        window.clearTimeout(previewRemoteTimer)
+        previewController?.abort()
+
+        const renderLocal = () => {
+          if (requestId !== previewRequestId) return
+          renderPreviewSnapshot(snapshot, markdownToHtml(snapshot.content))
+        }
+        if (immediate) renderLocal()
+        else previewLocalTimer = window.setTimeout(renderLocal, 100)
+
+        previewRemoteTimer = window.setTimeout(async () => {
+          const controller = new AbortController()
+          previewController = controller
+          try {
+            const json = await request('/admin/markdown/preview', {
+              method: 'POST',
+              body: JSON.stringify({ content: snapshot.content }),
+              signal: controller.signal,
+            })
+            if (requestId !== previewRequestId) return
+            renderPreviewSnapshot(snapshot, json.data?.html || '')
+          } catch (error) {
+            if (error?.name !== 'AbortError') console.warn('远程预览暂不可用，已保留本地预览', error)
+          } finally {
+            if (previewController === controller) previewController = null
+          }
+        }, immediate ? 0 : 550)
       }
 
       async function request(path, options = {}) {
@@ -1195,10 +1234,17 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         let res
         try {
           res = await fetch(`${API_BASE}${path}`, { ...options, headers })
-        } catch {
+        } catch (error) {
+          if (error?.name === 'AbortError') throw error
           throw new Error(`无法连接后端 API（${API_BASE}），请确认 Express 服务已启动且代理配置正常`)
         }
         const json = await res.json().catch(() => ({}))
+        if (res.status === 401) {
+          localStorage.removeItem(tokenKey)
+          token = ''
+          location.replace('/admin')
+          throw new Error('登录已失效，请重新登录')
+        }
         if (!res.ok || json.success === false) throw new Error(json.message || `请求失败（HTTP ${res.status}）`)
         return json
       }
@@ -1448,7 +1494,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           all: articles.length,
           draft: articles.filter((post) => post.status !== 'published').length,
           published: articles.filter((post) => post.status === 'published').length,
-          trash: trashedArticles.length,
+          trash: trashLoaded ? trashedArticles.length : '…',
         }
         const labels = { all: '全部', draft: '草稿箱', published: '已发布', trash: '回收站' }
         $$('#article-tabs .writer-tab').forEach((button) => {
@@ -1492,21 +1538,34 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               ${isTrash
                 ? `<button class="writer-mini" type="button" data-action="restore" data-id="${post.id}">恢复</button>
                    <button class="writer-mini danger" type="button" data-action="force-delete" data-id="${post.id}">永久删除</button>`
-                : `<a class="writer-mini" href="/admin/write?id=${post.id}">编辑</a>
+                : `<button class="writer-mini" type="button" data-action="edit" data-id="${post.id}">编辑</button>
                    <button class="writer-mini danger" type="button" data-action="delete" data-id="${post.id}">删除</button>`}
             </div>
           </article>
         `
       }
 
-      async function loadArticles() {
-        const [normalJson, trashJson] = await Promise.all([
-          request('/admin/articles?pageSize=200'),
-          request('/admin/articles?trashed=true&pageSize=200'),
-        ])
-        articles = normalJson.data || []
-        trashedArticles = trashJson.data || []
-        renderArticleList()
+      async function loadArticles({ includeTrash = trashLoaded } = {}) {
+        articleListController?.abort()
+        const controller = new AbortController()
+        articleListController = controller
+        try {
+          const requests = [
+            request('/admin/articles?summary=true&pageSize=100', { signal: controller.signal }),
+          ]
+          if (includeTrash) {
+            requests.push(request('/admin/articles?summary=true&trashed=true&pageSize=100', { signal: controller.signal }))
+          }
+          const [normalJson, trashJson] = await Promise.all(requests)
+          articles = normalJson.data || []
+          if (trashJson) {
+            trashedArticles = trashJson.data || []
+            trashLoaded = true
+          }
+          renderArticleList()
+        } finally {
+          if (articleListController === controller) articleListController = null
+        }
       }
 
       async function loadTaxonomy() {
@@ -1524,11 +1583,23 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
       async function loadCurrentArticle() {
         if (!articleId) {
+          currentArticleController?.abort()
           fillArticle(null)
           return
         }
-        const json = await request(`/admin/articles/${articleId}`)
-        fillArticle(json.data)
+        currentArticleController?.abort()
+        const controller = new AbortController()
+        currentArticleController = controller
+        const requestedId = String(articleId)
+        try {
+          setMessage('正在载入文章...')
+          const json = await request(`/admin/articles/${requestedId}`, { signal: controller.signal })
+          if (requestedId !== String(articleId)) return
+          fillArticle(json.data)
+          setMessage('已载入文章')
+        } finally {
+          if (currentArticleController === controller) currentArticleController = null
+        }
       }
 
       async function deleteArticle(id) {
@@ -1565,7 +1636,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         $('#toggle-preview')?.classList.toggle('active', previewEnabled)
         if (previewEnabled) {
           setPreviewSplit(previewSplit)
-          updatePreview()
+          updatePreview({ immediate: true })
         }
       }
 
@@ -1604,6 +1675,21 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       function exitImmersive() {
         document.body.classList.remove('immersive')
         setMessage('已退出沉浸模式')
+      }
+
+      function scheduleEditorUpdate() {
+        markDirty()
+        if (editorUpdateFrame) return
+        editorUpdateFrame = window.requestAnimationFrame(() => {
+          editorUpdateFrame = null
+          updateWordCount()
+          if (previewEnabled) updatePreview()
+        })
+      }
+
+      function scheduleArticleSearch() {
+        window.clearTimeout(searchTimer)
+        searchTimer = window.setTimeout(renderArticleList, 120)
       }
 
       $('#quick-status').addEventListener('change', (event) => {
@@ -1673,17 +1759,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         fillArticle(null)
         setMessage('新文章')
       })
-      $('#article-search').addEventListener('input', renderArticleList)
-      $('#content').addEventListener('input', () => {
-        updateWordCount()
-        markDirty()
-        if (previewEnabled) updatePreview()
-      })
-      $('#title').addEventListener('input', () => {
-        updateWordCount()
-        markDirty()
-        if (previewEnabled) updatePreview()
-      })
+      $('#article-search').addEventListener('input', scheduleArticleSearch)
+      $('#content').addEventListener('input', scheduleEditorUpdate)
+      $('#title').addEventListener('input', scheduleEditorUpdate)
       ;['excerpt', 'cover', 'status', 'visibility', 'category', 'tags', 'title-font-select', 'body-font-select', 'is-pinned', 'is-recommended'].forEach((id) => {
         document.getElementById(id)?.addEventListener('change', markDirty)
       })
@@ -1696,8 +1774,17 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         button.addEventListener('click', () => insertMarkdown(button.dataset.mdInsert))
       })
       $$('#article-tabs .writer-tab').forEach((button) => {
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
           currentFilter = button.dataset.filter
+          if (currentFilter === 'trash' && !trashLoaded) {
+            $('#article-list').innerHTML = '<div class="writer-empty">正在读取回收站…</div>'
+            try {
+              await loadArticles({ includeTrash: true })
+            } catch (error) {
+              if (error?.name !== 'AbortError') setMessage(error.message || '回收站读取失败')
+            }
+            return
+          }
           renderArticleList()
         })
       })
@@ -1707,10 +1794,18 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         const id = target.dataset.id
         const action = target.dataset.action
         try {
+          if (action === 'edit') {
+            if (isDirty && !confirm('当前文章有未保存修改，确定切换文章吗？')) return
+            articleId = String(id)
+            history.pushState(null, '', `/admin/write?id=${encodeURIComponent(articleId)}`)
+            renderArticleList()
+            await loadCurrentArticle()
+          }
           if (action === 'delete') await deleteArticle(id)
           if (action === 'restore') await restoreArticle(id)
           if (action === 'force-delete') await forceDeleteArticle(id)
         } catch (error) {
+          if (error?.name === 'AbortError') return
           setMessage(error.message || '操作失败')
         }
       })
