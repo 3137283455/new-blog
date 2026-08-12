@@ -95,7 +95,7 @@ const mergedSidebarProps = {
     <Navbar />
     {showBanner && <Banner title={title} subtitle={subtitle} images={bannerImages} />}
 
-    <div class:list={['page-content-animate mx-auto w-full flex-grow', wide ? 'max-w-wide' : 'max-w-blog', showBanner ? 'mt-7' : 'mt-24']}>
+    <div class:list={['page-content-animate mx-auto w-full flex-grow', pageType === 'article' && 'article-page-content', wide ? 'max-w-wide' : 'max-w-blog', showBanner ? 'mt-7' : 'mt-24']}>
       <div class={`grid grid-cols-1 gap-4 px-4 pb-4 ${showSidebar ? 'md:grid-cols-5 lg:grid-cols-4' : ''}`}>
         <main class={`order-1 flex flex-col gap-4 ${showSidebar ? 'md:order-2 md:col-span-4 lg:col-span-3' : ''}`}>
           <slot />
