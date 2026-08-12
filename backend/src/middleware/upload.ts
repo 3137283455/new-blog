@@ -79,3 +79,18 @@ export const backupUpload = multer({
     cb(new Error('仅支持 .db、.sqlite、.sqlite3 和 .json 备份文件'))
   },
 })
+
+export const epubUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 80 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter(_req, file, cb) {
+    if (/\.epub$/i.test(file.originalname) || file.mimetype === 'application/epub+zip') {
+      cb(null, true)
+      return
+    }
+    cb(new Error('仅支持 .epub 文件'))
+  },
+})

@@ -18,7 +18,8 @@ import * as markdownCtrl from '../controllers/markdown'
 import * as backupCtrl from '../controllers/backup'
 import * as hubCtrl from '../controllers/hub'
 import * as personalCtrl from '../controllers/personal'
-import { upload, backupUpload } from '../middleware/upload'
+import * as epubCtrl from '../controllers/epub'
+import { upload, backupUpload, epubUpload } from '../middleware/upload'
 
 const router = Router()
 
@@ -63,6 +64,7 @@ router.get('/visitors/count', dashboardCtrl.todayCount)
 router.get('/admin/articles', auth, articleCtrl.adminList)
 router.get('/admin/articles/:id', auth, articleCtrl.getById)
 router.post('/admin/articles', auth, articleCtrl.create)
+router.post('/admin/articles/epub/import', auth, epubUpload.single('file'), epubCtrl.importEpub)
 router.put('/admin/articles/:id', auth, articleCtrl.update)
 router.delete('/admin/articles/:id', auth, articleCtrl.softDelete)
 router.post('/admin/articles/batch-delete', auth, articleCtrl.batchDelete)

@@ -4942,7 +4942,7 @@ select {
     grid-row: 1;
   }
 
-  .article-toc-card {
+.article-toc-card {
     grid-column: 1;
     grid-row: 2;
   }
@@ -4965,6 +4965,109 @@ select {
 
   .reading-resume-card > div:last-child {
     justify-content: flex-end;
+  }
+}
+
+/* EPUB 小说卷：保留博客文章能力，同时提供长篇连续阅读结构。 */
+.article-reading-layout.is-epub-novel {
+  align-items: start;
+}
+
+.epub-novel-card {
+  background: color-mix(in srgb, var(--surface-solid) 96%, var(--paper));
+}
+
+.epub-novel-card .article-content-head {
+  text-align: left;
+}
+
+.epub-novel-card .article-content-head h1 {
+  margin-inline: 0;
+  font-family: var(--editorial-serif);
+}
+
+.epub-novel-body {
+  font-family: var(--theme-body-font, var(--font-body));
+  font-size: 1.08rem;
+  line-height: 2.05;
+}
+
+.epub-novel-body .epub-chapter {
+  margin: 0;
+  padding: 1rem 0 4.5rem;
+  scroll-margin-top: 7rem;
+}
+
+.epub-novel-body .epub-chapter + .epub-chapter {
+  border-top: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  padding-top: 4.5rem;
+}
+
+.epub-novel-body .epub-chapter > h2:first-child {
+  margin: 0 0 2.25rem;
+  border-left: 4px solid var(--brand);
+  padding-left: 1rem;
+  font-family: var(--editorial-serif);
+  font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.epub-novel-body .epub-chapter :where(p, li) {
+  text-align: justify;
+  text-justify: inter-ideograph;
+}
+
+.epub-novel-body .epub-chapter img {
+  display: block;
+  width: auto;
+  max-width: min(100%, 52rem);
+  max-height: 85vh;
+  margin: 2.25rem auto;
+  object-fit: contain;
+}
+
+.is-epub-novel .article-toc-card {
+  max-height: min(70vh, 48rem);
+  overflow: hidden;
+}
+
+.is-epub-novel .article-toc-card nav {
+  max-height: calc(min(70vh, 48rem) - 4.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.is-epub-novel .article-toc-link.level-2 {
+  padding-block: 0.55rem;
+  font-size: 0.76rem;
+}
+
+@media (max-width: 760px) {
+  .epub-novel-card {
+    border-radius: 0.85rem;
+  }
+
+  .epub-novel-card .article-content-head {
+    text-align: center;
+  }
+
+  .epub-novel-card .article-content-head h1 {
+    margin-inline: auto;
+  }
+
+  .epub-novel-body {
+    font-size: 1rem;
+    line-height: 1.95;
+  }
+
+  .epub-novel-body .epub-chapter {
+    padding-bottom: 3rem;
+  }
+
+  .epub-novel-body .epub-chapter + .epub-chapter {
+    padding-top: 3rem;
   }
 }
 

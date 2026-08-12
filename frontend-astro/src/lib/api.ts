@@ -98,6 +98,7 @@ export interface ArticleSeries {
   status?: string
   article_count?: number
   total_views?: number
+  is_novel?: number | boolean
   articles?: ArticleSummary[]
 }
 

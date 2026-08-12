@@ -13,9 +13,9 @@ if (!series) return Astro.redirect('/404')
     <header class="series-detail-hero">
       <div>{series.cover && <img src={resolveUploadUrl(series.cover)} alt="" />}</div>
       <section>
-        <p>ARTICLE SERIES · {series.article_count || 0} CHAPTERS</p>
+        <p>{series.is_novel ? 'BOOK SERIES' : 'ARTICLE SERIES'} · {series.article_count || 0} {series.is_novel ? 'VOLUMES' : 'CHAPTERS'}</p>
         <h1>{series.title}</h1>
-        <span>{series.description || '持续更新中的文章专题。'}</span>
+        <span>{series.description || (series.is_novel ? '由多卷文章组成的持续阅读书籍。' : '持续更新中的文章专题。')}</span>
       </section>
     </header>
     <ol class="series-chapters">
@@ -23,7 +23,7 @@ if (!series) return Astro.redirect('/404')
         <li>
           <a href={`/article/${article.slug}`}>
             <span>{String(index + 1).padStart(2, '0')}</span>
-            <div><h2>{article.title}</h2><p>{article.excerpt || '阅读这一章'}</p></div>
+            <div><h2>{article.title}</h2><p>{article.excerpt || (series.is_novel ? '阅读这一卷' : '阅读这一章')}</p></div>
             <small>{formatDate(article.published_at || article.created_at)} · {article.view_count || 0} 阅读</small>
           </a>
         </li>

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
+    "test:epub": "npm run build && node scripts/test-epub-import.js",
     "start": "node dist/app.js",
     "db:migrate": "tsx src/database/schema.ts",
     "db:seed": "tsx src/database/seed.ts"
@@ -14,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "adm-zip": "^0.6.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
     "cookie-parser": "^1.4.7",
@@ -22,6 +24,7 @@
     "drizzle-orm": "^0.45.2",
     "exifr": "^7.1.3",
     "express": "^5.2.1",
+    "fast-xml-parser": "^5.10.1",
     "highlight.js": "^11.11.1",
     "jsonwebtoken": "^9.0.3",
     "markdown-it": "^14.3.0",
@@ -31,6 +34,7 @@
     "multer": "^2.2.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/bcryptjs": "^2.4.6",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cookie-parser": "^1.4.10",

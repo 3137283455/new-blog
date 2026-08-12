@@ -407,6 +407,12 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         background: #d9dde5;
       }
       .writer-import { color: var(--primary); }
+      .writer-epub-import {
+        border-color: color-mix(in srgb, var(--primary) 22%, #d9dde5);
+        background: color-mix(in srgb, var(--primary) 8%, #fff);
+        color: var(--primary);
+        font-weight: 800;
+      }
 
       .writer-paper-wrap {
         min-height: 0;
@@ -865,6 +871,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         <section class="writer-stage">
           <div class="writer-toolbar">
             <input id="text-file-input" class="hidden" type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" />
+            <input id="epub-file-input" class="hidden" type="file" accept=".epub,application/epub+zip" />
             <input id="article-image-input" class="hidden" type="file" accept="image/*" />
             <input id="cover-file-input" class="hidden" type="file" accept="image/*" />
             <div class="writer-tool-group writer-format-tools">
@@ -901,6 +908,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               <button id="swap-preview" class="writer-tool is-text" type="button" title="预览换边">换边</button>
               <button id="immersive-mode" class="writer-tool is-text" type="button" title="沉浸模式，Esc 退出">沉浸</button>
               <button id="import-text-button" class="writer-tool is-text writer-import" type="button" title="导入 txt/md">导入</button>
+              <button id="import-epub-button" class="writer-tool is-text writer-epub-import" type="button" title="导入 EPUB 为小说卷">EPUB</button>
               <select id="inline-font-select" class="writer-font-select" title="选中文字后应用或移除局部字体">
                 <option value="">字体</option>
               </select>
@@ -1489,6 +1497,41 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         reader.readAsText(file, 'utf-8')
       }
 
+      async function importEpubFile(file) {
+        if (!file) return
+        if (!/\.epub$/i.test(file.name)) {
+          setMessage('只支持 .epub 文件')
+          return
+        }
+        if (isDirty && ($('#title').value.trim() || $('#content').value.trim())) {
+          const confirmed = confirm('导入 EPUB 会替换当前写作台里的标题、正文、摘要和封面。是否继续？')
+          if (!confirmed) return
+        }
+        const form = new FormData()
+        form.append('file', file)
+        setMessage('正在解析 EPUB，请稍候…')
+        try {
+          const json = await request('/admin/articles/epub/import', { method: 'POST', body: form })
+          const book = json.data || {}
+          articleId = ''
+          history.pushState(null, '', '/admin/write')
+          $('#writer-mode').textContent = 'EPUB 小说草稿'
+          $('#title').value = book.title || file.name.replace(/\.epub$/i, '')
+          $('#content').value = book.content || ''
+          $('#excerpt').value = book.excerpt || ''
+          $('#cover').value = book.cover_image || ''
+          $('#status').value = 'draft'
+          $('#quick-status').value = 'draft'
+          updateWordCount()
+          updatePreview(true)
+          if (!previewEnabled) setPreviewState(true)
+          markDirty()
+          setMessage(`${json.message || 'EPUB 已导入'}，请检查并选择专题/卷序后保存`)
+        } catch (error) {
+          setMessage(error.message || 'EPUB 导入失败')
+        }
+      }
+
       function updateWordCount() {
         const text = `${$('#title').value}\n${$('#content').value}`
         $('#word-count').textContent = `本章字数：${text.replace(/\s/g, '').length}`
@@ -1744,6 +1787,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       $('#save-draft').addEventListener('click', () => saveArticle('draft'))
       $('#publish-article').addEventListener('click', () => saveArticle('published'))
       $('#import-text-button').addEventListener('click', () => $('#text-file-input').click())
+      $('#import-epub-button').addEventListener('click', () => $('#epub-file-input').click())
       $('#insert-image-button').addEventListener('click', () => $('#article-image-input').click())
       $('#cover-upload-button').addEventListener('click', () => $('#cover-file-input').click())
       $('#inline-font-select').addEventListener('change', applyInlineFont)
@@ -1752,6 +1796,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
       $('#text-file-input').addEventListener('change', (event) => {
         importTextFile(event.target.files?.[0])
+        event.target.value = ''
+      })
+      $('#epub-file-input').addEventListener('change', async (event) => {
+        await importEpubFile(event.target.files?.[0])
         event.target.value = ''
       })
       $('#article-image-input').addEventListener('change', async (event) => {

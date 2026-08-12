@@ -18,6 +18,8 @@ if (!article) {
 const renderedArticle = injectHeadingIds(article.content_html || article.excerpt || '')
 const articleHtml = renderedArticle.html
 const toc = renderedArticle.toc
+const isEpubNovel = String(article.content || '').includes('<!-- boke:epub-novel -->')
+const novelChapterCount = isEpubNovel ? toc.filter((item) => item.level === 2).length : 0
 const fontFaces = buildArticleFontCss(article, Array.isArray(publicSettings.font_library) ? publicSettings.font_library : [])
 const titleFontStyle = fontFamilyStyle(article.title_font_family, 'var(--font-title)')
 const bodyFontStyle = fontFamilyStyle(article.body_font_family, 'var(--font-body)')
@@ -29,6 +31,7 @@ const backToTopEnabled = pluginIds.has('back-to-top')
 const articleLikeEnabled = pluginIds.has('article-like')
 const readingHistoryEnabled = pluginIds.has('reading-history')
 const tableOfContentsEnabled = pluginIds.has('table-of-contents')
+const showTableOfContents = toc.length > 0 && (isEpubNovel || tableOfContentsEnabled)
 const articleBookmarkEnabled = pluginIds.has('article-bookmark')
 const readingModeEnabled = pluginIds.has('reading-mode')
 const codeCopyEnabled = pluginIds.has('code-copy')
@@ -71,7 +74,7 @@ const structuredData = JSON.stringify({
     </div>
   )}
 
-  <div class="article-reading-layout">
+  <div class:list={['article-reading-layout', isEpubNovel && 'is-epub-novel']}>
     <div class="article-reading-main">
       {readingHistoryEnabled && (
         <section id="reading-resume-card" class="reading-resume-card" hidden aria-live="polite">
@@ -86,11 +89,12 @@ const structuredData = JSON.stringify({
           </div>
         </section>
       )}
-      <BaseCard class="article-content-card p-6 md:p-10">
+      <BaseCard class={`article-content-card p-6 md:p-10${isEpubNovel ? ' epub-novel-card' : ''}`}>
         <header class="article-content-head mb-10 border-b border-base-content/10 pb-8 text-center">
           <div class="mb-4 flex flex-wrap justify-center gap-2">
             {article.category_name && <span class="badge badge-primary badge-outline">{article.category_name}</span>}
-            {article.series_title && <a class="badge badge-secondary badge-outline" href={`/series/${article.series_slug}`}>专题 · {article.series_title}</a>}
+            {article.series_title && <a class="badge badge-secondary badge-outline" href={`/series/${article.series_slug}`}>{isEpubNovel ? '书籍' : '专题'} · {article.series_title}</a>}
+            {isEpubNovel && <span class="badge badge-primary badge-outline">EPUB · {novelChapterCount} 章</span>}
             <span class="badge badge-ghost">{formatDate(article.published_at || article.created_at)}</span>
           </div>
           <h1 class="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl" style={titleFontStyle}>{article.title}</h1>
@@ -103,7 +107,7 @@ const structuredData = JSON.stringify({
 
         {article.series_title && article.series_articles?.length ? (
           <aside class="article-series-progress">
-            <div><small>ARTICLE SERIES</small><strong>{article.series_title}</strong><span>第 {article.series_position || 1} / {article.series_articles.length} 篇</span></div>
+            <div><small>{isEpubNovel ? 'BOOK VOLUMES' : 'ARTICLE SERIES'}</small><strong>{article.series_title}</strong><span>第 {article.series_position || 1} / {article.series_articles.length} {isEpubNovel ? '卷' : '篇'}</span></div>
             <ol>
               {article.series_articles.map((item, index) => (
                 <li class:list={[item.id === article.id && 'is-current']}><a href={`/article/${item.slug}`}><span>{index + 1}</span>{item.title}</a></li>
@@ -119,7 +123,7 @@ const structuredData = JSON.stringify({
           </button>
         )}
 
-        <article class="markdown-body prose prose-lg max-w-none" style={bodyFontStyle} set:html={articleHtml} />
+        <article class:list={['markdown-body prose prose-lg max-w-none', isEpubNovel && 'epub-novel-body']} style={bodyFontStyle} set:html={articleHtml} />
       </BaseCard>
 
       {(Boolean(article.previous) || Boolean(article.next) || (article.related?.length ?? 0) > 0) && (
@@ -128,12 +132,12 @@ const structuredData = JSON.stringify({
             <div class="article-neighbors">
               {article.previous ? (
                 <a href={`/article/${article.previous.slug}`}>
-                  <span>← 上一篇</span><strong>{article.previous.title}</strong>
+                  <span>← {isEpubNovel && article.series_title ? '上一卷' : '上一篇'}</span><strong>{article.previous.title}</strong>
                 </a>
               ) : <div></div>}
               {article.next && (
                 <a class="is-next" href={`/article/${article.next.slug}`}>
-                  <span>下一篇 →</span><strong>{article.next.title}</strong>
+                  <span>{isEpubNovel && article.series_title ? '下一卷' : '下一篇'} →</span><strong>{article.next.title}</strong>
                 </a>
               )}
             </div>
@@ -157,10 +161,10 @@ const structuredData = JSON.stringify({
 
     </div>
 
-    <aside class:list={['article-reading-side', tableOfContentsEnabled && toc.length && 'has-toc']} aria-label="文章侧栏">
-      {tableOfContentsEnabled && toc.length ? (
+    <aside class:list={['article-reading-side', showTableOfContents && 'has-toc']} aria-label="文章侧栏">
+      {showTableOfContents ? (
         <BaseCard class="article-toc-card p-5">
-          <h2>文章目录</h2>
+          <h2>{isEpubNovel ? `本卷目录 · ${novelChapterCount} 章` : '文章目录'}</h2>
           <nav aria-label="文章目录">
             {toc.map((item) => (
               <a class={`article-toc-link level-${item.level}`} href={`#${item.id}`}>{item.text}</a>

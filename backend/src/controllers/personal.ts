@@ -144,7 +144,8 @@ export function removeTodo(req: AuthRequest, res: Response) {
 export function seriesList(_req: AuthRequest, res: Response) {
   const rows = db.prepare(`
     SELECT s.*, COUNT(a.id) AS article_count,
-      COALESCE(SUM(a.view_count), 0) AS total_views
+      COALESCE(SUM(a.view_count), 0) AS total_views,
+      MAX(CASE WHEN a.content LIKE '%<!-- boke:epub-novel -->%' THEN 1 ELSE 0 END) AS is_novel
     FROM article_series s
     LEFT JOIN articles a ON a.series_id = s.id AND a.deleted_at IS NULL
       AND a.status = 'published' AND a.visibility = 'public'
@@ -164,7 +165,12 @@ export function seriesDetail(req: AuthRequest, res: Response) {
     WHERE series_id = ? AND status = 'published' AND visibility = 'public' AND deleted_at IS NULL
     ORDER BY series_order ASC, COALESCE(published_at, created_at) ASC
   `).all(series.id)
-  return success(res, { ...series, articles, article_count: articles.length })
+  const novel = db.prepare(`
+    SELECT 1 FROM articles
+    WHERE series_id = ? AND deleted_at IS NULL AND content LIKE '%<!-- boke:epub-novel -->%'
+    LIMIT 1
+  `).get(series.id)
+  return success(res, { ...series, articles, article_count: articles.length, is_novel: Boolean(novel) })
 }
 
 export function adminSeriesList(_req: AuthRequest, res: Response) {
