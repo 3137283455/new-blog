@@ -3,7 +3,7 @@ import db from '../config/database'
 import { config } from '../config'
 import { success, error, paginationResult } from '../utils/response'
 import { AuthRequest } from '../middleware/auth'
-import { renderMarkdown } from '../utils/markdown'
+import { needsEpubHtmlRepair, renderArticleContent } from '../utils/markdown'
 
 /*
   // 为图片和 iframe 添加懒加载
@@ -250,6 +250,15 @@ export function detail(req: AuthRequest, res: Response) {
     return error(res, '文章不存在', 'NOT_FOUND', 404)
   }
 
+  // Repair previously imported EPUB articles on first read. Earlier versions
+  // passed their XHTML through markdown-it, turning indented tags into code.
+  if (needsEpubHtmlRepair(article.content, article.content_html)) {
+    const repairedHtml = renderArticleContent(article.content)
+    article.content_html = repairedHtml
+    db.prepare('UPDATE articles SET content_html = ? WHERE id = ? AND content_html != ?')
+      .run(repairedHtml, article.id, repairedHtml)
+  }
+
   // 增加阅读量
   db.prepare('UPDATE articles SET view_count = view_count + 1 WHERE id = ?').run(article.id)
 
@@ -454,7 +463,7 @@ export function create(req: AuthRequest, res: Response) {
     slug = slug + '-' + Date.now()
   }
 
-  const contentHtml = renderMarkdown(content)
+  const contentHtml = renderArticleContent(content)
   const publishedAt = status === 'published' ? new Date().toISOString() : null
 
   const result = db.prepare(`
@@ -502,7 +511,7 @@ export function update(req: AuthRequest, res: Response) {
     if (dup) slug = slug + '-' + Date.now()
   }
 
-  const contentHtml = content ? renderMarkdown(content) : existing.content_html
+  const contentHtml = content ? renderArticleContent(content) : existing.content_html
   const publishedAt = status === 'published' && !existing.published_at ? new Date().toISOString() : existing.published_at
 
   db.prepare(`

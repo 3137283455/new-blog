@@ -1,4 +1,5 @@
 const AdmZip = require('adm-zip')
+const Database = require('better-sqlite3')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -8,6 +9,7 @@ const port = 31991
 const origin = `http://127.0.0.1:${port}`
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'boke-epub-test-'))
 const uploadDir = path.join(tempRoot, 'uploads')
+const dbPath = path.join(tempRoot, 'blog.db')
 
 function makeEpub() {
   const zip = new AdmZip()
@@ -73,7 +75,7 @@ async function main() {
       NODE_ENV: 'test',
       JWT_SECRET: 'epub-test-secret-at-least-thirty-two-characters',
       ADMIN_PASSWORD: 'epub-test-password',
-      DB_PATH: path.join(tempRoot, 'blog.db'),
+      DB_PATH: dbPath,
       UPLOAD_DIR: uploadDir,
       CORS_ORIGIN: origin,
     },
@@ -142,6 +144,8 @@ async function main() {
     const publicSeriesJson = await publicSeriesResponse.json()
     const publishingChecks = {
       article_public: publicArticleResponse.ok && publicArticleJson.data?.series_position === 1,
+      rendered_as_html: !publicArticleJson.data?.content_html?.includes('&lt;section') && !publicArticleJson.data?.content_html?.includes('<pre><code'),
+      toc_headings: (publicArticleJson.data?.content_html?.match(/<h2\b/g) || []).length === 2,
       rendered_sections: publicArticleJson.data?.content_html?.includes('class="epub-chapter"') && publicArticleJson.data?.content_html?.includes('<h2>序章</h2>'),
       novel_series: publicSeriesResponse.ok && publicSeriesJson.data?.is_novel === true,
       volume_order: publicSeriesJson.data?.articles?.length === 1 && publicSeriesJson.data.articles[0].series_order === 1,
@@ -149,7 +153,22 @@ async function main() {
     if (Object.values(publishingChecks).some((value) => !value)) {
       throw new Error(`发布链路校验失败：${JSON.stringify(publishingChecks)}\n${JSON.stringify(publicArticleJson)}\n${JSON.stringify(publicSeriesJson)}`)
     }
-    console.log(JSON.stringify({ success: true, checks, publishingChecks, chapter_count: book.chapter_count }, null, 2))
+    const testDb = new Database(dbPath)
+    testDb.prepare('UPDATE articles SET content_html = ? WHERE id = ?')
+      .run('<pre><code>&lt;section class="epub-chapter"&gt;</code></pre>', articleJson.data.id)
+    testDb.close()
+    const repairedResponse = await fetch(`${origin}/api/articles/${encodeURIComponent(articleJson.data.slug)}`)
+    const repairedJson = await repairedResponse.json()
+    const legacyRepairChecks = {
+      response_ok: repairedResponse.ok,
+      code_removed: !repairedJson.data?.content_html?.includes('<pre><code'),
+      sections_restored: repairedJson.data?.content_html?.includes('class="epub-chapter"'),
+      headings_restored: (repairedJson.data?.content_html?.match(/<h2\b/g) || []).length === 2,
+    }
+    if (Object.values(legacyRepairChecks).some((value) => !value)) {
+      throw new Error(`Legacy EPUB repair failed: ${JSON.stringify(legacyRepairChecks)}`)
+    }
+    console.log(JSON.stringify({ success: true, checks, publishingChecks, legacyRepairChecks, chapter_count: book.chapter_count }, null, 2))
   } finally {
     child.kill('SIGTERM')
     await new Promise((resolve) => setTimeout(resolve, 250))

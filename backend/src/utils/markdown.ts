@@ -23,6 +23,8 @@ const md = new MarkdownIt({
   .use(footnote)
   .use(taskLists, { enabled: true, label: true })
 
+const EPUB_MARKER = '<!-- boke:epub-novel -->'
+
 function sanitizeHtml(html: string) {
   return html
     .replace(/<script\b[\s\S]*?<\/script>/gi, '')
@@ -36,8 +38,35 @@ function sanitizeHtml(html: string) {
     .replace(/\s+((?:xlink:)?href|src)\s*=\s*javascript:[^\s>]+/gi, ' $1="#"')
 }
 
+function decorateMedia(html: string) {
+  return html
+    .replace(/<img(?![^>]*\bloading=) /gi, '<img loading="lazy" ')
+    .replace(/<iframe(?![^>]*\bloading=) /gi, '<iframe loading="lazy" ')
+}
+
 export function renderMarkdown(content = ''): string {
-  return sanitizeHtml(md.render(String(content || '')))
-    .replace(/<img /g, '<img loading="lazy" ')
-    .replace(/<iframe /g, '<iframe loading="lazy" ')
+  return decorateMedia(sanitizeHtml(md.render(String(content || ''))))
+}
+
+export function isEpubContent(content = ''): boolean {
+  return String(content || '').includes(EPUB_MARKER)
+}
+
+export function needsEpubHtmlRepair(content = '', contentHtml = ''): boolean {
+  if (!isEpubContent(content)) return false
+  const rendered = String(contentHtml || '')
+  return !rendered.includes('class="epub-chapter"')
+    || /<pre><code[^>]*>[\s\S]{0,1200}&lt;(?:section|div|h[1-6]|p|svg|img)\b/i.test(rendered)
+}
+
+/**
+ * EPUB imports already contain sanitized structural HTML. Sending that HTML
+ * through markdown-it makes indented XHTML fragments become fenced-looking
+ * code blocks, which exposes tags and removes the headings used by the TOC.
+ */
+export function renderArticleContent(content = ''): string {
+  const source = String(content || '')
+  if (!isEpubContent(source)) return renderMarkdown(source)
+  const epubHtml = source.replace(/<!--\s*boke:epub-novel\s*-->/gi, '').trim()
+  return decorateMedia(sanitizeHtml(epubHtml))
 }

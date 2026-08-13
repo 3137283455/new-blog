@@ -5,7 +5,7 @@ import fs from 'fs'
 import db from '../config/database'
 import { config } from '../config'
 import { success, error } from '../utils/response'
-import { renderMarkdown } from '../utils/markdown'
+import { renderArticleContent } from '../utils/markdown'
 import { AuthRequest } from '../middleware/auth'
 
 const APP_TABLES = [
@@ -239,7 +239,7 @@ export function restoreArticles(req: AuthRequest, res: Response) {
           ? metadata.tags.map((tag: unknown) => String(tag).trim()).filter(Boolean).slice(0, 50)
           : []
         const existing = db.prepare('SELECT id FROM articles WHERE slug = ?').get(slug) as { id: number } | undefined
-        const contentHtml = renderMarkdown(content)
+        const contentHtml = renderArticleContent(content)
         let articleId: number
 
         if (existing) {

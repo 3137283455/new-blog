@@ -2,7 +2,7 @@
 import BaseLayout from '@layouts/BaseLayout.astro'
 import BaseCard from '@components/BaseCard.astro'
 import { formatDate, getActivePlugins, getArticle, getPublicSettings } from '@/lib/api'
-import { buildArticleFontCss, fontFamilyStyle, injectHeadingIds } from '@/lib/markdown'
+import { buildArticleFontCss, extractEpubChapterToc, fontFamilyStyle, injectHeadingIds } from '@/lib/markdown'
 
 const { slug } = Astro.params
 const [article, publicSettings, activePlugins] = await Promise.all([
@@ -17,9 +17,9 @@ if (!article) {
 
 const renderedArticle = injectHeadingIds(article.content_html || article.excerpt || '')
 const articleHtml = renderedArticle.html
-const toc = renderedArticle.toc
 const isEpubNovel = String(article.content || '').includes('<!-- boke:epub-novel -->')
-const novelChapterCount = isEpubNovel ? toc.filter((item) => item.level === 2).length : 0
+const toc = isEpubNovel ? extractEpubChapterToc(articleHtml) : renderedArticle.toc
+const novelChapterCount = isEpubNovel ? toc.length : 0
 const fontFaces = buildArticleFontCss(article, Array.isArray(publicSettings.font_library) ? publicSettings.font_library : [])
 const titleFontStyle = fontFamilyStyle(article.title_font_family, 'var(--font-title)')
 const bodyFontStyle = fontFamilyStyle(article.body_font_family, 'var(--font-body)')

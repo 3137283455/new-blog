@@ -58,6 +58,16 @@ export function injectHeadingIds(html = '') {
   return { html: content, toc }
 }
 
+export function extractEpubChapterToc(html = ''): TocItem[] {
+  return Array.from(String(html).matchAll(
+    /<section\b[^>]*class=["'][^"']*\bepub-chapter\b[^"']*["'][^>]*>[\s\S]*?<h2\b[^>]*\bid=["']([^"']+)["'][^>]*>([\s\S]*?)<\/h2>/gi,
+  )).map((match) => ({
+    id: match[1],
+    text: stripHtml(match[2]),
+    level: 2,
+  })).filter((item) => item.id && item.text)
+}
+
 export function buildArticleFontCss(article: Record<string, any>, fontLibrary: FontLike[] = []) {
   const inlineFonts = Array.from(String(article.content_html || '').matchAll(/data-font=["']([^"']+)["'][^>]*data-font-url=["']([^"']+)["']/g))
     .map((match) => ({ family: match[1], url: match[2] }))
