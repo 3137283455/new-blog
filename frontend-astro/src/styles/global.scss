@@ -3802,25 +3802,29 @@ select {
 }
 
 .site-nav.is-condensed {
-  padding-top: 0.55rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 90%, transparent);
+  padding: 0 1rem;
+  box-shadow: 0 4px 18px rgb(20 27 21 / 0.045);
+  backdrop-filter: blur(18px) saturate(125%);
 }
 
 .site-nav.on-surface.is-condensed {
-  border-bottom-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
+  border-bottom-color: color-mix(in srgb, var(--line) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 90%, transparent);
+  box-shadow: 0 4px 18px rgb(20 27 21 / 0.045);
+  backdrop-filter: blur(18px) saturate(125%);
 }
 
 .site-nav.is-condensed .site-nav-inner {
-  width: min(calc(100% - 1rem), 64rem);
-  min-height: 3.2rem;
-  border-color: color-mix(in srgb, var(--line) 82%, transparent);
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--surface-solid) 84%, transparent);
-  padding: 0.28rem;
-  box-shadow: 0 10px 28px rgb(20 27 21 / 0.1);
-  backdrop-filter: blur(20px) saturate(135%);
+  width: min(100%, 76rem);
+  min-height: 3rem;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.18rem 0.28rem;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .site-brand {
@@ -3842,10 +3846,14 @@ select {
 }
 
 .site-nav.is-condensed .site-brand img {
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: 0.68rem;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: 0.58rem;
 }
+
+.site-nav.is-condensed .site-brand small { display: none; }
+.site-nav.is-condensed .site-nav-link { padding-block: 0.55rem; }
+.site-nav.is-condensed .site-icon-button { width: 2.35rem; height: 2.35rem; }
 
 .site-brand span,
 .site-brand strong,
@@ -4397,10 +4405,10 @@ select {
   .site-nav.on-surface:not(.is-condensed) { padding: 0 0.55rem; }
   .site-nav-inner { min-height: 3.25rem; }
   .site-nav.on-surface:not(.is-condensed) .site-nav-inner { min-height: 3.75rem; }
-  .site-nav.is-condensed { padding-top: 0.4rem; }
-  .site-nav.is-condensed .site-nav-inner { width: 100%; min-height: 3.05rem; }
+  .site-nav.is-condensed { padding: 0 0.55rem; }
+  .site-nav.is-condensed .site-nav-inner { width: 100%; min-height: 2.9rem; }
   .site-brand img { width: 2.6rem; height: 2.6rem; }
-  .site-nav.is-condensed .site-brand img { width: 2.25rem; height: 2.25rem; }
+  .site-nav.is-condensed .site-brand img { width: 2.05rem; height: 2.05rem; }
   .site-brand small { display: none; }
   .site-nav-actions > .theme-menu { display: none; }
   .editorial-hero { min-height: 39rem; padding: 8rem 1.25rem 3.5rem; }
