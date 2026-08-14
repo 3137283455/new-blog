@@ -2,6 +2,12 @@
 import { getPublicSettings } from '../lib/api'
 import { resolveUploadUrl } from '../lib/media'
 
+interface Props {
+  immersive?: boolean
+}
+
+const { immersive = false } = Astro.props
+
 const publicSettings = await getPublicSettings()
 const brandAvatar = resolveUploadUrl(publicSettings.profile_avatar || '/profile.webp')
 const primaryItems = [
@@ -24,7 +30,7 @@ const pathname = Astro.url.pathname
 const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
 ---
 
-<nav class="site-nav fixed inset-x-0 top-0 z-50" aria-label="主导航">
+<nav class:list={['site-nav fixed inset-x-0 top-0 z-50', immersive ? 'has-hero' : 'is-condensed']} aria-label="主导航" data-adaptive-nav data-immersive={immersive ? 'true' : 'false'}>
   <div class="site-nav-inner">
     <a href="/" class="site-brand" aria-label="返回博客首页">
       <img src={brandAvatar} alt="" width="40" height="40" fetchpriority="high" decoding="async" data-fallback-src="/profile.webp" />
@@ -107,6 +113,22 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
 
 <script is:inline>
   function initPublicNavigation() {
+    const adaptiveNav = document.querySelector('[data-adaptive-nav]');
+    if (adaptiveNav && !adaptiveNav.dataset.boundAdaptiveNav) {
+      adaptiveNav.dataset.boundAdaptiveNav = 'true';
+      let navFrame = 0;
+      const updateNavigationMode = () => {
+        navFrame = 0;
+        const immersive = adaptiveNav.dataset.immersive === 'true';
+        adaptiveNav.classList.toggle('is-condensed', !immersive || window.scrollY > 56);
+      };
+      const requestNavigationUpdate = () => {
+        if (!navFrame) navFrame = window.requestAnimationFrame(updateNavigationMode);
+      };
+      updateNavigationMode();
+      window.addEventListener('scroll', requestNavigationUpdate, { passive: true });
+    }
+
     document.querySelectorAll('img[data-fallback-src]').forEach((image) => {
       if (image.dataset.boundFallback) return;
       image.dataset.boundFallback = 'true';

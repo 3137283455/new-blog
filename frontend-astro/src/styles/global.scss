@@ -3754,8 +3754,13 @@ select {
 }
 
 .site-nav {
-  padding: 0.75rem 1rem 0;
+  padding: 0.85rem 1rem 0;
   pointer-events: none;
+  transition: padding 220ms ease;
+}
+
+.site-nav.has-hero:not(.is-condensed) {
+  background: linear-gradient(180deg, rgb(5 10 7 / 0.32), transparent 100%);
 }
 
 .site-nav-inner {
@@ -3765,13 +3770,37 @@ select {
   width: min(100%, 76rem);
   min-height: 3.65rem;
   margin: 0 auto;
-  border: 1px solid var(--line);
-  border-radius: 1.15rem;
-  background: color-mix(in srgb, var(--surface-solid) 76%, transparent);
-  padding: 0.38rem;
-  box-shadow: 0 12px 38px rgb(20 27 21 / 0.09);
-  backdrop-filter: blur(22px) saturate(135%);
+  border: 1px solid transparent;
+  border-radius: 0.9rem;
+  background: transparent;
+  padding: 0.28rem;
+  box-shadow: none;
+  backdrop-filter: blur(0);
   pointer-events: auto;
+  transition:
+    width 240ms cubic-bezier(.2,.8,.2,1),
+    min-height 220ms ease,
+    border-color 220ms ease,
+    border-radius 220ms ease,
+    background 220ms ease,
+    padding 220ms ease,
+    box-shadow 220ms ease,
+    backdrop-filter 220ms ease;
+}
+
+.site-nav.is-condensed {
+  padding-top: 0.55rem;
+}
+
+.site-nav.is-condensed .site-nav-inner {
+  width: min(calc(100% - 1rem), 64rem);
+  min-height: 3.2rem;
+  border-color: color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--surface-solid) 84%, transparent);
+  padding: 0.28rem;
+  box-shadow: 0 10px 28px rgb(20 27 21 / 0.1);
+  backdrop-filter: blur(20px) saturate(135%);
 }
 
 .site-brand {
@@ -3789,6 +3818,13 @@ select {
   border-radius: 0.78rem;
   object-fit: cover;
   filter: saturate(0.82);
+  transition: width 220ms ease, height 220ms ease, border-radius 220ms ease;
+}
+
+.site-nav.is-condensed .site-brand img {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.68rem;
 }
 
 .site-brand span,
@@ -3835,9 +3871,41 @@ select {
   transition: background 160ms ease, color 160ms ease;
 }
 
-.site-nav-link:hover,
-.site-nav-link.is-active {
+.site-nav.has-hero:not(.is-condensed) .site-brand strong,
+.site-nav.has-hero:not(.is-condensed) .site-brand small,
+.site-nav.has-hero:not(.is-condensed) .site-nav-link,
+.site-nav.has-hero:not(.is-condensed) .site-icon-button {
+  color: rgb(255 255 255 / 0.92);
+  text-shadow: 0 1px 12px rgb(0 0 0 / 0.28);
+}
+
+.site-nav.has-hero:not(.is-condensed) .site-brand small,
+.site-nav.has-hero:not(.is-condensed) .site-nav-link {
+  color: rgb(255 255 255 / 0.76);
+}
+
+.site-nav.has-hero:not(.is-condensed) .site-nav-link:hover,
+.site-nav.has-hero:not(.is-condensed) .site-icon-button:hover {
+  background: rgb(255 255 255 / 0.12);
+  color: white;
+}
+
+.site-nav.has-hero:not(.is-condensed) .site-nav-link.is-active {
+  background: transparent;
+  color: white;
+}
+
+.site-nav.has-hero:not(.is-condensed) .site-nav-link.is-active::after {
+  background: rgb(255 255 255 / 0.92);
+}
+
+.site-nav-link:hover {
   background: color-mix(in srgb, var(--brand) 11%, transparent);
+  color: var(--ink);
+}
+
+.site-nav-link.is-active {
+  background: transparent;
   color: var(--ink);
 }
 
@@ -4305,9 +4373,12 @@ select {
 }
 
 @media (max-width: 760px) {
-  .site-nav { padding: 0.5rem 0.65rem 0; }
-  .site-nav-inner { min-height: 3.4rem; }
+  .site-nav { padding: 0.45rem 0.55rem 0; }
+  .site-nav-inner { min-height: 3.25rem; }
+  .site-nav.is-condensed { padding-top: 0.4rem; }
+  .site-nav.is-condensed .site-nav-inner { width: 100%; min-height: 3.05rem; }
   .site-brand img { width: 2.6rem; height: 2.6rem; }
+  .site-nav.is-condensed .site-brand img { width: 2.25rem; height: 2.25rem; }
   .site-brand small { display: none; }
   .site-nav-actions > .theme-menu { display: none; }
   .editorial-hero { min-height: 39rem; padding: 8rem 1.25rem 3.5rem; }

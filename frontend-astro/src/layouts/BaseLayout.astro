@@ -92,7 +92,7 @@ const mergedSidebarProps = {
   </head>
   <body class="flex min-h-screen flex-col bg-[var(--banner-wave-bg)]">
     <div class="site-bg-grid"></div>
-    <Navbar />
+    <Navbar immersive={showBanner} />
     {showBanner && <Banner title={title} subtitle={subtitle} images={bannerImages} />}
 
     <div class:list={['page-content-animate mx-auto w-full flex-grow', pageType === 'article' && 'article-page-content', wide ? 'max-w-wide' : 'max-w-blog', showBanner ? 'mt-7' : 'mt-24']}>
