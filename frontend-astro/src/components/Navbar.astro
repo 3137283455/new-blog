@@ -30,7 +30,7 @@ const pathname = Astro.url.pathname
 const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
 ---
 
-<nav class:list={['site-nav fixed inset-x-0 top-0 z-50', immersive ? 'has-hero' : 'is-condensed']} aria-label="主导航" data-adaptive-nav data-immersive={immersive ? 'true' : 'false'}>
+<nav class:list={['site-nav fixed inset-x-0 top-0 z-50', immersive ? 'has-hero' : 'on-surface']} aria-label="主导航" data-adaptive-nav data-immersive={immersive ? 'true' : 'false'}>
   <div class="site-nav-inner">
     <a href="/" class="site-brand" aria-label="返回博客首页">
       <img src={brandAvatar} alt="" width="40" height="40" fetchpriority="high" decoding="async" data-fallback-src="/profile.webp" />
@@ -119,8 +119,7 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
       let navFrame = 0;
       const updateNavigationMode = () => {
         navFrame = 0;
-        const immersive = adaptiveNav.dataset.immersive === 'true';
-        adaptiveNav.classList.toggle('is-condensed', !immersive || window.scrollY > 56);
+        adaptiveNav.classList.toggle('is-condensed', window.scrollY > 56);
       };
       const requestNavigationUpdate = () => {
         if (!navFrame) navFrame = window.requestAnimationFrame(updateNavigationMode);
