@@ -2,6 +2,8 @@
 import Navbar from '@components/Navbar.astro'
 import Banner from '@components/Banner.astro'
 import Sidebar from '@components/Sidebar.astro'
+import MusicPlayer from '@components/MusicPlayer.astro'
+import { ClientRouter } from 'astro:transitions'
 import { getActiveTheme, getMusicTracks, getPublicSettings } from '../lib/api'
 import '../styles/global.scss'
 
@@ -48,9 +50,9 @@ const pageDescription = subtitle || publicSettings.site_description || siteTitle
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href
 const fallbackImage = bannerImages[0] || publicSettings.profile_avatar || '/home.webp'
 const shareImage = new URL(image || fallbackImage, Astro.url.origin).href
+const musicPlaylist = publicMusicTracks.length ? publicMusicTracks : publicSettings.music_playlist || []
 const mergedSidebarProps = {
   ...sidebarProps,
-  musicPlaylist: publicMusicTracks.length ? publicMusicTracks : publicSettings.music_playlist || [],
   profileName: publicSettings.profile_name || siteTitle,
   profileAvatar: publicSettings.profile_avatar || '/profile.webp',
   profileBio: publicSettings.profile_bio || publicSettings.site_description || '记录技术、生活和灵感的个人空间。',
@@ -81,6 +83,7 @@ const mergedSidebarProps = {
     <meta name="twitter:description" content={pageDescription} />
     <meta name="twitter:image" content={shareImage} />
     <title>{title} - {siteTitle}</title>
+    <ClientRouter />
     <style set:html={themeCss}></style>
     <script is:inline define:vars={{ apiBase }}>
       const themeTypes = { 'boke-night': 'dark', 'boke-punk': 'dark', 'boke-green': 'light' };
@@ -123,6 +126,7 @@ const mergedSidebarProps = {
         </div>
       </footer>
     )}
+    <MusicPlayer tracks={musicPlaylist} />
     <script is:inline>
       const siteStart = new Date('2026-01-01T00:00:00+08:00').getTime();
       const uptimeEl = document.getElementById('site-uptime');

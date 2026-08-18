@@ -527,6 +527,204 @@ body {
   color: oklch(var(--p));
 }
 
+.floating-music-player {
+  position: fixed;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 110;
+  display: flex;
+  max-width: calc(100vw - 2rem);
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 0.65rem;
+  pointer-events: none;
+}
+
+.floating-music-dock,
+.floating-music-panel {
+  pointer-events: auto;
+}
+
+.floating-music-dock {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+  padding: 0.34rem;
+  box-shadow: 0 14px 38px rgb(16 24 18 / 0.18);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.floating-music-record {
+  position: relative;
+  display: grid;
+  width: 3.35rem;
+  height: 3.35rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.floating-music-vinyl {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle, transparent 0 3px, rgb(255 255 255 / 0.08) 4px, transparent 5px 7px),
+    radial-gradient(circle at 35% 28%, #4b514d, #151816 54%, #050605 100%);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.26);
+}
+
+.floating-music-vinyl img {
+  width: 50%;
+  height: 50%;
+  border: 2px solid rgb(255 255 255 / 0.4);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.floating-music-state {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 1.3rem;
+  height: 1.3rem;
+  place-items: center;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.88);
+  color: #131713;
+  font-size: 0.52rem;
+  font-weight: 950;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.2);
+}
+
+.floating-music-player.is-playing .floating-music-vinyl {
+  animation: floating-record-spin 7s linear infinite;
+}
+
+.floating-music-summary {
+  display: flex;
+  min-width: 8.5rem;
+  max-width: 12rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
+  text-align: left;
+}
+
+.floating-music-summary span {
+  min-width: 0;
+}
+
+.floating-music-summary small,
+.floating-music-summary strong {
+  display: block;
+}
+
+.floating-music-summary small {
+  margin-bottom: 0.05rem;
+  color: var(--brand);
+  font-size: 0.5rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.floating-music-summary strong {
+  overflow: hidden;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.floating-music-summary b {
+  color: var(--muted-ink);
+  font-size: 0.72rem;
+  transition: transform 180ms ease;
+}
+
+.floating-music-player[data-panel-open='true'] .floating-music-summary b {
+  transform: rotate(180deg);
+}
+
+.floating-music-panel {
+  width: min(19rem, calc(100vw - 2rem));
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  padding: 1rem;
+  box-shadow: 0 22px 60px rgb(16 24 18 / 0.22);
+  backdrop-filter: blur(22px) saturate(1.2);
+}
+
+.floating-music-panel[hidden] {
+  display: none;
+}
+
+.floating-music-panel header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.floating-music-panel header > button {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted-ink);
+  font-size: 1rem;
+}
+
+.floating-music-panel .music-player-range {
+  margin: 0.35rem 0 0.8rem;
+}
+
+.floating-music-panel .music-player-actions button,
+.floating-music-panel .music-player-actions a {
+  min-height: 2.15rem;
+  box-shadow: none;
+}
+
+@keyframes floating-record-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-music-player.is-playing .floating-music-vinyl { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .floating-music-player {
+    left: max(0.65rem, env(safe-area-inset-left));
+    bottom: max(0.65rem, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 1.3rem);
+  }
+  .floating-music-summary { min-width: 0; width: 2.15rem; padding: 0; justify-content: center; }
+  .floating-music-summary span { display: none; }
+  .floating-music-summary b { font-size: 0.85rem; }
+  .floating-music-panel { width: min(18rem, calc(100vw - 1.3rem)); }
+}
+
 .music-detail-hero {
   display: grid;
   gap: 1.5rem;

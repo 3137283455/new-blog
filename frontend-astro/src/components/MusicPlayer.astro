@@ -16,26 +16,48 @@ const tracks = (Astro.props.tracks || [])
 const payload = JSON.stringify(tracks)
 ---
 
-<section class="music-player" data-music-player data-tracks={payload}>
-  <div class="music-player-cover">
-    <img data-music-cover src={tracks[0]?.cover || '/image2.webp'} alt="音乐封面" loading="lazy" />
+<section
+  class="floating-music-player"
+  data-music-player
+  data-tracks={payload}
+  data-panel-open="false"
+  transition:persist="site-music-player"
+  aria-label="全站音乐播放器"
+>
+  <div class="floating-music-dock">
+    <button class="floating-music-record" type="button" data-music-toggle aria-label="播放音乐" title="播放或暂停">
+      <span class="floating-music-vinyl" aria-hidden="true">
+        <img data-music-cover src={tracks[0]?.cover || '/image2.webp'} alt="" loading="eager" />
+      </span>
+      <span class="floating-music-state" data-music-toggle-icon aria-hidden="true">▶</span>
+    </button>
+    <button class="floating-music-summary" type="button" data-music-panel-toggle aria-expanded="false" aria-controls="floating-music-panel">
+      <span><small>正在播放</small><strong data-music-mini-title>{tracks[0]?.title || '暂无音乐'}</strong></span>
+      <b aria-hidden="true">⌃</b>
+    </button>
   </div>
-  <div class="music-player-meta">
-    <p class="music-player-kicker">全站音乐</p>
-    <h3 data-music-title>{tracks[0]?.title || '暂无音乐'}</h3>
-    <p data-music-artist>{tracks[0]?.artist || (tracks.length ? '未知歌手' : '请在后台音乐管理添加')}</p>
-  </div>
-  <audio data-music-audio src={tracks[0]?.url || ''} preload="metadata"></audio>
-  <div class="music-player-time">
-    <span data-music-current>00:00</span>
-    <span data-music-duration>00:00</span>
-  </div>
-  <input class="music-player-range" data-music-seek type="range" min="0" max="1000" value="0" step="1" aria-label="播放进度" />
-  <div class="music-player-actions">
-    <button type="button" data-music-prev aria-label="上一首" title="上一首">‹</button>
-    <button type="button" data-music-toggle aria-label="播放或暂停" title="播放或暂停">▶</button>
-    <button type="button" data-music-next aria-label="下一首" title="下一首">›</button>
-    <a data-music-detail href={tracks[0] ? `/music/0` : '/admin'} aria-label="音乐详情" title="音乐详情">详情</a>
+
+  <div id="floating-music-panel" class="floating-music-panel" data-music-panel hidden>
+    <header>
+      <div class="music-player-meta">
+        <p class="music-player-kicker">NOW PLAYING</p>
+        <h3 data-music-title>{tracks[0]?.title || '暂无音乐'}</h3>
+        <p data-music-artist>{tracks[0]?.artist || (tracks.length ? '未知歌手' : '请在后台音乐管理添加')}</p>
+      </div>
+      <button type="button" data-music-panel-close aria-label="收起播放器" title="收起播放器">×</button>
+    </header>
+    <audio data-music-audio src={tracks[0]?.url || ''} preload="metadata"></audio>
+    <div class="music-player-time">
+      <span data-music-current>00:00</span>
+      <span data-music-duration>00:00</span>
+    </div>
+    <input class="music-player-range" data-music-seek type="range" min="0" max="1000" value="0" step="1" aria-label="播放进度" />
+    <div class="music-player-actions">
+      <button type="button" data-music-prev aria-label="上一首" title="上一首">‹</button>
+      <button type="button" data-music-toggle aria-label="播放音乐" title="播放或暂停"><span data-music-toggle-icon>▶</span></button>
+      <button type="button" data-music-next aria-label="下一首" title="下一首">›</button>
+      <a data-music-detail href={tracks[0] ? `/music/0` : '/admin'} aria-label="音乐详情" title="音乐详情">详情</a>
+    </div>
   </div>
 </section>
 
@@ -78,13 +100,16 @@ const payload = JSON.stringify(tracks)
       const tracks: Array<{ id?: number; title?: string; artist?: string; url: string; cover?: string }> = JSON.parse(root.getAttribute('data-tracks') || '[]');
       const audio = root.querySelector<HTMLAudioElement>('[data-music-audio]');
       const title = root.querySelector<HTMLElement>('[data-music-title]');
+      const miniTitle = root.querySelector<HTMLElement>('[data-music-mini-title]');
       const artist = root.querySelector<HTMLElement>('[data-music-artist]');
       const cover = root.querySelector<HTMLImageElement>('[data-music-cover]');
       const seek = root.querySelector<HTMLInputElement>('[data-music-seek]');
       const currentTime = root.querySelector<HTMLElement>('[data-music-current]');
       const durationTime = root.querySelector<HTMLElement>('[data-music-duration]');
-      const toggle = root.querySelector<HTMLButtonElement>('[data-music-toggle]');
+      const toggles = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-music-toggle]'));
       const detail = root.querySelector<HTMLAnchorElement>('[data-music-detail]');
+      const panel = root.querySelector<HTMLElement>('[data-music-panel]');
+      const panelToggle = root.querySelector<HTMLButtonElement>('[data-music-panel-toggle]');
       let current = 0;
       let isSeeking = false;
       let loggedTrackId: number | null = null;
@@ -93,6 +118,27 @@ const payload = JSON.stringify(tracks)
       if (stored && tracks[stored.index]?.url === stored.url) {
         current = Math.max(0, Math.min(stored.index, tracks.length - 1));
       }
+
+      const setPlaying = (playing: boolean) => {
+        root.classList.toggle('is-playing', playing);
+        toggles.forEach((button) => {
+          button.setAttribute('aria-label', playing ? '暂停音乐' : '播放音乐');
+          const icon = button.querySelector<HTMLElement>('[data-music-toggle-icon]');
+          if (icon) icon.textContent = playing ? 'Ⅱ' : '▶';
+        });
+      };
+
+      const setPanelOpen = (open: boolean) => {
+        root.dataset.panelOpen = String(open);
+        if (panel) panel.hidden = !open;
+        panelToggle?.setAttribute('aria-expanded', String(open));
+      };
+
+      panelToggle?.addEventListener('click', () => setPanelOpen(root.dataset.panelOpen !== 'true'));
+      root.querySelector('[data-music-panel-close]')?.addEventListener('click', () => setPanelOpen(false));
+      root.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setPanelOpen(false);
+      });
 
       const save = () => {
         if (!audio || !tracks[current]) return;
@@ -120,11 +166,20 @@ const payload = JSON.stringify(tracks)
         if (!track || !audio) return;
         audio.src = track.url;
         if (title) title.textContent = track.title || '暂无音乐';
+        if (miniTitle) miniTitle.textContent = track.title || '暂无音乐';
         if (artist) artist.textContent = track.artist || '未知歌手';
         if (cover) cover.src = track.cover || '/image2.webp';
         if (detail) detail.href = `/music/${current}`;
         if (seek) seek.value = '0';
-        if (toggle) toggle.textContent = '▶';
+        setPlaying(false);
+
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: track.title || '暂无音乐',
+            artist: track.artist || '未知歌手',
+            artwork: track.cover ? [{ src: track.cover }] : [],
+          });
+        }
 
         const state = readMusicState();
         if (restoreTime && state && state.url === track.url) {
@@ -132,11 +187,7 @@ const payload = JSON.stringify(tracks)
             audio.currentTime = Math.max(0, state.time || 0);
             updateProgress();
             if (state.playing) {
-              audio.play().then(() => {
-                if (toggle) toggle.textContent = 'Ⅱ';
-              }).catch(() => {
-                if (toggle) toggle.textContent = '▶';
-              });
+              audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
             }
             audio.removeEventListener('loadedmetadata', restore);
           };
@@ -148,10 +199,10 @@ const payload = JSON.stringify(tracks)
         if (!tracks.length || !audio) return;
         try {
           await audio.play();
-          if (toggle) toggle.textContent = 'Ⅱ';
+          setPlaying(true);
           save();
         } catch {
-          if (toggle) toggle.textContent = '▶';
+          setPlaying(false);
         }
       };
 
@@ -162,15 +213,15 @@ const payload = JSON.stringify(tracks)
         play();
       };
 
-      toggle?.addEventListener('click', () => {
-        if (!tracks.length || !audio) return;
-        if (audio.paused) play();
-        else {
-          audio.pause();
-          toggle.textContent = '▶';
-          save();
-        }
-      });
+      toggles.forEach((toggle) => toggle.addEventListener('click', () => {
+          if (!tracks.length || !audio) return;
+          if (audio.paused) play();
+          else {
+            audio.pause();
+            setPlaying(false);
+            save();
+          }
+        }));
       root.querySelector('[data-music-prev]')?.addEventListener('click', () => move(-1));
       root.querySelector('[data-music-next]')?.addEventListener('click', () => move(1));
       detail?.addEventListener('click', save);
@@ -190,7 +241,7 @@ const payload = JSON.stringify(tracks)
         save();
       });
       audio?.addEventListener('play', () => {
-        if (toggle) toggle.textContent = 'Ⅱ';
+        setPlaying(true);
         const trackId = Number(tracks[current]?.id || 0);
         if (trackId && loggedTrackId !== trackId) {
           loggedTrackId = trackId;
@@ -200,7 +251,7 @@ const payload = JSON.stringify(tracks)
         save();
       });
       audio?.addEventListener('pause', () => {
-        if (toggle) toggle.textContent = '▶';
+        setPlaying(false);
         save();
       });
       audio?.addEventListener('ended', () => move(1));
@@ -212,6 +263,17 @@ const payload = JSON.stringify(tracks)
         render(false);
         play();
       });
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.setActionHandler('play', play);
+          navigator.mediaSession.setActionHandler('pause', () => audio?.pause());
+          navigator.mediaSession.setActionHandler('previoustrack', () => move(-1));
+          navigator.mediaSession.setActionHandler('nexttrack', () => move(1));
+        } catch {
+          // 部分浏览器只实现了部分 Media Session 操作。
+        }
+      }
+      if (!tracks.length) toggles.forEach((button) => { button.disabled = true; });
       render(true);
     });
   }

@@ -1,7 +1,5 @@
 ---
 import BaseCard from './BaseCard.astro'
-import MusicPlayer from './MusicPlayer.astro'
-import type { MusicTrack } from '../lib/api'
 
 interface CategoryItem {
   name?: string
@@ -34,7 +32,6 @@ interface Props {
   sidebarSections?: SidebarSection[]
   categories?: Array<string | CategoryItem>
   tags?: string[]
-  musicPlaylist?: MusicTrack[]
   profileName?: string
   profileAvatar?: string
   profileBio?: string
@@ -47,7 +44,6 @@ const {
   statItems,
   sidebarSections,
   categories = [],
-  musicPlaylist = [],
   profileName = '个人博客',
   profileAvatar = '/profile.webp',
   profileBio = '记录技术、生活和长期主义的小站。',
@@ -133,9 +129,5 @@ const toneClass = {
         )
       ))}
     </div>
-  </BaseCard>
-
-  <BaseCard class="music-widget sidebar-music-card">
-    <MusicPlayer tracks={musicPlaylist} />
   </BaseCard>
 </div>
