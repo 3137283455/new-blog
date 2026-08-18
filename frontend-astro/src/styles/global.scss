@@ -548,13 +548,6 @@ body {
 .floating-music-dock {
   display: flex;
   align-items: center;
-  gap: 0.42rem;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
-  padding: 0.34rem;
-  box-shadow: 0 14px 38px rgb(16 24 18 / 0.18);
-  backdrop-filter: blur(18px) saturate(1.2);
 }
 
 .floating-music-record {
@@ -612,53 +605,13 @@ body {
   animation: floating-record-spin 7s linear infinite;
 }
 
-.floating-music-summary {
-  display: flex;
-  min-width: 8.5rem;
-  max-width: 12rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink);
-  padding: 0.35rem 0.75rem 0.35rem 0.35rem;
-  text-align: left;
-}
-
-.floating-music-summary span {
-  min-width: 0;
-}
-
-.floating-music-summary small,
-.floating-music-summary strong {
-  display: block;
-}
-
-.floating-music-summary small {
-  margin-bottom: 0.05rem;
-  color: var(--brand);
-  font-size: 0.5rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-}
-
-.floating-music-summary strong {
-  overflow: hidden;
-  font-size: 0.68rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.floating-music-summary b {
-  color: var(--muted-ink);
-  font-size: 0.72rem;
-  transition: transform 180ms ease;
-}
-
-.floating-music-player[data-panel-open='true'] .floating-music-summary b {
-  transform: rotate(180deg);
+.floating-music-player.is-resume-pending .floating-music-record::after {
+  position: absolute;
+  inset: -0.28rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 72%, transparent);
+  border-radius: 50%;
+  content: '';
+  animation: floating-record-pulse 1.8s ease-out infinite;
 }
 
 .floating-music-panel {
@@ -709,8 +662,14 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes floating-record-pulse {
+  0% { opacity: 0.75; transform: scale(0.92); }
+  70%, 100% { opacity: 0; transform: scale(1.16); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .floating-music-player.is-playing .floating-music-vinyl { animation: none; }
+  .floating-music-player.is-resume-pending .floating-music-record::after { animation: none; }
 }
 
 @media (max-width: 640px) {
@@ -719,9 +678,6 @@ body {
     bottom: max(0.65rem, env(safe-area-inset-bottom));
     max-width: calc(100vw - 1.3rem);
   }
-  .floating-music-summary { min-width: 0; width: 2.15rem; padding: 0; justify-content: center; }
-  .floating-music-summary span { display: none; }
-  .floating-music-summary b { font-size: 0.85rem; }
   .floating-music-panel { width: min(18rem, calc(100vw - 1.3rem)); }
 }
 

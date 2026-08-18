@@ -25,15 +25,11 @@ const payload = JSON.stringify(tracks)
   aria-label="全站音乐播放器"
 >
   <div class="floating-music-dock">
-    <button class="floating-music-record" type="button" data-music-toggle aria-label="播放音乐" title="播放或暂停">
+    <button class="floating-music-record" type="button" data-music-panel-toggle aria-expanded="false" aria-controls="floating-music-panel" aria-label="展开音乐播放器" title="展开音乐播放器">
       <span class="floating-music-vinyl" aria-hidden="true">
         <img data-music-cover src={tracks[0]?.cover || '/image2.webp'} alt="" loading="eager" />
       </span>
       <span class="floating-music-state" data-music-toggle-icon aria-hidden="true">▶</span>
-    </button>
-    <button class="floating-music-summary" type="button" data-music-panel-toggle aria-expanded="false" aria-controls="floating-music-panel">
-      <span><small>正在播放</small><strong data-music-mini-title>{tracks[0]?.title || '暂无音乐'}</strong></span>
-      <b aria-hidden="true">⌃</b>
     </button>
   </div>
 
@@ -100,42 +96,59 @@ const payload = JSON.stringify(tracks)
       const tracks: Array<{ id?: number; title?: string; artist?: string; url: string; cover?: string }> = JSON.parse(root.getAttribute('data-tracks') || '[]');
       const audio = root.querySelector<HTMLAudioElement>('[data-music-audio]');
       const title = root.querySelector<HTMLElement>('[data-music-title]');
-      const miniTitle = root.querySelector<HTMLElement>('[data-music-mini-title]');
       const artist = root.querySelector<HTMLElement>('[data-music-artist]');
       const cover = root.querySelector<HTMLImageElement>('[data-music-cover]');
       const seek = root.querySelector<HTMLInputElement>('[data-music-seek]');
       const currentTime = root.querySelector<HTMLElement>('[data-music-current]');
       const durationTime = root.querySelector<HTMLElement>('[data-music-duration]');
       const toggles = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-music-toggle]'));
+      const toggleIcons = Array.from(root.querySelectorAll<HTMLElement>('[data-music-toggle-icon]'));
       const detail = root.querySelector<HTMLAnchorElement>('[data-music-detail]');
       const panel = root.querySelector<HTMLElement>('[data-music-panel]');
       const panelToggle = root.querySelector<HTMLButtonElement>('[data-music-panel-toggle]');
       let current = 0;
       let isSeeking = false;
       let loggedTrackId: number | null = null;
+      let panelTimer = 0;
 
       const stored = readMusicState();
+      let wantsPlayback = Boolean(stored?.playing);
       if (stored && tracks[stored.index]?.url === stored.url) {
         current = Math.max(0, Math.min(stored.index, tracks.length - 1));
       }
 
+      const setResumePending = (pending: boolean) => {
+        root.classList.toggle('is-resume-pending', pending);
+        if (panelToggle) {
+          panelToggle.setAttribute('aria-label', pending ? '继续播放音乐' : '展开音乐播放器');
+          panelToggle.title = pending ? '点击从上次进度继续播放' : '展开音乐播放器';
+        }
+      };
+
       const setPlaying = (playing: boolean) => {
         root.classList.toggle('is-playing', playing);
+        if (playing) setResumePending(false);
+        toggleIcons.forEach((icon) => { icon.textContent = playing ? 'Ⅱ' : '▶'; });
         toggles.forEach((button) => {
           button.setAttribute('aria-label', playing ? '暂停音乐' : '播放音乐');
-          const icon = button.querySelector<HTMLElement>('[data-music-toggle-icon]');
-          if (icon) icon.textContent = playing ? 'Ⅱ' : '▶';
         });
       };
 
       const setPanelOpen = (open: boolean) => {
+        if (panelTimer) window.clearTimeout(panelTimer);
         root.dataset.panelOpen = String(open);
         if (panel) panel.hidden = !open;
         panelToggle?.setAttribute('aria-expanded', String(open));
+        if (open) panelTimer = window.setTimeout(() => setPanelOpen(false), 6000);
       };
 
-      panelToggle?.addEventListener('click', () => setPanelOpen(root.dataset.panelOpen !== 'true'));
       root.querySelector('[data-music-panel-close]')?.addEventListener('click', () => setPanelOpen(false));
+      root.addEventListener('pointerdown', () => {
+        if (root.dataset.panelOpen === 'true') setPanelOpen(true);
+      });
+      root.addEventListener('input', () => {
+        if (root.dataset.panelOpen === 'true') setPanelOpen(true);
+      });
       root.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') setPanelOpen(false);
       });
@@ -145,7 +158,7 @@ const payload = JSON.stringify(tracks)
         writeMusicState({
           index: current,
           time: audio.currentTime || 0,
-          playing: !audio.paused,
+          playing: wantsPlayback,
           url: tracks[current].url,
           updatedAt: Date.now(),
         });
@@ -166,7 +179,6 @@ const payload = JSON.stringify(tracks)
         if (!track || !audio) return;
         audio.src = track.url;
         if (title) title.textContent = track.title || '暂无音乐';
-        if (miniTitle) miniTitle.textContent = track.title || '暂无音乐';
         if (artist) artist.textContent = track.artist || '未知歌手';
         if (cover) cover.src = track.cover || '/image2.webp';
         if (detail) detail.href = `/music/${current}`;
@@ -187,7 +199,11 @@ const payload = JSON.stringify(tracks)
             audio.currentTime = Math.max(0, state.time || 0);
             updateProgress();
             if (state.playing) {
-              audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+              wantsPlayback = true;
+              audio.play().then(() => setPlaying(true)).catch(() => {
+                setPlaying(false);
+                setResumePending(true);
+              });
             }
             audio.removeEventListener('loadedmetadata', restore);
           };
@@ -197,14 +213,24 @@ const payload = JSON.stringify(tracks)
 
       const play = async () => {
         if (!tracks.length || !audio) return;
+        wantsPlayback = true;
         try {
           await audio.play();
           setPlaying(true);
           save();
         } catch {
           setPlaying(false);
+          if (wantsPlayback) setResumePending(true);
         }
       };
+
+      panelToggle?.addEventListener('click', () => {
+        if (wantsPlayback && audio?.paused) {
+          play();
+          return;
+        }
+        setPanelOpen(root.dataset.panelOpen !== 'true');
+      });
 
       const move = (step: number) => {
         if (!tracks.length) return;
@@ -217,6 +243,8 @@ const payload = JSON.stringify(tracks)
           if (!tracks.length || !audio) return;
           if (audio.paused) play();
           else {
+            wantsPlayback = false;
+            setResumePending(false);
             audio.pause();
             setPlaying(false);
             save();
@@ -255,6 +283,9 @@ const payload = JSON.stringify(tracks)
         save();
       });
       audio?.addEventListener('ended', () => move(1));
+      const persistState = () => save();
+      window.addEventListener('pagehide', persistState);
+      document.addEventListener('astro:before-swap', persistState);
       window.addEventListener('boke:play-track', (event) => {
         const trackId = Number((event as CustomEvent<{ trackId?: number }>).detail?.trackId || 0);
         const index = tracks.findIndex((track) => Number(track.id) === trackId);
@@ -266,7 +297,12 @@ const payload = JSON.stringify(tracks)
       if ('mediaSession' in navigator) {
         try {
           navigator.mediaSession.setActionHandler('play', play);
-          navigator.mediaSession.setActionHandler('pause', () => audio?.pause());
+          navigator.mediaSession.setActionHandler('pause', () => {
+            wantsPlayback = false;
+            setResumePending(false);
+            audio?.pause();
+            save();
+          });
           navigator.mediaSession.setActionHandler('previoustrack', () => move(-1));
           navigator.mediaSession.setActionHandler('nexttrack', () => move(1));
         } catch {
