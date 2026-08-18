@@ -217,7 +217,7 @@ const getFavicon = (url: string) => {
           }
         }, 180)
       }
-      const choose = (option: HTMLButtonElement) => {
+      const choose = (option: HTMLButtonElement, focusInput = true) => {
         activeEngine = option.dataset.engine || ''
         searchUrl = option.dataset.url || ''
         if (mark) mark.textContent = option.dataset.mark || '⌕'
@@ -232,7 +232,7 @@ const getFavicon = (url: string) => {
         localStorage.setItem('boke-search-engine', activeEngine)
         menu?.setAttribute('hidden', '')
         trigger?.setAttribute('aria-expanded', 'false')
-        webInput?.focus()
+        if (focusInput) webInput?.focus()
         if (isSiteSearch()) searchSite(webInput?.value.trim() || '')
       }
       const closeMenu = (returnFocus = false) => { menu?.setAttribute('hidden', ''); trigger?.setAttribute('aria-expanded', 'false'); if (returnFocus) trigger?.focus() }
@@ -241,8 +241,7 @@ const getFavicon = (url: string) => {
         const index = options.indexOf(current)
         options[(index + direction + options.length) % options.length]?.focus()
       }
-      choose(options.find((item) => item.dataset.engine === localStorage.getItem('boke-search-engine')) || options[0])
-      if (window.matchMedia('(min-width: 761px)').matches) requestAnimationFrame(() => webInput?.focus())
+      choose(options.find((item) => item.dataset.engine === localStorage.getItem('boke-search-engine')) || options[0], false)
       trigger?.addEventListener('click', () => menu?.hasAttribute('hidden') ? openMenu() : closeMenu())
       trigger?.addEventListener('keydown', (event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); openMenu() } })
       options.forEach((option) => option.addEventListener('click', () => choose(option)))
@@ -326,6 +325,6 @@ const getFavicon = (url: string) => {
     document.getElementById('clear-recents')?.addEventListener('click', () => { localStorage.removeItem(RECENTS_KEY); renderRecents() })
     navSort?.addEventListener('change', () => { localStorage.setItem(SORT_KEY, navSort.value); sortCards(); applyFilter() })
     navWorkspace?.addEventListener('change', () => { localStorage.setItem(WORKSPACE_KEY, navWorkspace.value); activeCategory = 'all'; document.querySelectorAll('[data-nav-category]').forEach((item, index) => item.classList.toggle('is-active', index === 0)); applyFilter() })
-    document.addEventListener('keydown', (event) => { const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName || ''); if (event.key === '/' && !editing) { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && document.activeElement === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click(); if (!editing && /^[1-9]$/.test(event.key)) { const card = getCards().filter((item) => !item.hidden)[Number(event.key) - 1]; card?.querySelector<HTMLAnchorElement>('.bookmark-card-link')?.click() } })
+    document.addEventListener('keydown', (event) => { const active = document.activeElement as HTMLElement | null; const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName || ''); if (event.key === 'Escape' && editing) active?.blur(); if (event.key === '/' && !editing) { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && active === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click(); if (!editing && /^[1-9]$/.test(event.key)) { const card = getCards().filter((item) => !item.hidden)[Number(event.key) - 1]; card?.querySelector<HTMLAnchorElement>('.bookmark-card-link')?.click() } })
   </script>
 </BaseLayout>
