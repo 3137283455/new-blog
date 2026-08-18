@@ -45,7 +45,7 @@ const getFavicon = (url: string) => {
 
     <form id="web-search" class="web-search" role="search">
       <button id="search-engine-trigger" class="search-engine-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-        <span id="search-engine-mark">{initialSearchEngine.mark || initialSearchEngine.name.slice(0, 1)}</span><span id="search-engine-name">{initialSearchEngine.name}</span><small aria-hidden="true">⌄</small>
+        <span id="search-engine-mark">{initialSearchEngine.mark || initialSearchEngine.name.slice(0, 1)}</span><span id="search-engine-name">{initialSearchEngine.name}</span>
       </button>
       <div id="search-engine-menu" class="search-engine-menu" role="listbox" aria-label="选择搜索引擎" hidden>
         {searchEngines.map((engine, index) => (
