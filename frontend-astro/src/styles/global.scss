@@ -2201,7 +2201,6 @@ h1, h2, h3, .site-title, .article-title { font-family: var(--theme-title-font, v
 .admin-theme-live-preview h2 { margin: .4rem 0; font-size: 2rem; }
 .admin-theme-live-preview > div { display: flex; gap: .35rem; margin-top: 1rem; }
 .admin-theme-live-preview > div span { width: 3rem; height: 2.2rem; border-radius: calc(var(--preview-radius, 18px) * .5); background: var(--preview-primary, var(--theme-primary)); opacity: var(--preview-opacity, .86); }
-.bookmark-hotkey { position: absolute; top: .55rem; right: .55rem; display: grid; width: 1.3rem; height: 1.3rem; place-items: center; border: 1px solid var(--line); border-radius: .38rem; background: color-mix(in srgb, var(--surface-solid) 78%, transparent); color: var(--muted-ink); font: 750 .55rem ui-monospace, monospace; }
 
 @media (max-width: 900px) {
   .home-series-grid, .music-personal-summary { grid-template-columns: 1fr; }
@@ -4503,6 +4502,7 @@ select {
 .bookmark-icon { position: relative; display: grid; width: 2.7rem; height: 2.7rem; overflow: hidden; place-items: center; border-radius: 0.78rem; background: color-mix(in srgb, var(--brand) 13%, var(--surface-solid)); color: var(--brand); font-family: var(--editorial-serif); font-size: 1rem; }
 .bookmark-icon img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
 .bookmark-icon b { font-weight: 600; }
+.bookmark-hotkey { position: absolute; right: 0.16rem; bottom: 0.16rem; z-index: 2; display: grid; min-width: 0.9rem; height: 0.9rem; place-items: center; border: 1px solid rgb(255 255 255 / 0.5); border-radius: 0.28rem; background: rgb(18 24 20 / 0.72); color: white; font: 750 0.5rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 1px 4px rgb(0 0 0 / 0.18); }
 .bookmark-copy { min-width: 0; }
 .bookmark-copy strong,
 .bookmark-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

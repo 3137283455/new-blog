@@ -113,13 +113,16 @@ const getFavicon = (url: string) => {
           return (
             <article class="bookmark-card" data-id={String(item.id)} data-order={String(index)} data-workspace={item.workspace || 'general'} data-category={category.toLowerCase()} data-search={`${item.title} ${item.description || ''} ${category} ${host} ${item.url}`.toLowerCase()} style={`--delay:${Math.min(index, 12) * 28}ms`}>
               <a class="bookmark-card-link" href={href} target={href.startsWith('http') ? '_blank' : undefined} rel={href.startsWith('http') ? 'noopener noreferrer' : undefined} data-track-recent>
-                <span class="bookmark-icon">{avatar && <img src={avatar} alt="" loading="lazy" onerror="this.remove()" />}<b>{item.icon || item.title.slice(0, 1)}</b></span>
+                <span class="bookmark-icon">
+                  {avatar && <img src={avatar} alt="" loading="lazy" onerror="this.remove()" />}
+                  <b>{item.icon || item.title.slice(0, 1)}</b>
+                  {index < 9 && <kbd class="bookmark-hotkey" aria-label={`数字键 ${index + 1}`}>{index + 1}</kbd>}
+                </span>
                 <span class="bookmark-copy"><strong>{item.title}</strong><small>{item.description || host}</small></span>
                 <span class="bookmark-arrow">↗</span>
               </a>
               <button class="bookmark-star" type="button" aria-label={`收藏 ${item.title}`} aria-pressed="false" title="收藏">☆</button>
               <span class="bookmark-category">{category}</span>
-              {index < 9 && <span class="bookmark-hotkey">{index + 1}</span>}
             </article>
           )
         })}
@@ -258,7 +261,8 @@ const getFavicon = (url: string) => {
       const icon = `${avatar ? `<img src="${escapeHtml(avatar)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}<b>${escapeHtml(item.icon || title.slice(0, 1))}</b>`
       const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''
       const search = `${title} ${item.description || ''} ${category} ${host} ${item.url || ''}`.toLowerCase()
-      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-order="${index}" data-workspace="${escapeHtml(item.workspace || 'general')}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span><span class="bookmark-usage" hidden></span>${index < 9 ? `<span class="bookmark-hotkey">${index + 1}</span>` : ''}</article>`
+      const hotkey = index < 9 ? `<kbd class="bookmark-hotkey" aria-label="数字键 ${index + 1}">${index + 1}</kbd>` : ''
+      return `<article class="bookmark-card" data-id="${escapeHtml(String(item.id || title))}" data-order="${index}" data-workspace="${escapeHtml(item.workspace || 'general')}" data-category="${escapeHtml(category.toLowerCase())}" data-search="${escapeHtml(search)}" style="--delay:${Math.min(index, 12) * 28}ms"><a class="bookmark-card-link" href="${escapeHtml(href)}"${external} data-track-recent><span class="bookmark-icon">${icon}${hotkey}</span><span class="bookmark-copy"><strong>${escapeHtml(title)}</strong><small>${escapeHtml(item.description || host)}</small></span><span class="bookmark-arrow">↗</span></a><button class="bookmark-star" type="button" aria-label="收藏 ${escapeHtml(title)}" aria-pressed="false" title="收藏">☆</button><span class="bookmark-category">${escapeHtml(category)}</span><span class="bookmark-usage" hidden></span></article>`
     }
 
     function getCards() { return Array.from(document.querySelectorAll<HTMLElement>('.bookmark-card')) }
