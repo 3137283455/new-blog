@@ -41,9 +41,10 @@ function notify(message, error = false) {
 }
 window.notifyAdmin = notify;
 
-const contentPanels = ['articles', 'navigation', 'bangumi', 'albums', 'music'];
+const contentPanels = ['articles', 'series', 'navigation', 'bangumi', 'albums', 'music'];
 const settingsPanels = ['settings', 'taxonomy', 'comments', 'plugins'];
 const navPanelMap = {
+  series: 'articles',
   navigation: 'articles',
   bangumi: 'articles',
   albums: 'articles',
@@ -54,6 +55,7 @@ const navPanelMap = {
 };
 const contentLabels = {
   articles: '文章',
+  series: '专题',
   navigation: '导航',
   bangumi: '追番',
   albums: '相册',

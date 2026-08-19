@@ -177,7 +177,9 @@
 
   $$('[data-personal-tab]').forEach((button) => button.addEventListener('click', () => showTab(button.dataset.personalTab)))
   document.querySelector('[data-panel="personal"]')?.addEventListener('click', () => loadAll().catch((error) => notice(error.message, true)))
-  document.querySelector('[data-panel="articles"]')?.addEventListener('click', () => loadSeries().catch((error) => notice(error.message, true)))
+  document.addEventListener('click', (event) => {
+    if (event.target.closest('[data-panel-tab="series"]')) loadSeries().catch((error) => notice(error.message, true))
+  })
   $('#personal-inbox-filter')?.addEventListener('change', () => loadInbox().catch((error) => notice(error.message, true)))
   $('#personal-report-year')?.addEventListener('change', (event) => loadReport(Number(event.target.value)).catch((error) => notice(error.message, true)))
   $('#personal-series-reset')?.addEventListener('click', () => fillSeries())
