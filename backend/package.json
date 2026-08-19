@@ -7,6 +7,7 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "test:epub": "npm run build && node scripts/test-epub-import.js",
+    "test:series": "npm run build && node scripts/test-series-management.js",
     "start": "node dist/app.js",
     "db:migrate": "tsx src/database/schema.ts",
     "db:seed": "tsx src/database/seed.ts"

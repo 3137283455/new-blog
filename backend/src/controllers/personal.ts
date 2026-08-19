@@ -182,6 +182,49 @@ export function adminSeriesList(_req: AuthRequest, res: Response) {
   return success(res, rows)
 }
 
+export function seriesArticleOptions(_req: AuthRequest, res: Response) {
+  const rows = db.prepare(`
+    SELECT a.id, a.title, a.slug, a.status, a.visibility, a.series_id, a.series_order,
+      a.published_at, a.created_at, a.updated_at, s.title AS series_title
+    FROM articles a
+    LEFT JOIN article_series s ON s.id = a.series_id
+    WHERE a.deleted_at IS NULL
+    ORDER BY CASE a.status WHEN 'published' THEN 0 ELSE 1 END,
+      COALESCE(a.published_at, a.created_at) DESC, a.id DESC
+  `).all()
+  return success(res, rows)
+}
+
+export function updateSeriesArticles(req: AuthRequest, res: Response) {
+  const id = Number(req.params.id)
+  const series = db.prepare('SELECT id, title FROM article_series WHERE id = ?').get(id) as any
+  if (!series) return error(res, '专题不存在', 'NOT_FOUND', 404)
+  if (!Array.isArray(req.body?.article_ids)) return error(res, '文章列表格式不正确', 'VALIDATION_ERROR')
+
+  const articleIds = req.body.article_ids.map(Number)
+  if (articleIds.some((articleId: number) => !Number.isInteger(articleId) || articleId <= 0)) {
+    return error(res, '文章 ID 不正确', 'VALIDATION_ERROR')
+  }
+  if (new Set(articleIds).size !== articleIds.length) {
+    return error(res, '文章列表中存在重复项', 'VALIDATION_ERROR')
+  }
+
+  if (articleIds.length) {
+    const placeholders = articleIds.map(() => '?').join(', ')
+    const found = db.prepare(`SELECT id FROM articles WHERE deleted_at IS NULL AND id IN (${placeholders})`).all(...articleIds) as Array<{ id: number }>
+    if (found.length !== articleIds.length) return error(res, '部分文章不存在或已被删除', 'VALIDATION_ERROR')
+  }
+
+  const replaceArticles = db.transaction(() => {
+    db.prepare("UPDATE articles SET series_id = NULL, series_order = 0, updated_at = datetime('now') WHERE series_id = ?").run(id)
+    const assign = db.prepare("UPDATE articles SET series_id = ?, series_order = ?, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL")
+    articleIds.forEach((articleId: number, index: number) => assign.run(id, index + 1, articleId))
+  })
+  replaceArticles()
+
+  return success(res, { id, title: series.title, article_ids: articleIds }, '专题文章已更新')
+}
+
 export function createSeries(req: AuthRequest, res: Response) {
   const title = clean(req.body?.title, 100)
   if (!title) return error(res, '专题标题不能为空', 'VALIDATION_ERROR')

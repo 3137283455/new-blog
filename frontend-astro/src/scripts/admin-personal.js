@@ -5,7 +5,7 @@
   const $ = (selector) => document.querySelector(selector)
   const $$ = (selector) => Array.from(document.querySelectorAll(selector))
   const html = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
-  const state = { inbox: [], todos: [], series: [], themes: [], insights: null }
+  const state = { inbox: [], todos: [], series: [], seriesArticles: [], selectedArticleIds: [], activeSeriesId: null, themes: [], insights: null }
 
   async function api(path, options = {}) {
     const response = await fetch(`${API_BASE}${path}`, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}`, ...(options.headers || {}) } })
@@ -64,10 +64,14 @@
   }
 
   async function loadSeries() {
-    state.series = await api('/admin/series') || []
+    const [series, articles] = await Promise.all([api('/admin/series'), api('/admin/series/article-options')])
+    state.series = series || []
+    state.seriesArticles = articles || []
     $('#personal-series-list').innerHTML = state.series.map((item) => `
-      <article class="admin-personal-item"><header><span>${item.is_featured ? '首页专题' : '专题'}</span><small>${item.article_count || 0} 篇</small></header><strong>${html(item.title)}</strong><p>${html(item.description || '')}</p><footer><button data-series-edit="${item.id}">编辑</button><a href="/series/${encodeURIComponent(item.slug)}" target="_blank">查看</a><button class="is-danger" data-series-delete="${item.id}">删除</button></footer></article>
-    `).join('') || '<p class="text-sm text-base-content/45">还没有专题。</p>'
+      <article class="admin-personal-item ${Number(state.activeSeriesId) === Number(item.id) ? 'is-selected' : ''}"><header><span>${item.is_featured ? '首页专题' : '专题'}</span><small>${item.article_count || 0} 篇</small></header><strong>${html(item.title)}</strong><p>${html(item.description || '')}</p><footer><button type="button" data-series-edit="${item.id}">编辑与编排</button><a href="/series/${encodeURIComponent(item.slug)}" target="_blank">查看</a><button class="is-danger" type="button" data-series-delete="${item.id}">删除</button></footer></article>
+    `).join('') || '<p class="text-sm text-base-content/45">还没有专题，先在左侧创建一个吧。</p>'
+    if (state.activeSeriesId && !state.series.some((item) => Number(item.id) === Number(state.activeSeriesId))) fillSeries()
+    else renderSeriesArticles()
   }
 
   function fillSeries(item = {}) {
@@ -75,6 +79,42 @@
     form.reset()
     ;['id', 'title', 'slug', 'cover', 'description', 'sort_order', 'status'].forEach((name) => { if (form.elements.namedItem(name)) form.elements.namedItem(name).value = item[name] ?? (name === 'status' ? 'published' : '') })
     form.elements.namedItem('is_featured').checked = Boolean(item.is_featured)
+    state.activeSeriesId = item.id ? Number(item.id) : null
+    state.selectedArticleIds = state.activeSeriesId
+      ? state.seriesArticles.filter((article) => Number(article.series_id) === state.activeSeriesId).sort((a, b) => Number(a.series_order) - Number(b.series_order)).map((article) => Number(article.id))
+      : []
+    renderSeriesArticles()
+    $$('#personal-series-list .admin-personal-item').forEach((card) => {
+      const button = card.querySelector('[data-series-edit]')
+      card.classList.toggle('is-selected', Number(button?.dataset.seriesEdit) === Number(state.activeSeriesId))
+    })
+  }
+
+  function articleMeta(article) {
+    const parts = [article.status === 'published' ? '已发布' : '草稿']
+    if (article.series_id && Number(article.series_id) !== Number(state.activeSeriesId)) parts.push(`当前在「${article.series_title || '其他专题'}」`)
+    return parts.join(' · ')
+  }
+
+  function renderSeriesArticles() {
+    const active = state.series.find((item) => Number(item.id) === Number(state.activeSeriesId))
+    const hint = $('#personal-series-articles-hint')
+    const save = $('#personal-series-articles-save')
+    if (hint) hint.textContent = active ? `正在编排「${active.title}」，保存后同步到前台。` : '请先新建或选择一个专题。'
+    if (save) save.disabled = !active
+    const selected = state.selectedArticleIds.map((id) => state.seriesArticles.find((article) => Number(article.id) === Number(id))).filter(Boolean)
+    if ($('#personal-series-article-count')) $('#personal-series-article-count').textContent = `${selected.length} 篇`
+    const selectedList = $('#personal-series-article-selected')
+    if (selectedList) selectedList.innerHTML = active
+      ? selected.map((article, index) => `<article class="admin-series-article"><span class="admin-series-order">${index + 1}</span><div><strong>${html(article.title)}</strong><small>${html(articleMeta(article))}</small></div><div class="admin-series-actions"><button type="button" data-series-article-up="${article.id}" ${index === 0 ? 'disabled' : ''} aria-label="上移">↑</button><button type="button" data-series-article-down="${article.id}" ${index === selected.length - 1 ? 'disabled' : ''} aria-label="下移">↓</button><button class="is-danger" type="button" data-series-article-remove="${article.id}">移除</button></div></article>`).join('') || '<p class="text-sm text-base-content/45">还没有文章，从左侧文章库加入。</p>'
+      : '<p class="text-sm text-base-content/45">选择专题后即可编排文章。</p>'
+
+    const query = ($('#personal-series-article-search')?.value || '').trim().toLowerCase()
+    const available = state.seriesArticles.filter((article) => !state.selectedArticleIds.includes(Number(article.id)) && (!query || String(article.title || '').toLowerCase().includes(query)))
+    const options = $('#personal-series-article-options')
+    if (options) options.innerHTML = active
+      ? available.map((article) => `<article class="admin-series-article"><div><strong>${html(article.title)}</strong><small>${html(articleMeta(article))}</small></div><button type="button" data-series-article-add="${article.id}">${article.series_id && Number(article.series_id) !== Number(state.activeSeriesId) ? '移入' : '加入'}</button></article>`).join('') || '<p class="text-sm text-base-content/45">没有匹配的可选文章。</p>'
+      : '<p class="text-sm text-base-content/45">选择专题后显示文章库。</p>'
   }
 
   async function loadReport(year = new Date().getFullYear()) {
@@ -132,11 +172,12 @@
 
   async function loadAll() {
     if (!token()) return
-    await Promise.all([loadInbox(), loadSeries(), loadReport(), loadThemes()])
+    await Promise.all([loadInbox(), loadReport(), loadThemes()])
   }
 
   $$('[data-personal-tab]').forEach((button) => button.addEventListener('click', () => showTab(button.dataset.personalTab)))
   document.querySelector('[data-panel="personal"]')?.addEventListener('click', () => loadAll().catch((error) => notice(error.message, true)))
+  document.querySelector('[data-panel="articles"]')?.addEventListener('click', () => loadSeries().catch((error) => notice(error.message, true)))
   $('#personal-inbox-filter')?.addEventListener('change', () => loadInbox().catch((error) => notice(error.message, true)))
   $('#personal-report-year')?.addEventListener('change', (event) => loadReport(Number(event.target.value)).catch((error) => notice(error.message, true)))
   $('#personal-series-reset')?.addEventListener('click', () => fillSeries())
@@ -144,7 +185,9 @@
   $('#personal-theme-form')?.addEventListener('input', updateThemePreview)
   $('#personal-theme-form')?.elements.namedItem('season')?.addEventListener('change', (event) => { const preset = presets[event.target.value]; if (!preset) return; const form = $('#personal-theme-form'); Object.entries(preset).forEach(([name, value]) => { form.elements.namedItem(name).value = value }); updateThemePreview() })
 
-  $('#personal-series-form')?.addEventListener('submit', async (event) => { event.preventDefault(); try { const form = event.currentTarget; const id = form.elements.namedItem('id').value; const payload = Object.fromEntries(new FormData(form).entries()); payload.is_featured = form.elements.namedItem('is_featured').checked; payload.sort_order = Number(payload.sort_order || 0); await api(id ? `/admin/series/${id}` : '/admin/series', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) }); fillSeries(); await loadSeries(); notice('专题已保存') } catch (error) { notice(error.message, true) } })
+  $('#personal-series-article-search')?.addEventListener('input', renderSeriesArticles)
+  $('#personal-series-articles-save')?.addEventListener('click', async () => { try { if (!state.activeSeriesId) return; const activeId = state.activeSeriesId; await api(`/admin/series/${activeId}/articles`, { method: 'PUT', body: JSON.stringify({ article_ids: state.selectedArticleIds }) }); await loadSeries(); fillSeries(state.series.find((item) => Number(item.id) === Number(activeId))); notice('专题文章与顺序已保存') } catch (error) { notice(error.message, true) } })
+  $('#personal-series-form')?.addEventListener('submit', async (event) => { event.preventDefault(); try { const form = event.currentTarget; const id = form.elements.namedItem('id').value; const payload = Object.fromEntries(new FormData(form).entries()); payload.is_featured = form.elements.namedItem('is_featured').checked; payload.sort_order = Number(payload.sort_order || 0); const saved = await api(id ? `/admin/series/${id}` : '/admin/series', { method: id ? 'PUT' : 'POST', body: JSON.stringify(payload) }); state.activeSeriesId = Number(saved.id); await loadSeries(); fillSeries(state.series.find((item) => Number(item.id) === Number(saved.id)) || saved); notice(id ? '专题信息已保存' : '专题已创建，现在可以添加文章') } catch (error) { notice(error.message, true) } })
   $('#personal-theme-form')?.addEventListener('submit', async (event) => { event.preventDefault(); try { const form = event.currentTarget; const id = form.elements.namedItem('id').value; const config = Object.fromEntries(new FormData(form).entries()); config.card_radius = Number(config.card_radius); config.card_opacity = Number(config.card_opacity) / 100; config.content_width = Number(config.content_width); await api(`/admin/themes/${encodeURIComponent(id)}/config`, { method: 'PUT', body: JSON.stringify({ config }) }); await loadThemes(); notice('主题配置已保存，刷新前台即可查看') } catch (error) { notice(error.message, true) } })
 
   document.addEventListener('click', async (event) => {
@@ -156,7 +199,10 @@
       if (button.dataset.todoToggle) { const item = state.todos.find((row) => String(row.id) === button.dataset.todoToggle); await api(`/admin/personal/todos/${button.dataset.todoToggle}`, { method: 'PUT', body: JSON.stringify({ done: !item?.done }) }); await loadInbox() }
       if (button.dataset.todoDelete) { await api(`/admin/personal/todos/${button.dataset.todoDelete}`, { method: 'DELETE' }); await loadInbox() }
       if (button.dataset.seriesEdit) fillSeries(state.series.find((item) => String(item.id) === button.dataset.seriesEdit))
-      if (button.dataset.seriesDelete && confirm('删除专题吗？文章会保留并移出专题。')) { await api(`/admin/series/${button.dataset.seriesDelete}`, { method: 'DELETE' }); await loadSeries() }
+      if (button.dataset.seriesArticleAdd) { state.selectedArticleIds.push(Number(button.dataset.seriesArticleAdd)); renderSeriesArticles() }
+      if (button.dataset.seriesArticleRemove) { state.selectedArticleIds = state.selectedArticleIds.filter((id) => id !== Number(button.dataset.seriesArticleRemove)); renderSeriesArticles() }
+      if (button.dataset.seriesArticleUp || button.dataset.seriesArticleDown) { const id = Number(button.dataset.seriesArticleUp || button.dataset.seriesArticleDown); const index = state.selectedArticleIds.indexOf(id); const next = button.dataset.seriesArticleUp ? index - 1 : index + 1; if (index >= 0 && next >= 0 && next < state.selectedArticleIds.length) [state.selectedArticleIds[index], state.selectedArticleIds[next]] = [state.selectedArticleIds[next], state.selectedArticleIds[index]]; renderSeriesArticles() }
+      if (button.dataset.seriesDelete && confirm('删除专题吗？文章会保留并移出专题。')) { await api(`/admin/series/${button.dataset.seriesDelete}`, { method: 'DELETE' }); if (Number(button.dataset.seriesDelete) === Number(state.activeSeriesId)) fillSeries(); await loadSeries() }
     } catch (error) { notice(error.message, true) }
   })
 

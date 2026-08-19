@@ -169,6 +169,51 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             </table>
           </div>
         </div>
+
+        <section class="mt-5 grid gap-4">
+          <header class="flex flex-wrap items-end justify-between gap-3 px-1">
+            <div>
+              <p class="text-xs font-black tracking-[0.18em] text-primary">CONTENT COLLECTIONS</p>
+              <h2 class="mt-1 text-2xl font-black">专题与系列</h2>
+              <p class="text-sm text-base-content/50">把多篇文章组织成一本专题，并设置阅读顺序。</p>
+            </div>
+            <a class="ryu-btn btn-sm" href="/series" target="_blank">查看前台专题 ↗</a>
+          </header>
+          <div class="admin-personal-columns">
+            <form id="personal-series-form" class="ryu-card grid gap-3 p-5">
+              <div><h3 class="text-xl font-black">专题信息</h3><p class="text-sm text-base-content/50">先创建专题，再从文章库中编排内容。</p></div>
+              <input name="id" type="hidden" />
+              <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="专题标题" required />
+              <input class="input input-bordered rounded-xl" name="slug" maxlength="120" placeholder="URL 标识（可留空）" />
+              <input class="input input-bordered rounded-xl" name="cover" maxlength="500" placeholder="专题封面地址" />
+              <textarea class="textarea textarea-bordered min-h-28 rounded-xl" name="description" maxlength="1000" placeholder="专题介绍"></textarea>
+              <div class="grid grid-cols-2 gap-3"><input class="input input-bordered rounded-xl" name="sort_order" type="number" placeholder="排序" /><select class="select select-bordered rounded-xl" name="status"><option value="published">公开</option><option value="draft">草稿</option></select></div>
+              <label class="label cursor-pointer justify-start gap-2"><input class="checkbox checkbox-sm" name="is_featured" type="checkbox" />首页展示这个专题</label>
+              <div class="flex gap-2"><button class="ryu-btn-primary" type="submit">保存专题</button><button id="personal-series-reset" class="ryu-btn" type="button">新建</button></div>
+            </form>
+            <section class="ryu-card p-5"><div class="flex items-center justify-between"><div><h3 class="text-xl font-black">专题列表</h3><p class="text-sm text-base-content/50">选择“编辑”后即可添加文章。</p></div></div><div id="personal-series-list" class="admin-personal-list mt-4"></div></section>
+          </div>
+          <section class="ryu-card p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xl font-black">文章编排</h3>
+                <p id="personal-series-articles-hint" class="text-sm text-base-content/50">请先新建或选择一个专题。</p>
+              </div>
+              <button id="personal-series-articles-save" class="ryu-btn-primary btn-sm" type="button" disabled>保存文章顺序</button>
+            </div>
+            <div class="mt-4 grid gap-4 xl:grid-cols-2">
+              <div class="rounded-2xl border border-base-content/10 p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2"><h4 class="font-black">文章库</h4><input id="personal-series-article-search" class="input input-bordered input-sm w-full rounded-xl sm:w-64" type="search" placeholder="搜索文章标题" /></div>
+                <div id="personal-series-article-options" class="admin-series-article-list mt-3"></div>
+              </div>
+              <div class="rounded-2xl border border-base-content/10 p-4">
+                <div class="flex items-center justify-between gap-2"><h4 class="font-black">已选文章</h4><span id="personal-series-article-count" class="badge badge-outline">0 篇</span></div>
+                <p class="mt-1 text-xs text-base-content/45">从上到下即前台阅读顺序，可上下调整或移除。</p>
+                <div id="personal-series-article-selected" class="admin-series-article-list mt-3"></div>
+              </div>
+            </div>
+          </section>
+        </section>
       </section>
 
       <section id="editor-panel" class="admin-panel hidden">
@@ -783,12 +828,11 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
       <section id="personal-panel" class="admin-panel hidden">
         <header class="admin-personal-hero">
-          <div><p>PERSONAL WORKSPACE</p><h2>个人博客长期中心</h2><span>统一整理灵感、专题、待办、年度记录与主题外观。</span></div>
+          <div><p>PERSONAL WORKSPACE</p><h2>个人博客长期中心</h2><span>统一整理灵感、待办、年度记录与主题外观。</span></div>
           <a class="ryu-btn" href="/memories" target="_blank">查看年度回顾 ↗</a>
         </header>
         <nav class="admin-personal-tabs">
           <button class="is-active" type="button" data-personal-tab="inbox">稍后处理</button>
-          <button type="button" data-personal-tab="series">文章专题</button>
           <button type="button" data-personal-tab="report">写作报告</button>
           <button type="button" data-personal-tab="theme">主题编辑器</button>
         </nav>
@@ -797,23 +841,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <div class="admin-personal-columns">
             <section class="ryu-card p-5"><div class="flex items-center justify-between"><div><h3 class="text-xl font-black">灵感收集箱</h3><p class="text-sm text-base-content/50">首页记录会自动同步到这里。</p></div><select id="personal-inbox-filter" class="select select-bordered select-sm rounded-xl"><option value="all">全部</option><option value="pending">待处理</option><option value="done">已转换</option></select></div><div id="personal-inbox-list" class="admin-personal-list mt-4"></div></section>
             <section class="ryu-card p-5"><h3 class="text-xl font-black">个人待办</h3><p class="text-sm text-base-content/50">由收集箱转换而来，可在这里完成或删除。</p><div id="personal-todo-list" class="admin-personal-list mt-4"></div></section>
-          </div>
-        </div>
-
-        <div class="admin-personal-section hidden" data-personal-section="series">
-          <div class="admin-personal-columns">
-            <form id="personal-series-form" class="ryu-card grid gap-3 p-5">
-              <div><h3 class="text-xl font-black">专题信息</h3><p class="text-sm text-base-content/50">适合持续记录项目、旅行或兴趣。</p></div>
-              <input name="id" type="hidden" />
-              <input class="input input-bordered rounded-xl" name="title" maxlength="100" placeholder="专题标题" required />
-              <input class="input input-bordered rounded-xl" name="slug" maxlength="120" placeholder="URL 标识（可留空）" />
-              <input class="input input-bordered rounded-xl" name="cover" maxlength="500" placeholder="专题封面地址" />
-              <textarea class="textarea textarea-bordered min-h-28 rounded-xl" name="description" maxlength="1000" placeholder="专题介绍"></textarea>
-              <div class="grid grid-cols-2 gap-3"><input class="input input-bordered rounded-xl" name="sort_order" type="number" placeholder="排序" /><select class="select select-bordered rounded-xl" name="status"><option value="published">公开</option><option value="draft">草稿</option></select></div>
-              <label class="label cursor-pointer justify-start gap-2"><input class="checkbox checkbox-sm" name="is_featured" type="checkbox" />首页展示这个专题</label>
-              <div class="flex gap-2"><button class="ryu-btn-primary" type="submit">保存专题</button><button id="personal-series-reset" class="ryu-btn" type="button">新建</button></div>
-            </form>
-            <section class="ryu-card p-5"><div class="flex items-center justify-between"><h3 class="text-xl font-black">专题列表</h3><a class="text-sm font-bold text-primary" href="/series" target="_blank">前台查看 ↗</a></div><div id="personal-series-list" class="admin-personal-list mt-4"></div></section>
           </div>
         </div>
 

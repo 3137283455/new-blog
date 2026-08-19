@@ -2348,6 +2348,18 @@ h1, h2, h3, .site-title, .article-title { font-family: var(--theme-title-font, v
 .admin-personal-item button, .admin-personal-item a { border: 0; background: transparent; color: var(--brand); font-size: .65rem; font-weight: 800; }
 .admin-personal-item .is-danger { color: #c23b45; }
 .admin-personal-item.is-done { opacity: .55; }
+.admin-personal-item.is-selected { border-color: color-mix(in srgb, var(--theme-primary) 55%, var(--line)); background: color-mix(in srgb, var(--theme-primary) 7%, transparent); box-shadow: inset 3px 0 0 var(--theme-primary); }
+.admin-series-article-list { display: grid; gap: .5rem; max-height: 24rem; overflow-y: auto; padding-right: .2rem; }
+.admin-series-article { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .7rem; border: 1px solid var(--line); border-radius: .8rem; padding: .7rem; background: color-mix(in srgb, var(--surface-solid) 75%, transparent); }
+.admin-series-article:has(.admin-series-order) { grid-template-columns: 1.65rem minmax(0, 1fr) auto; }
+.admin-series-article strong, .admin-series-article small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-series-article strong { font-size: .75rem; }
+.admin-series-article small { margin-top: .15rem; color: var(--muted-ink); font-size: .62rem; }
+.admin-series-article > button, .admin-series-actions button { border: 0; border-radius: .55rem; background: color-mix(in srgb, var(--theme-primary) 10%, transparent); color: var(--brand); padding: .4rem .55rem; font-size: .65rem; font-weight: 800; }
+.admin-series-actions { display: flex; align-items: center; gap: .25rem; }
+.admin-series-actions button:disabled { cursor: default; opacity: .25; }
+.admin-series-actions button.is-danger { color: #c23b45; }
+.admin-series-order { display: grid; width: 1.55rem; height: 1.55rem; place-items: center; border-radius: 50%; background: var(--ink); color: var(--surface-solid); font-size: .62rem; font-weight: 900; }
 .admin-personal-todo { display: grid; grid-template-columns: 1.6rem 1fr 1.6rem; align-items: center; gap: .5rem; border-bottom: 1px solid var(--line); padding: .6rem 0; font-size: .72rem; }
 .admin-personal-todo button { width: 1.5rem; height: 1.5rem; border: 1px solid var(--line); border-radius: 50%; background: transparent; }
 .admin-personal-todo.is-done span { color: var(--muted-ink); text-decoration: line-through; }
