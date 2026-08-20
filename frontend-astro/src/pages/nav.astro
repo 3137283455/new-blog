@@ -68,6 +68,11 @@ const getFavicon = (url: string) => {
       <button class="web-search-submit" type="submit" aria-label="搜索">搜索 <span>↗</span></button>
     </form>
 
+    <section id="search-memory" class="search-memory" aria-label="搜索记录">
+      <div><header><span>常用搜索</span></header><div id="common-searches" class="search-memory-chips"><small>重复搜索的关键词会出现在这里</small></div></div>
+      <div><header><span>搜索记录</span><button id="clear-search-history" type="button">清除</button></header><div id="search-history" class="search-memory-chips"><small>还没有搜索记录</small></div></div>
+    </section>
+
     <section id="hub-search-results" class="hub-search-results" hidden aria-live="polite"></section>
 
     <section id="recent-section" class="start-recent" hidden>
@@ -142,6 +147,7 @@ const getFavicon = (url: string) => {
     type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; workspace?: string; is_active?: number | boolean }
     type RecentItem = { id: string; title: string; href: string; icon: string; visitedAt: number }
     type UsageItem = { count: number; lastVisited: number }
+    type SearchMemoryItem = { query: string; count: number; lastUsed: number }
     type HubItem = { id: string; kind: string; kind_label: string; title: string; subtitle?: string; href: string; image?: string; meta?: string }
     const board = document.querySelector<HTMLElement>('.start-page')
     const grid = document.getElementById('nav-grid')
@@ -157,6 +163,7 @@ const getFavicon = (url: string) => {
     const USAGE_KEY = 'boke-nav-usage-v1'
     const SORT_KEY = 'boke-nav-sort-v1'
     const WORKSPACE_KEY = 'boke-nav-workspace-v1'
+    const SEARCH_MEMORY_KEY = 'boke-nav-search-memory-v1'
     let activeCategory = 'all'
     let favoritesOnly = false
 
@@ -187,12 +194,31 @@ const getFavicon = (url: string) => {
       const mark = document.getElementById('search-engine-mark')
       const name = document.getElementById('search-engine-name')
       const results = document.getElementById('hub-search-results')
+      const commonSearches = document.getElementById('common-searches')
+      const searchHistory = document.getElementById('search-history')
       let searchUrl = ''
       let activeEngine = ''
       let timer = 0
       let controller: AbortController | null = null
       const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-engine]'))
       const isSiteSearch = () => searchUrl === 'site:'
+      const getSearchMemory = () => readStorage<SearchMemoryItem[]>(SEARCH_MEMORY_KEY, []).filter((item) => item?.query)
+      const renderSearchMemory = () => {
+        const items = getSearchMemory().sort((left, right) => right.lastUsed - left.lastUsed)
+        const common = [...items].filter((item) => item.count > 1).sort((left, right) => right.count - left.count || right.lastUsed - left.lastUsed).slice(0, 5)
+        if (commonSearches) commonSearches.innerHTML = common.length ? common.map((item) => `<button type="button" data-search-memory="${escapeHtml(item.query)}">${escapeHtml(item.query)}<small>${item.count} 次</small></button>`).join('') : '<small>重复搜索的关键词会出现在这里</small>'
+        if (searchHistory) searchHistory.innerHTML = items.length ? items.slice(0, 8).map((item) => `<button type="button" data-search-memory="${escapeHtml(item.query)}">${escapeHtml(item.query)}</button>`).join('') : '<small>还没有搜索记录</small>'
+      }
+      const recordSearch = (query: string) => {
+        const normalized = query.trim().replace(/\s+/g, ' ').slice(0, 100)
+        if (!normalized) return
+        const items = getSearchMemory()
+        const existing = items.find((item) => item.query.toLowerCase() === normalized.toLowerCase())
+        if (existing) { existing.query = normalized; existing.count = Number(existing.count || 0) + 1; existing.lastUsed = Date.now() }
+        else items.push({ query: normalized, count: 1, lastUsed: Date.now() })
+        localStorage.setItem(SEARCH_MEMORY_KEY, JSON.stringify(items.sort((left, right) => right.lastUsed - left.lastUsed).slice(0, 30)))
+        renderSearchMemory()
+      }
       const renderResults = (items: HubItem[], query: string) => {
         if (!results) return
         results.hidden = false
@@ -216,6 +242,14 @@ const getFavicon = (url: string) => {
             if ((error as Error)?.name !== 'AbortError' && results) results.innerHTML = '<p>搜索暂时不可用，请稍后再试。</p>'
           }
         }, 180)
+      }
+      const runSearch = (query: string) => {
+        const normalized = query.trim()
+        if (!normalized) return
+        recordSearch(normalized)
+        if (webInput) webInput.value = normalized
+        if (isSiteSearch()) searchSite(normalized)
+        else location.href = searchUrl.replace('{query}', encodeURIComponent(normalized))
       }
       const choose = (option: HTMLButtonElement, focusInput = true) => {
         activeEngine = option.dataset.engine || ''
@@ -251,8 +285,11 @@ const getFavicon = (url: string) => {
         if (event.key === 'Escape') { event.preventDefault(); closeMenu(true) }
       }))
       webInput?.addEventListener('input', () => { if (isSiteSearch()) searchSite(webInput.value.trim()) })
-      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (!query) return; if (isSiteSearch()) results?.querySelector<HTMLAnchorElement>('a')?.click(); else location.href = searchUrl.replace('{query}', encodeURIComponent(query)) })
+      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (!query) return; recordSearch(query); if (isSiteSearch()) searchSite(query); else location.href = searchUrl.replace('{query}', encodeURIComponent(query)) })
+      document.getElementById('search-memory')?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-search-memory]'); if (button?.dataset.searchMemory) runSearch(button.dataset.searchMemory) })
+      document.getElementById('clear-search-history')?.addEventListener('click', () => { localStorage.removeItem(SEARCH_MEMORY_KEY); renderSearchMemory() })
       document.addEventListener('click', (event) => { if (!form?.contains(event.target as Node)) closeMenu() })
+      renderSearchMemory()
     }
 
     function renderCard(item: NavItem, index: number) {

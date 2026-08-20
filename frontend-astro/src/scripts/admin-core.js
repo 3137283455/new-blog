@@ -8,6 +8,9 @@ const state = {
   tags: [],
   media: [],
   mediaTrashMode: false,
+  mediaFolder: '',
+  mediaFolderCounts: {},
+  mediaContextId: null,
   music: [],
   musicPlaylists: [],
   activeMusicPlaylistName: '',
@@ -197,12 +200,17 @@ async function loadArticles() {
 }
 
 async function loadMedia() {
-  const type = $('#media-type-filter')?.value || '';
-  const qs = new URLSearchParams({ page: '1', pageSize: '80' });
+  const type = state.mediaFolder || '';
+  const qs = new URLSearchParams({ page: '1', pageSize: '500' });
   if (type) qs.set('type', type);
   if (state.mediaTrashMode) qs.set('trashed', 'true');
-  const json = await request(`/admin/media?${qs.toString()}`);
+  const foldersQs = state.mediaTrashMode ? '?trashed=true' : '';
+  const [json, folders] = await Promise.all([
+    request(`/admin/media?${qs.toString()}`),
+    request(`/admin/media/folders${foldersQs}`),
+  ]);
   state.media = json.data || [];
+  state.mediaFolderCounts = folders.data || {};
   renderMedia();
 }
 
@@ -454,56 +462,87 @@ function renderMedia() {
   $('#cleanup-media')?.classList.toggle('hidden', state.mediaTrashMode);
   $('#empty-media-trash')?.classList.toggle('hidden', !state.mediaTrashMode);
   $('#media-upload')?.closest('label')?.classList.toggle('hidden', state.mediaTrashMode);
-  grid.innerHTML = state.media.map((file) => {
+  const folders = [
+    { id: '', label: '全部文件', icon: '▦', count: state.mediaFolderCounts.all || 0 },
+    { id: 'image', label: '图片', icon: '▧', count: state.mediaFolderCounts.image || 0 },
+    { id: 'video', label: '视频', icon: '▶', count: state.mediaFolderCounts.video || 0 },
+    { id: 'audio', label: '音频', icon: '♪', count: state.mediaFolderCounts.audio || 0 },
+    { id: 'font', label: '字体', icon: 'Aa', count: state.mediaFolderCounts.font || 0 },
+    { id: 'document', label: '文档与压缩包', icon: '▤', count: state.mediaFolderCounts.document || 0 },
+    { id: 'other', label: '其他文件', icon: '◇', count: state.mediaFolderCounts.other || 0 },
+  ];
+  const folderList = $('#media-folder-list');
+  if (folderList) folderList.innerHTML = folders.map((folder) => `<button class="${folder.id === state.mediaFolder ? 'is-active' : ''}" type="button" data-media-folder="${folder.id}"><i>${folder.icon}</i><span>${folder.label}</span><small>${folder.count}</small></button>`).join('');
+  const activeFolder = folders.find((folder) => folder.id === state.mediaFolder) || folders[0];
+  if ($('#media-folder-name')) $('#media-folder-name').textContent = activeFolder.label;
+  const query = ($('#media-search')?.value || '').trim().toLowerCase();
+  const visibleMedia = state.media.filter((file) => !query || `${file.original_name || ''} ${file.mime_type || ''} ${file.path || ''}`.toLowerCase().includes(query));
+  if ($('#media-file-count')) $('#media-file-count').textContent = `${visibleMedia.length} 个项目`;
+  grid.innerHTML = visibleMedia.map((file) => {
     const url = file.url || `/uploads/${file.path}`;
     const isImage = file.mime_type?.startsWith('image/');
-    const isAudio = file.mime_type?.startsWith('audio/');
     const isFont = isFontMedia(file);
     const references = Array.isArray(file.references) ? file.references : [];
-    const detailGroups = Array.isArray(file.reference_details) ? file.reference_details : [];
     const useBadge = file.in_use
       ? `<span class="badge badge-success badge-sm">使用中</span>`
       : `<span class="badge badge-ghost badge-sm">未引用</span>`;
-    const referenceText = references.length ? `引用：${references.join('、')}` : '清理冗余时会移入媒体回收站';
-    const detailText = detailGroups
-      .map((group) => `${group.type}：${(group.items || []).map((item) => item.label).join('、')}`)
-      .join('\n');
-    const addFontAction = isFont && !state.mediaTrashMode
-      ? `<button class="btn btn-xs rounded-lg" data-add-font-from-media="${file.id}">加入字体库</button>`
-      : '';
-    const actions = state.mediaTrashMode
-      ? `<button class="btn btn-xs rounded-lg" data-restore-media="${file.id}">恢复</button>
-         <button class="btn btn-xs btn-error rounded-lg" data-force-delete-media="${file.id}" ${file.in_use ? 'disabled title="仍被内容引用，不能永久删除"' : ''}>永久删除</button>`
-      : `<button class="btn btn-xs rounded-lg" data-copy-url="${url}">复制地址</button>
-         ${addFontAction}
-         <button class="btn btn-xs btn-error rounded-lg" data-delete-media="${file.id}">删除</button>`;
+    const categoryIcons = { image: '▧', video: '▶', audio: '♪', font: 'Aa', document: '▤', other: '◇' };
+    const categoryLabels = { image: '图片', video: '视频', audio: '音频', font: '字体', document: '文档', other: '文件' };
+    const category = file.category || (isImage ? 'image' : (isFont ? 'font' : 'other'));
     return `
-      <article class="admin-media-item">
-        <div class="admin-media-preview">
-          ${isImage ? `<img src="${url}" alt="${escapeHtml(file.original_name)}" loading="lazy" />` : ''}
-          ${isAudio ? `<audio src="${url}" controls preload="none"></audio>` : ''}
-          ${!isImage && !isAudio ? `<span class="text-3xl">${isFont ? '字体' : '文件'}</span>` : ''}
-        </div>
-        <div class="min-w-0 p-3">
-          <div class="flex items-center gap-2">
-            <p class="min-w-0 flex-1 truncate font-bold">${escapeHtml(file.original_name)}</p>
-            ${useBadge}
-          </div>
-          <p class="mt-1 text-xs text-base-content/45">${escapeHtml(file.mime_type || '')} · ${formatSize(file.size)}</p>
-          <p class="mt-1 truncate text-xs text-base-content/50" title="${escapeHtml(referenceText)}">${escapeHtml(referenceText)}</p>
-          ${detailText ? `<p class="mt-1 line-clamp-2 text-xs text-base-content/60 whitespace-pre-line" title="${escapeHtml(detailText)}">${escapeHtml(detailText)}</p>` : ''}
-          <div class="mt-3 flex gap-2">
-            ${actions}
-          </div>
-        </div>
+      <article class="admin-media-item" data-media-id="${file.id}" tabindex="0" title="双击打开，右键查看更多操作">
+        <div class="admin-media-file"><div class="admin-media-preview">
+            ${isImage ? `<img src="${url}" alt="${escapeHtml(file.original_name)}" loading="lazy" />` : ''}
+            ${!isImage ? `<span>${categoryIcons[category] || '◇'}</span>` : ''}
+          </div><div class="admin-media-name"><strong>${escapeHtml(file.original_name || file.filename || '未命名文件')}</strong><small>${escapeHtml(file.path || '')}</small></div></div>
+        <span class="admin-media-type">${categoryLabels[category] || '文件'}</span>
+        <span>${formatSize(file.size)}</span>
+        <span title="${escapeHtml(references.length ? `引用：${references.join('、')}` : '未引用')}">${useBadge}</span>
+        <time>${formatDate(file.created_at)}</time>
       </article>
     `;
-  }).join('') || `<p class="text-base-content/45">${state.mediaTrashMode ? '媒体回收站为空' : '暂无媒体文件'}</p>`;
+  }).join('') || `<p class="admin-media-empty">${query ? '没有匹配的文件' : (state.mediaTrashMode ? '媒体回收站为空' : '这个文件夹是空的')}</p>`;
 }
 
 function isFontMedia(file) {
   const value = `${file?.mime_type || ''} ${file?.original_name || ''} ${file?.path || ''}`.toLowerCase();
   return value.includes('font') || /\.(woff2?|ttf|otf|eot)(\?|$)/i.test(value);
+}
+
+function mediaItem(id = state.mediaContextId) {
+  return state.media.find((file) => String(file.id) === String(id));
+}
+
+function openMediaFile(file) {
+  if (!file) return;
+  const url = file.url || `/uploads/${file.path}`;
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function closeMediaContextMenu() {
+  const menu = $('#media-context-menu');
+  if (menu) menu.hidden = true;
+  state.mediaContextId = null;
+}
+
+function showMediaContextMenu(event, id) {
+  const file = mediaItem(id);
+  const menu = $('#media-context-menu');
+  if (!file || !menu) return;
+  event.preventDefault();
+  state.mediaContextId = Number(file.id);
+  menu.querySelector('[data-media-context="font"]').hidden = state.mediaTrashMode || !isFontMedia(file);
+  menu.querySelector('[data-media-context="delete"]').hidden = state.mediaTrashMode;
+  menu.querySelector('[data-media-context="restore"]').hidden = !state.mediaTrashMode;
+  const force = menu.querySelector('[data-media-context="force-delete"]');
+  force.hidden = !state.mediaTrashMode;
+  force.disabled = !!file.in_use;
+  force.title = file.in_use ? '文件仍被内容引用，不能永久删除' : '';
+  menu.hidden = false;
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  menu.style.left = `${Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8))}px`;
+  menu.style.top = `${Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8))}px`;
 }
 
 function renderMusicPlaylists() {
@@ -1129,10 +1168,13 @@ async function uploadMediaFiles(files) {
   if (!files.length) return;
   $('#media-message').textContent = `正在上传 ${files.length} 个文件...`;
   try {
+    const uploaded = [];
     for (const file of files) {
-      await uploadFile(file);
+      uploaded.push(await uploadFile(file));
     }
-    $('#media-message').textContent = '上传完成';
+    const categoryLabels = { image: '图片', video: '视频', audio: '音频', font: '字体', document: '文档', other: '其他文件' };
+    const categories = Array.from(new Set(uploaded.map((item) => categoryLabels[item.category] || '其他文件')));
+    $('#media-message').textContent = `上传完成，已自动归入：${categories.join('、')}`;
     notify(`已上传 ${files.length} 个媒体文件`);
     await loadMedia();
     await loadDashboard();
@@ -1937,11 +1979,11 @@ function parseSetting(row) {
 }
 
 $$('.admin-nav').forEach((button) => {
-  button.addEventListener('click', () => switchPanel(button.dataset.panel));
+  button.addEventListener('click', () => { notify(''); switchPanel(button.dataset.panel); });
 });
 document.addEventListener('click', (event) => {
   const tab = event.target.closest('[data-panel-tab]');
-  if (tab) switchPanel(tab.dataset.panelTab);
+  if (tab) { notify(''); switchPanel(tab.dataset.panelTab); }
 });
 $('#login-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -1973,7 +2015,13 @@ $('#select-all-articles').addEventListener('change', (event) => {
     input.checked = event.currentTarget.checked;
   });
 });
-$('#media-type-filter').addEventListener('change', loadMedia);
+$('#media-search')?.addEventListener('input', renderMedia);
+$('#media-folder-list')?.addEventListener('click', (event) => {
+  const folder = event.target.closest('[data-media-folder]');
+  if (!folder) return;
+  state.mediaFolder = folder.dataset.mediaFolder || '';
+  loadMedia();
+});
 $('#media-upload').addEventListener('change', (event) => uploadMediaFiles(Array.from(event.currentTarget.files || [])));
 $('#cover-upload').addEventListener('change', (event) => {
   const file = event.currentTarget.files?.[0];
@@ -2104,6 +2152,10 @@ $('#articles-table').addEventListener('click', (event) => {
   if (forceDelete) forceDeleteArticle(forceDelete.dataset.forceDelete);
 });
 $('#media-grid').addEventListener('click', async (event) => {
+  const item = event.target.closest('[data-media-id]');
+  if (item) {
+    $$('#media-grid [data-media-id]').forEach((row) => row.classList.toggle('is-selected', row === item));
+  }
   const copy = event.target.closest('[data-copy-url]');
   const del = event.target.closest('[data-delete-media]');
   const restore = event.target.closest('[data-restore-media]');
@@ -2118,6 +2170,25 @@ $('#media-grid').addEventListener('click', async (event) => {
   if (restore) restoreMedia(restore.dataset.restoreMedia);
   if (forceDelete) forceDeleteMedia(forceDelete.dataset.forceDeleteMedia);
 });
+$('#media-grid')?.addEventListener('dblclick', (event) => openMediaFile(mediaItem(event.target.closest('[data-media-id]')?.dataset.mediaId)));
+$('#media-grid')?.addEventListener('contextmenu', (event) => {
+  const item = event.target.closest('[data-media-id]');
+  if (item) showMediaContextMenu(event, item.dataset.mediaId);
+});
+$('#media-context-menu')?.addEventListener('click', async (event) => {
+  const action = event.target.closest('[data-media-context]')?.dataset.mediaContext;
+  const file = mediaItem();
+  if (!action || !file) return;
+  closeMediaContextMenu();
+  if (action === 'open') openMediaFile(file);
+  if (action === 'copy') { await navigator.clipboard?.writeText(file.url || `/uploads/${file.path}`); notify('媒体链接已复制'); }
+  if (action === 'font') addFontFromMedia(file.id);
+  if (action === 'delete') deleteMedia(file.id);
+  if (action === 'restore') restoreMedia(file.id);
+  if (action === 'force-delete') forceDeleteMedia(file.id);
+});
+document.addEventListener('click', (event) => { if (!event.target.closest('#media-context-menu')) closeMediaContextMenu(); });
+window.addEventListener('blur', closeMediaContextMenu);
 $('#music-list').addEventListener('click', async (event) => {
   const batchRemove = event.target.closest('[data-batch-remove-music]');
   const edit = event.target.closest('[data-edit-song]');

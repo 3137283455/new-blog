@@ -33,9 +33,13 @@ const storage = multer.diskStorage({
 const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const ext = path.extname(file.originalname).toLowerCase()
   const allowedTypes = [
-    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-    'application/pdf', 'application/zip',
-    'video/mp4',
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'image/svg+xml',
+    'text/plain', 'text/markdown', 'text/csv', 'text/xml', 'application/json', 'application/xml',
+    'application/pdf', 'application/zip', 'application/x-zip-compressed', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/epub+zip',
+    'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'video/mp4', 'video/webm', 'video/quicktime', 'video/x-matroska', 'video/x-msvideo',
     'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/ogg', 'audio/aac', 'audio/flac', 'audio/x-flac',
     'audio/mp4', 'audio/x-m4a', 'audio/webm',
     'font/woff', 'font/woff2', 'font/ttf', 'font/otf',
@@ -43,9 +47,9 @@ const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFil
     'application/vnd.ms-fontobject',
   ]
   const allowedExts = [
-    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',
-    '.pdf', '.zip',
-    '.mp4', '.mp3', '.wav', '.ogg', '.aac', '.flac', '.m4a', '.webm',
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp', '.svg',
+    '.txt', '.md', '.csv', '.json', '.xml', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.epub', '.zip', '.rar', '.7z',
+    '.mp4', '.mov', '.mkv', '.avi', '.mp3', '.wav', '.ogg', '.aac', '.flac', '.m4a', '.webm',
     '.woff', '.woff2', '.ttf', '.otf', '.eot',
   ]
 

@@ -20,6 +20,17 @@ function isFontFile(media: Partial<MediaLike>) {
   return value.includes('font') || /\.(woff2?|ttf|otf|eot)(\?|$)/i.test(value)
 }
 
+function mediaCategory(media: Partial<MediaLike>) {
+  const mime = String(media.mime_type || '').toLowerCase()
+  const name = `${media.original_name || ''} ${media.path || ''}`.toLowerCase()
+  if (mime.startsWith('image/')) return 'image'
+  if (mime.startsWith('video/')) return 'video'
+  if (mime.startsWith('audio/')) return 'audio'
+  if (isFontFile(media)) return 'font'
+  if (mime.startsWith('text/') || /pdf|json|xml|word|excel|spreadsheet|presentation|epub|zip|rar|7z/.test(mime) || /\.(pdf|txt|md|json|xml|csv|docx?|xlsx?|pptx?|epub|zip|rar|7z)(\?|$)/i.test(name)) return 'document'
+  return 'other'
+}
+
 function normalizeOriginalName(name: string) {
   const decoded = Buffer.from(name, 'latin1').toString('utf8')
   return decoded.includes('�') ? name : decoded
@@ -144,41 +155,32 @@ export function list(req: AuthRequest, res: Response) {
   const type = req.query.type as string
   const trashed = String(req.query.trashed || '') === 'true'
 
-  let where = trashed ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'
-  const params: any[] = []
-  if (type === 'font') {
-    where += ` AND (
-      mime_type LIKE 'font/%'
-      OR mime_type LIKE 'application/font-%'
-      OR mime_type LIKE 'application/x-font-%'
-      OR mime_type = 'application/vnd.ms-fontobject'
-      OR path LIKE '%.woff'
-      OR path LIKE '%.woff2'
-      OR path LIKE '%.ttf'
-      OR path LIKE '%.otf'
-      OR path LIKE '%.eot'
-    )`
-  } else if (type) {
-    where += ' AND mime_type LIKE ?'
-    params.push(`${type}/%`)
-  }
-
-  const media = db.prepare(`SELECT * FROM media WHERE ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-    .all(...params, pageSize, (page - 1) * pageSize)
+  const where = trashed ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'
+  const allMedia = (db.prepare(`SELECT * FROM media WHERE ${where} ORDER BY created_at DESC`).all() as any[])
+    .filter((item) => !type || mediaCategory(item) === type)
+  const media = allMedia
+    .slice((page - 1) * pageSize, page * pageSize)
     .map((item: any) => {
       const referenceDetails = mediaReferenceDetails(item)
       const references = referenceDetails.map((ref) => ref.type)
       return {
         ...item,
         url: `/uploads/${item.path}`,
+        category: mediaCategory(item),
         in_use: references.length > 0,
         references,
         reference_details: referenceDetails,
       }
     })
-  const { total } = db.prepare(`SELECT COUNT(*) as total FROM media WHERE ${where}`).get(...params) as any
+  return success(res, media, '获取成功', paginationResult(page, pageSize, allMedia.length))
+}
 
-  return success(res, media, '获取成功', paginationResult(page, pageSize, total))
+export function folders(req: AuthRequest, res: Response) {
+  const trashed = String(req.query.trashed || '') === 'true'
+  const rows = db.prepare(`SELECT mime_type, original_name, path FROM media WHERE deleted_at IS ${trashed ? 'NOT ' : ''}NULL`).all() as MediaLike[]
+  const counts: Record<string, number> = { all: rows.length, image: 0, video: 0, audio: 0, font: 0, document: 0, other: 0 }
+  rows.forEach((item) => { counts[mediaCategory(item)] += 1 })
+  return success(res, counts)
 }
 
 export function upload(req: AuthRequest, res: Response) {
@@ -201,7 +203,10 @@ export function upload(req: AuthRequest, res: Response) {
   `).run(file.filename, originalName, relativePath, file.mimetype, file.size)
 
   const media = db.prepare('SELECT * FROM media WHERE id = ?').get(result.lastInsertRowid) as any
-  if (media) media.url = `/uploads/${media.path}`
+  if (media) {
+    media.url = `/uploads/${media.path}`
+    media.category = mediaCategory(media)
+  }
   return success(res, media, '上传成功')
 }
 

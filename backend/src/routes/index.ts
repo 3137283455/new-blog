@@ -147,6 +147,7 @@ router.put('/admin/music', auth, musicCtrl.replaceAll)
 
 // 濯掍綋绠＄悊
 router.get('/admin/media', auth, mediaCtrl.list)
+router.get('/admin/media/folders', auth, mediaCtrl.folders)
 router.post('/admin/media/upload', auth, upload.single('file'), mediaCtrl.upload)
 router.delete('/admin/media/:id', auth, mediaCtrl.remove)
 router.put('/admin/media/:id/restore', auth, mediaCtrl.restore)
