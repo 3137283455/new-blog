@@ -13,11 +13,13 @@ type MediaLike = {
   path: string
   mime_type?: string
   created_at?: string
+  folder_id?: number | null
 }
 
 function isFontFile(media: Partial<MediaLike>) {
-  const value = `${media.mime_type || ''} ${media.original_name || ''} ${media.path || ''}`.toLowerCase()
-  return value.includes('font') || /\.(woff2?|ttf|otf|eot)(\?|$)/i.test(value)
+  const mime = String(media.mime_type || '').toLowerCase()
+  const name = String(media.original_name || media.path || '').split('?')[0].toLowerCase()
+  return mime.startsWith('font/') || mime === 'application/vnd.ms-fontobject' || /\.(woff2?|ttf|otf|eot)$/i.test(name)
 }
 
 function mediaCategory(media: Partial<MediaLike>) {
@@ -148,6 +150,162 @@ function isRecentUpload(media: MediaLike, graceHours = 1) {
   if (!Number.isFinite(createdAt)) return false
   return Date.now() - createdAt < graceHours * 60 * 60 * 1000
 }
+type MediaFolder = { id: number; name: string; parent_id: number | null; created_at?: string; updated_at?: string }
+const smartMediaTypes = new Set(['image', 'video', 'audio', 'font', 'document', 'other'])
+function parseFolderId(value: unknown) {
+  if (value === undefined || value === null || value === '' || value === 'root') return null
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1) throw new Error('Invalid folder')
+  return parsed
+}
+function getFolder(id: number | null) {
+  return id === null ? null : db.prepare('SELECT * FROM media_folders WHERE id = ?').get(id) as MediaFolder | undefined
+}
+function requireFolder(id: number | null) {
+  const folder = getFolder(id)
+  if (id !== null && !folder) throw new Error('Folder not found')
+  return folder
+}
+function cleanEntryName(value: unknown, maxLength = 120) {
+  const name = String(value || '').trim()
+  if (!name) throw new Error('Name is required')
+  if (name === '.' || name === '..' || /[\\/:*?"<>|]/.test(name)) throw new Error('Name contains invalid characters')
+  return name.slice(0, maxLength)
+}
+function folderExistsByName(name: string, parentId: number | null, excludeId = 0) {
+  return !!db.prepare('SELECT 1 FROM media_folders WHERE parent_id IS ? AND lower(name) = lower(?) AND id != ? LIMIT 1').get(parentId, name, excludeId)
+}
+function allMediaFolders() {
+  return db.prepare('SELECT * FROM media_folders ORDER BY lower(name), id').all() as MediaFolder[]
+}
+function folderBreadcrumb(folderId: number | null) {
+  const chain: MediaFolder[] = []
+  const visited = new Set<number>()
+  let currentId = folderId
+  while (currentId !== null && !visited.has(currentId) && chain.length < 30) {
+    visited.add(currentId)
+    const folder = getFolder(currentId)
+    if (!folder) break
+    chain.unshift(folder)
+    currentId = folder.parent_id
+  }
+  return chain
+}
+function serializeExplorerMedia(item: any) {
+  return { ...item, url: `/uploads/${item.path}`, category: mediaCategory(item) }
+}
+function mediaCounts(rows: MediaLike[]) {
+  const counts: Record<string, number> = { all: rows.length, image: 0, video: 0, audio: 0, font: 0, document: 0, other: 0 }
+  rows.forEach((item) => { counts[mediaCategory(item)] += 1 })
+  return counts
+}
+function compareExplorerItems(sort: string, order: string) {
+  const direction = order === 'desc' ? -1 : 1
+  return (left: any, right: any) => {
+    const value = (item: any): string | number => sort === 'size' ? Number(item.size || 0)
+      : sort === 'date' ? String(item.created_at || '')
+        : sort === 'type' ? mediaCategory(item)
+          : String(item.original_name || item.name || '').toLocaleLowerCase()
+    const a = value(left)
+    const b = value(right)
+    return (typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), 'zh-CN')) * direction
+  }
+}
+export function explorer(req: AuthRequest, res: Response) {
+  try {
+    const folderId = parseFolderId(req.query.folderId)
+    const type = String(req.query.type || '')
+    const trashed = String(req.query.trashed || '') === 'true'
+    const search = String(req.query.search || '').trim().toLocaleLowerCase()
+    const sort = ['name', 'type', 'size', 'date'].includes(String(req.query.sort)) ? String(req.query.sort) : 'name'
+    const order = String(req.query.order) === 'desc' ? 'desc' : 'asc'
+    if (type && !smartMediaTypes.has(type)) return error(res, 'Invalid media type')
+    if (!type && !trashed) requireFolder(folderId)
+    const rows = db.prepare(`SELECT * FROM media WHERE deleted_at IS ${trashed ? 'NOT ' : ''}NULL`).all() as any[]
+    const files = rows.filter((item) => !type || mediaCategory(item) === type)
+      .filter((item) => type || trashed || (folderId === null ? item.folder_id == null : Number(item.folder_id) === folderId))
+      .filter((item) => !search || `${item.original_name || ''} ${item.mime_type || ''} ${item.path || ''}`.toLocaleLowerCase().includes(search))
+      .sort(compareExplorerItems(sort, order)).slice(0, 1000).map(serializeExplorerMedia)
+    const folders = (!type && !trashed ? allMediaFolders().filter((folder) => folder.parent_id === folderId)
+      .filter((folder) => !search || folder.name.toLocaleLowerCase().includes(search))
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN') * (order === 'desc' ? -1 : 1)) : [])
+    return success(res, { folders, files, all_folders: allMediaFolders(), breadcrumb: type || trashed ? [] : folderBreadcrumb(folderId), counts: mediaCounts(rows), total: folders.length + files.length })
+  } catch (cause: any) { return error(res, cause?.message || 'Unable to load media explorer') }
+}
+export function createFolder(req: AuthRequest, res: Response) {
+  try {
+    const name = cleanEntryName(req.body?.name, 80)
+    const parentId = parseFolderId(req.body?.parent_id)
+    requireFolder(parentId)
+    if (folderExistsByName(name, parentId)) return error(res, 'A folder with this name already exists')
+    const result = db.prepare('INSERT INTO media_folders (name, parent_id) VALUES (?, ?)').run(name, parentId)
+    return success(res, db.prepare('SELECT * FROM media_folders WHERE id = ?').get(result.lastInsertRowid), 'Folder created')
+  } catch (cause: any) { return error(res, cause?.message || 'Unable to create folder') }
+}
+function folderMoveCreatesCycle(folderId: number, parentId: number | null) {
+  let current = parentId
+  const visited = new Set<number>()
+  while (current !== null && !visited.has(current)) {
+    if (current === folderId) return true
+    visited.add(current)
+    current = getFolder(current)?.parent_id ?? null
+  }
+  return false
+}
+export function updateFolder(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.id)
+    const folder = getFolder(id)
+    if (!folder) return error(res, 'Folder not found', 'NOT_FOUND', 404)
+    const name = req.body?.name === undefined ? folder.name : cleanEntryName(req.body.name, 80)
+    const parentId = req.body?.parent_id === undefined ? folder.parent_id : parseFolderId(req.body.parent_id)
+    requireFolder(parentId)
+    if (folderMoveCreatesCycle(id, parentId)) return error(res, 'Cannot move a folder into itself or its descendant')
+    if (folderExistsByName(name, parentId, id)) return error(res, 'A folder with this name already exists')
+    db.prepare("UPDATE media_folders SET name = ?, parent_id = ?, updated_at = datetime('now') WHERE id = ?").run(name, parentId, id)
+    return success(res, db.prepare('SELECT * FROM media_folders WHERE id = ?').get(id), 'Folder updated')
+  } catch (cause: any) { return error(res, cause?.message || 'Unable to update folder') }
+}
+export function removeFolder(req: AuthRequest, res: Response) {
+  const id = Number(req.params.id)
+  if (!getFolder(id)) return error(res, 'Folder not found', 'NOT_FOUND', 404)
+  const occupied = db.prepare('SELECT 1 FROM media_folders WHERE parent_id = ? LIMIT 1').get(id) || db.prepare('SELECT 1 FROM media WHERE folder_id = ? LIMIT 1').get(id)
+  if (occupied) return error(res, 'Folder is not empty')
+  db.prepare('DELETE FROM media_folders WHERE id = ?').run(id)
+  return success(res, null, 'Folder deleted')
+}
+const generatedMimeTypes: Record<string, string> = { '.txt': 'text/plain', '.md': 'text/markdown', '.json': 'application/json', '.csv': 'text/csv' }
+export function createFile(req: AuthRequest, res: Response) {
+  try {
+    let name = cleanEntryName(req.body?.name)
+    if (!path.extname(name)) name += '.txt'
+    const extension = path.extname(name).toLowerCase()
+    if (!generatedMimeTypes[extension]) return error(res, 'Supported types: txt, md, json, csv')
+    const folderId = parseFolderId(req.body?.folder_id)
+    requireFolder(folderId)
+    const content = String(req.body?.content || '')
+    if (Buffer.byteLength(content) > 1024 * 1024) return error(res, 'File content is too large')
+    const directory = new Date().toISOString().slice(0, 10).replace(/-/g, '/')
+    fs.mkdirSync(path.join(config.uploadDir, directory), { recursive: true })
+    const filename = `created-${Date.now()}-${Math.random().toString(36).slice(2, 9)}${extension}`
+    const relativePath = `${directory}/${filename}`
+    fs.writeFileSync(path.join(config.uploadDir, relativePath), content, 'utf8')
+    const result = db.prepare('INSERT INTO media (filename, original_name, path, mime_type, size, folder_id) VALUES (?, ?, ?, ?, ?, ?)').run(filename, name, relativePath, generatedMimeTypes[extension], Buffer.byteLength(content), folderId)
+    return success(res, serializeExplorerMedia(db.prepare('SELECT * FROM media WHERE id = ?').get(result.lastInsertRowid)), 'File created')
+  } catch (cause: any) { return error(res, cause?.message || 'Unable to create file') }
+}
+export function updateMedia(req: AuthRequest, res: Response) {
+  try {
+    const id = Number(req.params.id)
+    const media = db.prepare('SELECT * FROM media WHERE id = ?').get(id) as any
+    if (!media) return error(res, 'File not found', 'NOT_FOUND', 404)
+    const name = req.body?.name === undefined ? media.original_name : cleanEntryName(req.body.name)
+    const folderId = req.body?.folder_id === undefined ? (media.folder_id ?? null) : parseFolderId(req.body.folder_id)
+    requireFolder(folderId)
+    db.prepare('UPDATE media SET original_name = ?, folder_id = ? WHERE id = ?').run(name, folderId, id)
+    return success(res, serializeExplorerMedia(db.prepare('SELECT * FROM media WHERE id = ?').get(id)), 'File updated')
+  } catch (cause: any) { return error(res, cause?.message || 'Unable to update file') }
+}
 
 export function list(req: AuthRequest, res: Response) {
   const page = Number(req.query.page as string) || 1
@@ -197,10 +355,19 @@ export function upload(req: AuthRequest, res: Response) {
     return error(res, `文件过大，当前类型最大允许 ${mb}MB`, 'FILE_TOO_LARGE', 413)
   }
 
+  let folderId: number | null = null
+  try {
+    folderId = parseFolderId(req.body?.folder_id)
+    requireFolder(folderId)
+  } catch (cause: any) {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path)
+    return error(res, cause?.message || 'Folder not found')
+  }
+
   const result = db.prepare(`
-    INSERT INTO media (filename, original_name, path, mime_type, size)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(file.filename, originalName, relativePath, file.mimetype, file.size)
+    INSERT INTO media (filename, original_name, path, mime_type, size, folder_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(file.filename, originalName, relativePath, file.mimetype, file.size, folderId)
 
   const media = db.prepare('SELECT * FROM media WHERE id = ?').get(result.lastInsertRowid) as any
   if (media) {

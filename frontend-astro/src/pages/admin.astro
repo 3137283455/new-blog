@@ -326,6 +326,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             </div>
             <div class="flex flex-wrap gap-2">
               <input id="media-search" class="input input-bordered input-sm w-48 rounded-xl" type="search" placeholder="搜索文件" autocomplete="off" />
+              <button id="media-create-folder" class="ryu-btn btn-sm" type="button">&#26032;&#24314;&#25991;&#20214;&#22841;</button>
+              <button id="media-create-file" class="ryu-btn btn-sm" type="button">&#26032;&#24314;&#25991;&#20214;</button>
+              <select id="media-sort" class="select select-bordered select-sm rounded-xl" aria-label="Sort media">
+                <option value="name">&#25353;&#21517;&#31216;</option><option value="type">&#25353;&#31867;&#22411;</option>
+                <option value="size">&#25353;&#22823;&#23567;</option><option value="date">&#25353;&#26102;&#38388;</option>
+              </select>
+              <button id="media-sort-order" class="ryu-btn btn-sm" type="button">ASC</button>
               <button id="media-normal-mode" class="ryu-btn btn-sm" type="button">媒体库</button>
               <button id="media-trash-mode" class="ryu-btn btn-sm" type="button">回收站</button>
               <label class="ryu-btn-primary btn-sm">
@@ -347,6 +354,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           </div>
           <div id="media-context-menu" class="admin-media-context" role="menu" hidden>
             <button type="button" data-media-context="open">打开</button>
+            <button type="button" data-media-context="rename">&#37325;&#21629;&#21517;</button>
+            <button type="button" data-media-context="move">&#31227;&#21160;&#21040;&#8230;</button>
             <button type="button" data-media-context="copy">复制链接</button>
             <button type="button" data-media-context="font" hidden>加入字体库</button>
             <hr />

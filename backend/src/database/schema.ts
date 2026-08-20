@@ -98,6 +98,15 @@ export function migrate() {
       deleted_at TEXT
     );
 
+    -- Logical media folders. Physical files remain date-partitioned on disk.
+    CREATE TABLE IF NOT EXISTS media_folders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      parent_id INTEGER REFERENCES media_folders(id) ON DELETE RESTRICT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
     -- 媒体资源表
     CREATE TABLE IF NOT EXISTS media (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +118,7 @@ export function migrate() {
       width INTEGER,
       height INTEGER,
       alt_text TEXT DEFAULT '',
+      folder_id INTEGER REFERENCES media_folders(id) ON DELETE SET NULL,
       created_at TEXT DEFAULT (datetime('now')),
       deleted_at TEXT
     );
@@ -493,6 +503,18 @@ export function migrate() {
   addColumn('bangumi_items', 'article_id', 'INTEGER REFERENCES articles(id) ON DELETE SET NULL')
   addColumn('music_tracks', 'article_id', 'INTEGER REFERENCES articles(id) ON DELETE SET NULL')
   addColumn('music_tracks', 'photo_id', 'INTEGER REFERENCES album_photos(id) ON DELETE SET NULL')
+  addColumn('media', 'folder_id', 'INTEGER REFERENCES media_folders(id) ON DELETE SET NULL')
+
+  try {
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_media_folder_name
+        ON media(folder_id, original_name, deleted_at);
+      CREATE INDEX IF NOT EXISTS idx_media_folders_parent
+        ON media_folders(parent_id, name);
+    `)
+  } catch {
+    // Keep startup resilient on partially migrated databases.
+  }
 
   try {
     db.prepare("ALTER TABLE media ADD COLUMN deleted_at TEXT").run()
