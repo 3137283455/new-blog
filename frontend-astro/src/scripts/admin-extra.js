@@ -1,4 +1,4 @@
-import { createNetscapeBookmarkFile, parseBrowserBookmarks } from './bookmark-import.js';
+import { createNetscapeBookmarkFile, parseBrowserBookmarks, validateBookmarkItems } from './bookmark-import.js';
 
 (() => {
   const root = document.querySelector('.admin-shell');
@@ -15,6 +15,10 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks } from './bookmark-im
     activeAlbumId: null,
     mediaPicker: null,
     mediaPickerItems: [],
+    bookmarkImportRows: [],
+    bookmarkImportQuery: '',
+    bookmarkImportStatus: 'all',
+    bookmarkImportBusy: false,
   };
   const DEFAULT_SEARCH_ENGINES = [
     { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
@@ -417,21 +421,96 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks } from './bookmark-im
     list.addEventListener('dragend', () => list.querySelector('.is-dragging')?.classList.remove('is-dragging'));
   }
 
-  async function importNavigationBookmarks(file) {
+  function filteredBookmarkImportRows() {
+    const query = state.bookmarkImportQuery.trim().toLowerCase();
+    return state.bookmarkImportRows.filter((row) => {
+      const matchesQuery = !query || `${row.title} ${row.url} ${row.category}`.toLowerCase().includes(query);
+      const matchesStatus = state.bookmarkImportStatus === 'all'
+        || (state.bookmarkImportStatus === 'valid' && row.valid)
+        || (state.bookmarkImportStatus === 'invalid' && !row.valid)
+        || (state.bookmarkImportStatus === 'selected' && row.selected);
+      return matchesQuery && matchesStatus;
+    });
+  }
+
+  function updateBookmarkImportSummary() {
+    const total = state.bookmarkImportRows.length;
+    const valid = state.bookmarkImportRows.filter((row) => row.valid).length;
+    const invalid = total - valid;
+    const selected = state.bookmarkImportRows.filter((row) => row.valid && row.selected).length;
+    const summary = $('#bookmark-import-summary');
+    if (summary) summary.innerHTML = `<span><b>${total}</b> 已识别</span><span class="is-valid"><b>${valid}</b> 可导入</span><span class="is-invalid"><b>${invalid}</b> 有问题</span><span class="is-selected"><b>${selected}</b> 已选择</span>`;
+    const confirmButton = $('#bookmark-import-confirm');
+    if (confirmButton) {
+      confirmButton.disabled = !selected || state.bookmarkImportBusy;
+      confirmButton.textContent = state.bookmarkImportBusy ? '正在导入…' : `导入所选（${selected}）`;
+    }
+  }
+
+  function renderBookmarkImportPreview() {
+    const list = $('#bookmark-import-list');
+    if (!list) return;
+    const rows = filteredBookmarkImportRows();
+    list.innerHTML = rows.map((row) => {
+      const result = row.valid
+        ? (row.warnings.length ? row.warnings.join('；') : '校验通过')
+        : row.issues.join('；');
+      return `<label class="admin-bookmark-import-row${row.valid ? '' : ' is-invalid'}">
+        <span class="admin-bookmark-import-check"><input type="checkbox" data-bookmark-import-index="${row.index}" ${row.selected ? 'checked' : ''} ${row.valid && !state.bookmarkImportBusy ? '' : 'disabled'} /></span>
+        <span class="admin-bookmark-import-copy"><strong>${html(row.title || '无标题')}</strong><small title="${html(row.url)}">${html(row.url || '无链接')}</small></span>
+        <span class="admin-bookmark-import-category">${html(row.category || '导入书签')}</span>
+        <span class="admin-bookmark-import-result ${row.valid ? (row.warnings.length ? 'is-warning' : 'is-valid') : 'is-invalid'}">${html(result)}</span>
+      </label>`;
+    }).join('') || '<div class="admin-bookmark-import-empty">当前筛选条件下没有书签</div>';
+    updateBookmarkImportSummary();
+  }
+
+  async function previewNavigationBookmarks(file) {
     const source = await file.text();
     const items = parseBrowserBookmarks(source, file.name);
+    state.bookmarkImportRows = validateBookmarkItems(items, state.navigation.map((item) => item.url));
+    state.bookmarkImportQuery = '';
+    state.bookmarkImportStatus = 'all';
+    state.bookmarkImportBusy = false;
+    const search = $('#bookmark-import-search');
+    const status = $('#bookmark-import-status');
+    if (search) search.value = '';
+    if (status) status.value = 'all';
+    const fileName = $('#bookmark-import-file-name');
+    if (fileName) fileName.textContent = `${file.name} · ${items.length} 条`;
+    const message = $('#bookmark-import-message');
+    if (message) message.textContent = '有问题的项目不会被勾选；请确认选择后再导入。';
+    renderBookmarkImportPreview();
+    $('#bookmark-import-dialog')?.showModal();
+  }
+
+  async function importSelectedNavigationBookmarks() {
+    const selected = state.bookmarkImportRows.filter((row) => row.valid && row.selected).map(({ title, url, description, category, icon }) => ({ title, url, description, category, icon }));
+    if (!selected.length || state.bookmarkImportBusy) return;
+    state.bookmarkImportBusy = true;
+    renderBookmarkImportPreview();
     let imported = 0;
     let skipped = 0;
     const batchSize = 400;
-    for (let index = 0; index < items.length; index += batchSize) {
-      const batch = items.slice(index, index + batchSize);
-      const json = await api('/admin/navigation/import', { method: 'POST', body: JSON.stringify({ items: batch }) });
-      imported += Number(json.data?.imported || 0);
-      skipped += Number(json.data?.skipped || 0);
+    const message = $('#bookmark-import-message');
+    try {
+      for (let index = 0; index < selected.length; index += batchSize) {
+        const batch = selected.slice(index, index + batchSize);
+        if (message) message.textContent = `正在导入 ${Math.min(index + batch.length, selected.length)} / ${selected.length}…`;
+        const json = await api('/admin/navigation/import', { method: 'POST', body: JSON.stringify({ items: batch }) });
+        imported += Number(json.data?.imported || 0);
+        skipped += Number(json.data?.skipped || 0);
+      }
+      await loadNavigation();
+      $('#bookmark-import-dialog')?.close();
+      window.notifyAdmin?.(`已导入 ${imported} 个书签${skipped ? `，服务端跳过 ${skipped} 个` : ''}`);
+    } catch (error) {
+      if (message) message.textContent = error.message || '导入书签失败';
+      window.notifyAdmin?.(error.message || '导入书签失败', true);
+    } finally {
+      state.bookmarkImportBusy = false;
+      renderBookmarkImportPreview();
     }
-    await loadNavigation();
-    const limited = items.length >= 5000 ? '，已达到单次 5000 条上限' : '';
-    window.notifyAdmin?.(`识别 ${items.length} 个书签，导入 ${imported} 个，跳过 ${skipped} 个${limited}`);
   }
   function exportNavigationBookmarks() {
     const content = createNetscapeBookmarkFile(state.navigation, { title: '博客导航书签' });
@@ -1121,13 +1200,40 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks } from './bookmark-im
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      await importNavigationBookmarks(file);
+      await previewNavigationBookmarks(file);
     } catch (error) {
       window.notifyAdmin?.(error.message || '导入书签失败', true);
     } finally {
       event.target.value = '';
     }
   });
+  const closeBookmarkImport = () => { if (!state.bookmarkImportBusy) $('#bookmark-import-dialog')?.close(); };
+  $('#bookmark-import-close')?.addEventListener('click', closeBookmarkImport);
+  $('#bookmark-import-cancel')?.addEventListener('click', closeBookmarkImport);
+  $('#bookmark-import-search')?.addEventListener('input', (event) => {
+    state.bookmarkImportQuery = event.currentTarget.value || '';
+    renderBookmarkImportPreview();
+  });
+  $('#bookmark-import-status')?.addEventListener('change', (event) => {
+    state.bookmarkImportStatus = event.currentTarget.value || 'all';
+    renderBookmarkImportPreview();
+  });
+  $('#bookmark-import-list')?.addEventListener('change', (event) => {
+    const input = event.target.closest('[data-bookmark-import-index]');
+    if (!input) return;
+    const row = state.bookmarkImportRows[Number(input.dataset.bookmarkImportIndex)];
+    if (row?.valid) row.selected = input.checked;
+    renderBookmarkImportPreview();
+  });
+  $('#bookmark-import-select-visible')?.addEventListener('click', () => {
+    filteredBookmarkImportRows().forEach((row) => { if (row.valid) row.selected = true; });
+    renderBookmarkImportPreview();
+  });
+  $('#bookmark-import-clear-visible')?.addEventListener('click', () => {
+    filteredBookmarkImportRows().forEach((row) => { row.selected = false; });
+    renderBookmarkImportPreview();
+  });
+  $('#bookmark-import-confirm')?.addEventListener('click', importSelectedNavigationBookmarks);
   $('#navigation-dialog-close')?.addEventListener('click', () => $('#navigation-dialog')?.close());
   $('#album-create')?.addEventListener('click', () => openAlbumDialog());
   $('#album-dialog-close')?.addEventListener('click', () => $('#album-dialog')?.close());

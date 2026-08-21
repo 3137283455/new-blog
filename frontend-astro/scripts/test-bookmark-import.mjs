@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createNetscapeBookmarkFile, parseBrowserBookmarks, parseJsonBookmarks, parseNetscapeBookmarks } from '../src/scripts/bookmark-import.js';
+import { createNetscapeBookmarkFile, parseBrowserBookmarks, parseJsonBookmarks, parseNetscapeBookmarks, validateBookmarkItems } from '../src/scripts/bookmark-import.js';
 
 const chromeHtml = `<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
@@ -52,6 +52,24 @@ assert.equal(firefoxItems[0].title, 'Mozilla');
 assert.equal(firefoxItems[0].category, 'Bookmarks Menu');
 assert.equal(firefoxItems[0].description, 'Firefox home');
 
+const validation = validateBookmarkItems([
+  { title: 'Existing', url: 'https://existing.example/' },
+  { title: 'Keep this one', url: 'https://new.example/' },
+  { title: 'Duplicate in file', url: 'https://new.example/' },
+  { title: 'Unsafe', url: 'javascript:alert(1)' },
+  { title: 'Long title'.repeat(12), url: 'https://warning.example/', category: '分类'.repeat(25) },
+], ['https://existing.example/']);
+assert.equal(validation.length, 5);
+assert.equal(validation[0].valid, false);
+assert.match(validation[0].issues.join(','), /博客中已存在/);
+assert.equal(validation[1].valid, true);
+assert.equal(validation[1].selected, true);
+assert.equal(validation[2].valid, false);
+assert.match(validation[2].issues.join(','), /文件内重复/);
+assert.equal(validation[3].valid, false);
+assert.match(validation[3].issues.join(','), /不支持此链接协议/);
+assert.equal(validation[4].valid, true);
+assert.equal(validation[4].warnings.length, 2);
 const exported = createNetscapeBookmarkFile([
   { title: 'A & B', url: 'https://example.com/?a=1&b=2', description: '说明', category: '工具' },
 ], { title: '博客导航书签' });

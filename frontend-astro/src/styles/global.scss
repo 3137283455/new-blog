@@ -1520,6 +1520,61 @@ body {
   padding: 0;
 }
 
+.admin-bookmark-import-dialog { width: min(72rem, calc(100vw - 2rem)); max-height: min(52rem, calc(100dvh - 2rem)); }
+.admin-bookmark-import-panel { display: grid; height: min(50rem, calc(100dvh - 2rem)); max-height: none; grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; overflow: hidden; }
+.admin-bookmark-import-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.admin-bookmark-import-head p { color: var(--brand); font-size: .58rem; font-weight: 900; letter-spacing: .13em; }
+.admin-bookmark-import-head h3 { margin-top: .18rem; color: var(--ink); font-family: var(--editorial-serif); font-size: 1.45rem; font-weight: 600; }
+.admin-bookmark-import-head span { display: block; margin-top: .15rem; color: var(--muted-ink); font-size: .67rem; }
+.admin-bookmark-import-summary { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .85rem; }
+.admin-bookmark-import-summary span { display: inline-flex; align-items: baseline; gap: .28rem; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--surface-solid) 82%, transparent); color: var(--muted-ink); padding: .32rem .62rem; font-size: .62rem; }
+.admin-bookmark-import-summary b { color: var(--ink); font-size: .76rem; }
+.admin-bookmark-import-summary .is-valid b { color: #17864b; }
+.admin-bookmark-import-summary .is-invalid b { color: #c2414b; }
+.admin-bookmark-import-summary .is-selected b { color: var(--brand); }
+.admin-bookmark-import-toolbar { display: grid; grid-template-columns: minmax(14rem, 1fr) 9rem auto auto; align-items: end; gap: .55rem; margin-top: .8rem; }
+.admin-bookmark-import-toolbar label { display: grid; gap: .28rem; color: var(--muted-ink); font-size: .58rem; font-weight: 780; }
+.admin-bookmark-import-toolbar input,
+.admin-bookmark-import-toolbar select { width: 100%; height: 2.45rem; border: 1px solid var(--line); border-radius: .68rem; outline: 0; background: color-mix(in srgb, var(--surface-solid) 88%, transparent); color: var(--ink); padding: 0 .7rem; font-size: .7rem; }
+.admin-bookmark-import-toolbar input:focus,
+.admin-bookmark-import-toolbar select:focus { border-color: color-mix(in srgb, var(--brand) 55%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 10%, transparent); }
+.admin-bookmark-import-columns,
+.admin-bookmark-import-row { display: grid; grid-template-columns: 3.5rem minmax(14rem, 2fr) 9rem minmax(11rem, 1fr); align-items: center; gap: .7rem; }
+.admin-bookmark-import-columns { margin-top: .75rem; border-bottom: 1px solid var(--line); color: var(--muted-ink); padding: .45rem .65rem; font-size: .58rem; font-weight: 820; letter-spacing: .06em; }
+.admin-bookmark-import-list { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.admin-bookmark-import-row { min-height: 3.8rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 72%, transparent); padding: .45rem .65rem; cursor: pointer; content-visibility: auto; contain-intrinsic-size: 3.8rem; }
+.admin-bookmark-import-row:hover { background: color-mix(in srgb, var(--brand) 6%, transparent); }
+.admin-bookmark-import-row.is-invalid { cursor: not-allowed; opacity: .72; }
+.admin-bookmark-import-check { display: grid; place-items: center; }
+.admin-bookmark-import-check input { width: 1rem; height: 1rem; accent-color: var(--brand); }
+.admin-bookmark-import-copy { min-width: 0; }
+.admin-bookmark-import-copy strong,
+.admin-bookmark-import-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-bookmark-import-copy strong { color: var(--ink); font-size: .72rem; }
+.admin-bookmark-import-copy small { margin-top: .18rem; color: var(--muted-ink); font-size: .59rem; }
+.admin-bookmark-import-category { overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--brand) 9%, transparent); color: var(--brand); padding: .28rem .48rem; font-size: .58rem; font-weight: 760; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.admin-bookmark-import-result { font-size: .61rem; line-height: 1.45; }
+.admin-bookmark-import-result.is-valid { color: #17864b; }
+.admin-bookmark-import-result.is-warning { color: #a36b08; }
+.admin-bookmark-import-result.is-invalid { color: #c2414b; }
+.admin-bookmark-import-empty { display: grid; min-height: 12rem; place-items: center; color: var(--muted-ink); font-size: .72rem; }
+.admin-bookmark-import-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--line); padding-top: .8rem; }
+.admin-bookmark-import-actions p { color: var(--muted-ink); font-size: .65rem; }
+.admin-bookmark-import-actions > div { display: flex; gap: .5rem; }
+.admin-bookmark-import-actions button:disabled { cursor: not-allowed; opacity: .45; }
+@media (max-width: 760px) {
+  .admin-bookmark-import-dialog { width: calc(100vw - 1rem); max-height: calc(100dvh - 1rem); }
+  .admin-bookmark-import-panel { height: calc(100dvh - 1rem); padding: .85rem; }
+  .admin-bookmark-import-toolbar { grid-template-columns: 1fr 1fr; }
+  .admin-bookmark-import-columns { display: none; }
+  .admin-bookmark-import-list { margin-top: .65rem; border-top: 1px solid var(--line); }
+  .admin-bookmark-import-row { grid-template-columns: 2rem minmax(0, 1fr); gap: .3rem .55rem; padding: .65rem .35rem; }
+  .admin-bookmark-import-check { grid-row: 1 / span 3; }
+  .admin-bookmark-import-category,
+  .admin-bookmark-import-result { grid-column: 2; width: fit-content; max-width: 100%; }
+  .admin-bookmark-import-actions { align-items: stretch; flex-direction: column; }
+  .admin-bookmark-import-actions > div { display: grid; grid-template-columns: 1fr 1fr; }
+}
 .admin-media-picker::backdrop {
   background: rgba(8, 13, 24, 0.48);
   backdrop-filter: blur(10px);

@@ -123,6 +123,48 @@ export function parseJsonBookmarks(source) {
   return items.slice(0, MAX_BOOKMARKS);
 }
 
+function bookmarkUrlIssue(value) {
+  const url = String(value || '').trim();
+  if (!url) return '链接为空';
+  if (url.length > 500) return '链接超过 500 个字符';
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url);
+      return ['http:', 'https:'].includes(parsed.protocol) && parsed.hostname ? '' : '网址格式无效';
+    } catch { return '网址格式无效'; }
+  }
+  if (/^(mailto:|tel:)/i.test(url)) return url.includes(':') && url.split(':').slice(1).join(':').trim() ? '' : '链接内容为空';
+  if (/^(\/|#)/.test(url)) return '';
+  return '不支持此链接协议';
+}
+
+export function validateBookmarkItems(bookmarks, existingUrls = []) {
+  const existing = new Set((Array.isArray(existingUrls) ? existingUrls : []).map((value) => String(value || '').trim().toLowerCase()).filter(Boolean));
+  const seen = new Set();
+  return (Array.isArray(bookmarks) ? bookmarks : []).map((bookmark, index) => {
+    const item = normalizeItem(bookmark, bookmark?.category) || {
+      title: String(bookmark?.title || '').trim(),
+      url: String(bookmark?.url || bookmark?.uri || '').trim(),
+      description: String(bookmark?.description || '').trim(),
+      category: String(bookmark?.category || DEFAULT_CATEGORY).trim() || DEFAULT_CATEGORY,
+      icon: '◇',
+    };
+    const issues = [];
+    const warnings = [];
+    const key = item.url.toLowerCase();
+    if (!item.title) issues.push('标题为空');
+    const urlIssue = bookmarkUrlIssue(item.url);
+    if (urlIssue) issues.push(urlIssue);
+    if (key && existing.has(key)) issues.push('博客中已存在');
+    if (key && seen.has(key)) issues.push('文件内重复');
+    if (key) seen.add(key);
+    if (item.title.length > 80) warnings.push('标题将截取前 80 字');
+    if (item.description.length > 300) warnings.push('描述将截取前 300 字');
+    if (item.category.length > 40) warnings.push('分类将截取前 40 字');
+    const valid = issues.length === 0;
+    return { ...item, index, valid, selected: valid, issues, warnings };
+  });
+}
 function escapeHtml(value = '') {
   return String(value).replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
