@@ -1,3 +1,5 @@
+import { createNetscapeBookmarkFile, parseBrowserBookmarks } from './bookmark-import.js';
+
 (() => {
   const root = document.querySelector('.admin-shell');
   const apiBase = root?.dataset.apiBase || '/api';
@@ -279,7 +281,7 @@
       actions.insertAdjacentHTML('afterbegin', `
         <button id="navigation-import" class="btn btn-sm rounded-xl" type="button">导入书签</button>
         <button id="navigation-export" class="btn btn-sm rounded-xl" type="button">导出书签</button>
-        <input id="navigation-import-file" type="file" accept=".html,.htm,text/html" hidden />
+        <input id="navigation-import-file" type="file" accept=".html,.htm,.json,text/html,application/json" hidden />
       `);
     }
 
@@ -415,56 +417,32 @@
     list.addEventListener('dragend', () => list.querySelector('.is-dragging')?.classList.remove('is-dragging'));
   }
 
-  function bookmarkCategory(anchor) {
-    let node = anchor.parentElement;
-    while (node) {
-      if (node.tagName === 'DL') {
-        const heading = node.previousElementSibling;
-        if (heading?.tagName === 'H3' && heading.textContent?.trim()) return heading.textContent.trim();
-      }
-      node = node.parentElement;
-    }
-    return '导入书签';
-  }
-
   async function importNavigationBookmarks(file) {
     const source = await file.text();
-    const documentHtml = new DOMParser().parseFromString(source, 'text/html');
-    const items = Array.from(documentHtml.querySelectorAll('a[href]')).slice(0, 500).map((anchor) => ({
-      title: anchor.textContent?.trim() || anchor.getAttribute('href'),
-      url: anchor.getAttribute('href'),
-      category: bookmarkCategory(anchor),
-      icon: '◇',
-    }));
-    if (!items.length) throw new Error('没有从文件中识别到书签');
-    const json = await api('/admin/navigation/import', { method: 'POST', body: JSON.stringify({ items }) });
+    const items = parseBrowserBookmarks(source, file.name);
+    let imported = 0;
+    let skipped = 0;
+    const batchSize = 400;
+    for (let index = 0; index < items.length; index += batchSize) {
+      const batch = items.slice(index, index + batchSize);
+      const json = await api('/admin/navigation/import', { method: 'POST', body: JSON.stringify({ items: batch }) });
+      imported += Number(json.data?.imported || 0);
+      skipped += Number(json.data?.skipped || 0);
+    }
     await loadNavigation();
-    window.notifyAdmin?.(`已导入 ${json.data?.imported || 0} 个，跳过 ${json.data?.skipped || 0} 个`);
+    const limited = items.length >= 5000 ? '，已达到单次 5000 条上限' : '';
+    window.notifyAdmin?.(`识别 ${items.length} 个书签，导入 ${imported} 个，跳过 ${skipped} 个${limited}`);
   }
-
   function exportNavigationBookmarks() {
-    const groups = new Map();
-    state.navigation.forEach((item) => {
-      const category = item.category || '默认';
-      if (!groups.has(category)) groups.set(category, []);
-      groups.get(category).push(item);
-    });
-    const body = Array.from(groups.entries()).map(([category, items]) => `
-      <DT><H3>${html(category)}</H3>
-      <DL><p>
-        ${items.map((item) => `<DT><A HREF="${html(item.url)}">${html(item.title)}</A>${item.description ? `<DD>${html(item.description)}` : ''}`).join('\n')}
-      </DL><p>
-    `).join('\n');
-    const content = `<!DOCTYPE NETSCAPE-Bookmark-file-1>\n<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">\n<TITLE>博客导航书签</TITLE>\n<H1>博客导航书签</H1>\n<DL><p>${body}</DL><p>`;
+    const content = createNetscapeBookmarkFile(state.navigation, { title: '博客导航书签' });
     const url = URL.createObjectURL(new Blob([content], { type: 'text/html;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `blog-navigation-${new Date().toISOString().slice(0, 10)}.html`;
+    link.download = `bookmarks_${new Date().toISOString().slice(0, 10).replaceAll('-', '_')}.html`;
     link.click();
     URL.revokeObjectURL(url);
-    window.notifyAdmin?.('导航书签已导出');
+    window.notifyAdmin?.('已导出浏览器兼容书签文件');
   }
-
   function renderAlbumCollection() {
     const list = $('#albums-list');
     if (!list) return;

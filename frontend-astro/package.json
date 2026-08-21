@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev --host 127.0.0.1 --port 3000",
     "build": "astro check && astro build",
+    "test:bookmarks": "node ./scripts/test-bookmark-import.mjs",
     "preview": "astro preview --host 127.0.0.1 --port 3000",
     "start": "node ./dist/server/entry.mjs"
   },
