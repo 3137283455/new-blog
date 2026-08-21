@@ -1,18 +1,10 @@
 ---
 import BaseLayout from '@layouts/BaseLayout.astro'
-import { getNavigationLinks, getPublicSettings } from '../lib/api'
+import { getNavigationLinks } from '../lib/api'
 import { resolveUploadUrl, uploadBase } from '../lib/media'
 
-const [navigationLinks, publicSettings] = await Promise.all([getNavigationLinks(), getPublicSettings()])
+const navigationLinks = await getNavigationLinks()
 const links = navigationLinks.filter((item) => item.is_active !== 0 && item.is_active !== false)
-const defaultSearchEngines = [
-  { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
-  { id: 'bing', name: 'Bing', mark: 'B', url: 'https://www.bing.com/search?q={query}' },
-]
-const searchEngines = Array.isArray(publicSettings.nav_search_engines) && publicSettings.nav_search_engines.length
-  ? publicSettings.nav_search_engines
-  : defaultSearchEngines
-const initialSearchEngine = searchEngines[0]
 const categories = Array.from(new Set(links.map((item) => item.category || '常用'))).filter(Boolean)
 const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 const normalizeUrl = (url: string) => {
@@ -34,47 +26,6 @@ const getFavicon = (url: string) => {
 
 <BaseLayout title="导航" subtitle="你的每日网络起点" showBanner={false} showSidebar={false} wide hideFooter>
   <section class="start-page" data-api-base={apiBase} data-upload-base={uploadBase}>
-    <header class="start-hero">
-      <div class="start-greeting">
-        <p id="start-date">今天</p>
-        <h1><span id="start-greeting">你好</span>，准备去哪里？</h1>
-        <p>搜索互联网，或者从收藏的站点继续出发。</p>
-      </div>
-      <time id="start-clock" class="start-clock" aria-label="当前时间">--:--</time>
-    </header>
-
-    <form id="web-search" class="web-search" role="search">
-      <button id="search-engine-trigger" class="search-engine-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-        <span id="search-engine-mark">{initialSearchEngine.mark || initialSearchEngine.name.slice(0, 1)}</span><span id="search-engine-name">{initialSearchEngine.name}</span>
-      </button>
-      <div id="search-engine-menu" class="search-engine-menu" role="listbox" aria-label="选择搜索引擎" hidden>
-        {searchEngines.map((engine, index) => (
-          <button
-            id={`search-engine-option-${engine.id}`}
-            type="button"
-            role="option"
-            aria-selected={index === 0 ? 'true' : 'false'}
-            data-engine={engine.id}
-            data-mark={engine.mark || engine.name.slice(0, 1)}
-            data-name={engine.name}
-            data-url={engine.url}
-          ><span><b>{engine.mark || engine.name.slice(0, 1)}</b>{engine.name}</span><i aria-hidden="true">✓</i></button>
-        ))}
-      </div>
-      <label>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
-        <input id="web-search-input" type="search" placeholder="搜索互联网" autocomplete="off" />
-      </label>
-      <button class="web-search-submit" type="submit" aria-label="搜索">搜索 <span>↗</span></button>
-    </form>
-
-    <section id="search-memory" class="search-memory" aria-label="搜索记录">
-      <div><header><span>常用搜索</span></header><div id="common-searches" class="search-memory-chips"><small>重复搜索的关键词会出现在这里</small></div></div>
-      <div><header><span>搜索记录</span><button id="clear-search-history" type="button">清除</button></header><div id="search-history" class="search-memory-chips"><small>还没有搜索记录</small></div></div>
-    </section>
-
-    <section id="hub-search-results" class="hub-search-results" hidden aria-live="polite"></section>
-
     <section id="recent-section" class="start-recent" hidden>
       <header><p><span></span>最近访问</p><button id="clear-recents" type="button">清除</button></header>
       <div id="recent-links" class="recent-links"></div>
@@ -147,8 +98,6 @@ const getFavicon = (url: string) => {
     type NavItem = { id?: number; title?: string; url?: string; description?: string; category?: string; icon?: string; avatar?: string; workspace?: string; is_active?: number | boolean }
     type RecentItem = { id: string; title: string; href: string; icon: string; visitedAt: number }
     type UsageItem = { count: number; lastVisited: number }
-    type SearchMemoryItem = { query: string; count: number; lastUsed: number }
-    type HubItem = { id: string; kind: string; kind_label: string; title: string; subtitle?: string; href: string; image?: string; meta?: string }
     const board = document.querySelector<HTMLElement>('.start-page')
     const grid = document.getElementById('nav-grid')
     const input = document.getElementById('nav-filter') as HTMLInputElement | null
@@ -163,7 +112,6 @@ const getFavicon = (url: string) => {
     const USAGE_KEY = 'boke-nav-usage-v1'
     const SORT_KEY = 'boke-nav-sort-v1'
     const WORKSPACE_KEY = 'boke-nav-workspace-v1'
-    const SEARCH_MEMORY_KEY = 'boke-nav-search-memory-v1'
     let activeCategory = 'all'
     let favoritesOnly = false
 
@@ -173,124 +121,6 @@ const getFavicon = (url: string) => {
     const resolveMedia = (src?: string) => src?.startsWith('/uploads/') ? `${mediaBase}${src}` : (src || '')
     const readStorage = <T,>(key: string, fallback: T): T => { try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback } }
     const getFavorites = () => new Set(readStorage<string[]>(FAVORITES_KEY, []))
-
-    function updateClock() {
-      const now = new Date()
-      const hour = now.getHours()
-      const greeting = hour < 6 ? '夜深了' : hour < 11 ? '早上好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好'
-      const clock = document.getElementById('start-clock')
-      const greetingEl = document.getElementById('start-greeting')
-      const date = document.getElementById('start-date')
-      if (clock) clock.textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
-      if (greetingEl) greetingEl.textContent = greeting
-      if (date) date.textContent = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })
-    }
-
-    function initWebSearch() {
-      const form = document.getElementById('web-search') as HTMLFormElement | null
-      const webInput = document.getElementById('web-search-input') as HTMLInputElement | null
-      const trigger = document.getElementById('search-engine-trigger') as HTMLButtonElement | null
-      const menu = document.getElementById('search-engine-menu')
-      const mark = document.getElementById('search-engine-mark')
-      const name = document.getElementById('search-engine-name')
-      const results = document.getElementById('hub-search-results')
-      const commonSearches = document.getElementById('common-searches')
-      const searchHistory = document.getElementById('search-history')
-      let searchUrl = ''
-      let activeEngine = ''
-      let timer = 0
-      let controller: AbortController | null = null
-      const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-engine]'))
-      const isSiteSearch = () => searchUrl === 'site:'
-      const getSearchMemory = () => readStorage<SearchMemoryItem[]>(SEARCH_MEMORY_KEY, []).filter((item) => item?.query)
-      const renderSearchMemory = () => {
-        const items = getSearchMemory().sort((left, right) => right.lastUsed - left.lastUsed)
-        const common = [...items].filter((item) => item.count > 1).sort((left, right) => right.count - left.count || right.lastUsed - left.lastUsed).slice(0, 5)
-        if (commonSearches) commonSearches.innerHTML = common.length ? common.map((item) => `<button type="button" data-search-memory="${escapeHtml(item.query)}">${escapeHtml(item.query)}<small>${item.count} 次</small></button>`).join('') : '<small>重复搜索的关键词会出现在这里</small>'
-        if (searchHistory) searchHistory.innerHTML = items.length ? items.slice(0, 8).map((item) => `<button type="button" data-search-memory="${escapeHtml(item.query)}">${escapeHtml(item.query)}</button>`).join('') : '<small>还没有搜索记录</small>'
-      }
-      const recordSearch = (query: string) => {
-        const normalized = query.trim().replace(/\s+/g, ' ').slice(0, 100)
-        if (!normalized) return
-        const items = getSearchMemory()
-        const existing = items.find((item) => item.query.toLowerCase() === normalized.toLowerCase())
-        if (existing) { existing.query = normalized; existing.count = Number(existing.count || 0) + 1; existing.lastUsed = Date.now() }
-        else items.push({ query: normalized, count: 1, lastUsed: Date.now() })
-        localStorage.setItem(SEARCH_MEMORY_KEY, JSON.stringify(items.sort((left, right) => right.lastUsed - left.lastUsed).slice(0, 30)))
-        renderSearchMemory()
-      }
-      const renderResults = (items: HubItem[], query: string) => {
-        if (!results) return
-        results.hidden = false
-        results.innerHTML = items.length
-          ? `<header><span>我的内容</span><small>${items.length} 个结果</small></header><div>${items.map((item) => { const href = normalizeUrl(item.href); const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''; return `<a href="${escapeHtml(href)}"${external}><span class="hub-result-kind">${escapeHtml(item.kind_label)}</span><span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.subtitle || item.meta || '')}</small></span><b>↗</b></a>` }).join('')}</div>`
-          : `<p>没有找到“${escapeHtml(query)}”，换个关键词试试。</p>`
-      }
-      const searchSite = (query: string) => {
-        window.clearTimeout(timer)
-        controller?.abort()
-        if (!query) { if (results) { results.hidden = true; results.innerHTML = '' }; return }
-        timer = window.setTimeout(async () => {
-          controller = new AbortController()
-          if (results) { results.hidden = false; results.innerHTML = '<p>正在翻找你的内容…</p>' }
-          try {
-            const response = await fetch(`${apiBase}/search/all?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal })
-            if (!response.ok) throw new Error()
-            const json = await response.json()
-            renderResults((json.data?.results || []) as HubItem[], query)
-          } catch (error) {
-            if ((error as Error)?.name !== 'AbortError' && results) results.innerHTML = '<p>搜索暂时不可用，请稍后再试。</p>'
-          }
-        }, 180)
-      }
-      const runSearch = (query: string) => {
-        const normalized = query.trim()
-        if (!normalized) return
-        recordSearch(normalized)
-        if (webInput) webInput.value = normalized
-        if (isSiteSearch()) searchSite(normalized)
-        else location.href = searchUrl.replace('{query}', encodeURIComponent(normalized))
-      }
-      const choose = (option: HTMLButtonElement, focusInput = true) => {
-        activeEngine = option.dataset.engine || ''
-        searchUrl = option.dataset.url || ''
-        if (mark) mark.textContent = option.dataset.mark || '⌕'
-        if (name) name.textContent = option.dataset.name || '搜索'
-        if (webInput) webInput.placeholder = isSiteSearch() ? '搜索博客内容' : `使用 ${option.dataset.name || '搜索引擎'} 搜索`
-        if (!isSiteSearch() && results) { results.hidden = true; results.innerHTML = '' }
-        options.forEach((item) => {
-          const selected = item === option
-          item.classList.toggle('is-selected', selected)
-          item.setAttribute('aria-selected', String(selected))
-        })
-        localStorage.setItem('boke-search-engine', activeEngine)
-        menu?.setAttribute('hidden', '')
-        trigger?.setAttribute('aria-expanded', 'false')
-        if (focusInput) webInput?.focus()
-        if (isSiteSearch()) searchSite(webInput?.value.trim() || '')
-      }
-      const closeMenu = (returnFocus = false) => { menu?.setAttribute('hidden', ''); trigger?.setAttribute('aria-expanded', 'false'); if (returnFocus) trigger?.focus() }
-      const openMenu = () => { menu?.removeAttribute('hidden'); trigger?.setAttribute('aria-expanded', 'true'); requestAnimationFrame(() => (options.find((item) => item.classList.contains('is-selected')) || options[0])?.focus()) }
-      const moveOptionFocus = (current: HTMLButtonElement, direction: number) => {
-        const index = options.indexOf(current)
-        options[(index + direction + options.length) % options.length]?.focus()
-      }
-      choose(options.find((item) => item.dataset.engine === localStorage.getItem('boke-search-engine')) || options[0], false)
-      trigger?.addEventListener('click', () => menu?.hasAttribute('hidden') ? openMenu() : closeMenu())
-      trigger?.addEventListener('keydown', (event) => { if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); openMenu() } })
-      options.forEach((option) => option.addEventListener('click', () => choose(option)))
-      options.forEach((option) => option.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); moveOptionFocus(option, event.key === 'ArrowDown' ? 1 : -1) }
-        if (event.key === 'Home' || event.key === 'End') { event.preventDefault(); options[event.key === 'Home' ? 0 : options.length - 1]?.focus() }
-        if (event.key === 'Escape') { event.preventDefault(); closeMenu(true) }
-      }))
-      webInput?.addEventListener('input', () => { if (isSiteSearch()) searchSite(webInput.value.trim()) })
-      form?.addEventListener('submit', (event) => { event.preventDefault(); const query = webInput?.value.trim(); if (!query) return; recordSearch(query); if (isSiteSearch()) searchSite(query); else location.href = searchUrl.replace('{query}', encodeURIComponent(query)) })
-      document.getElementById('search-memory')?.addEventListener('click', (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-search-memory]'); if (button?.dataset.searchMemory) runSearch(button.dataset.searchMemory) })
-      document.getElementById('clear-search-history')?.addEventListener('click', () => { localStorage.removeItem(SEARCH_MEMORY_KEY); renderSearchMemory() })
-      document.addEventListener('click', (event) => { if (!form?.contains(event.target as Node)) closeMenu() })
-      renderSearchMemory()
-    }
 
     function renderCard(item: NavItem, index: number) {
       const href = normalizeUrl(item.url); const host = getHost(item.url); const category = item.category || '常用'; const fallbackFavicon = href.startsWith('http') ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64` : ''; const avatar = resolveMedia(item.avatar) || fallbackFavicon; const title = item.title || host || '未命名资源'
@@ -354,7 +184,7 @@ const getFavicon = (url: string) => {
     const navWorkspace = document.getElementById('nav-workspace') as HTMLSelectElement | null
     if (navSort) navSort.value = localStorage.getItem(SORT_KEY) || 'original'
     if (navWorkspace) navWorkspace.value = localStorage.getItem(WORKSPACE_KEY) || 'all'
-    updateClock(); window.setInterval(updateClock, 30000); initWebSearch(); renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
+    renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
     input?.addEventListener('input', applyFilter)
     favoritesButton?.addEventListener('click', () => { favoritesOnly = !favoritesOnly; favoritesButton.classList.toggle('is-active', favoritesOnly); favoritesButton.setAttribute('aria-pressed', String(favoritesOnly)); applyFilter() })
     document.getElementById('density-toggle')?.addEventListener('click', () => { const compact = grid?.classList.toggle('is-compact') || false; localStorage.setItem('boke-nav-compact', String(compact)) })

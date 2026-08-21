@@ -10,6 +10,13 @@ const { immersive = false } = Astro.props
 
 const publicSettings = await getPublicSettings()
 const brandAvatar = resolveUploadUrl(publicSettings.profile_avatar || '/profile.webp')
+const defaultSearchEngines = [
+  { id: 'site', name: '站内搜索', mark: '⌕', url: 'site:' },
+  { id: 'bing', name: 'Bing', mark: 'B', url: 'https://www.bing.com/search?q={query}' },
+]
+const searchEngines = Array.isArray(publicSettings.nav_search_engines) && publicSettings.nav_search_engines.length
+  ? publicSettings.nav_search_engines
+  : defaultSearchEngines
 const primaryItems = [
   { href: '/', label: '文章' },
   { href: '/archive', label: '归档' },
@@ -96,9 +103,23 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
   <section class="command-dialog" role="dialog" aria-modal="true" aria-label="快速搜索">
     <header>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
-      <input id="command-input" type="search" placeholder="搜索文章、网址、追番、相册和音乐…" autocomplete="off" />
+      <input id="command-input" type="search" placeholder="搜索博客内容" autocomplete="off" />
       <kbd>ESC</kbd>
     </header>
+    <div class="command-engines" role="listbox" aria-label="选择搜索引擎">
+      {searchEngines.map((engine, index) => (
+        <button
+          type="button"
+          role="option"
+          class:list={[index === 0 && 'is-selected']}
+          aria-selected={index === 0 ? 'true' : 'false'}
+          data-command-engine={engine.id}
+          data-command-name={engine.name}
+          data-command-mark={engine.mark || engine.name.slice(0, 1)}
+          data-command-url={engine.url}
+        ><b>{engine.mark || engine.name.slice(0, 1)}</b><span>{engine.name}</span></button>
+      ))}
+    </div>
     <div id="command-results" class="command-results">
       <p>快速前往</p>
       {[...primaryItems, ...secondaryItems].map((item) => (
@@ -107,10 +128,19 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
         </a>
       ))}
     </div>
+    <section class="command-memory" id="command-memory" aria-label="搜索记录">
+      <div>
+        <header><span>常用搜索</span></header>
+        <div id="command-common-searches" class="command-memory-chips"><small>重复搜索后会出现在这里</small></div>
+      </div>
+      <div>
+        <header><span>搜索记录</span><button id="command-clear-history" type="button">清除</button></header>
+        <div id="command-search-history" class="command-memory-chips"><small>还没有搜索记录</small></div>
+      </div>
+    </section>
     <footer><span>↑↓ 选择</span><span>Enter 打开</span><span>Esc 关闭</span></footer>
   </section>
 </div>
-
 <script is:inline>
   function initPublicNavigation() {
     const adaptiveNav = document.querySelector('[data-adaptive-nav]');
@@ -159,23 +189,136 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
     const trigger = document.getElementById('command-trigger');
     const input = document.getElementById('command-input');
     const staticResults = document.getElementById('command-results');
+    const commonSearches = document.getElementById('command-common-searches');
+    const searchHistory = document.getElementById('command-search-history');
+    const clearHistory = document.getElementById('command-clear-history');
     if (!backdrop || !input || !staticResults || backdrop.dataset.ready) return;
     backdrop.dataset.ready = 'true';
+    const memoryKey = 'boke-nav-search-memory-v1';
+    const engineKey = 'boke-search-engine';
+    const engineButtons = Array.from(backdrop.querySelectorAll('[data-command-engine]'));
     let timer;
     let controller;
     let activeIndex = -1;
+    let searchUrl = 'site:';
+    let activeEngine = '';
     const defaultMarkup = staticResults.innerHTML;
-    const close = () => { backdrop.hidden = true; document.body.classList.remove('command-open'); input.value = ''; staticResults.innerHTML = defaultMarkup; activeIndex = -1; };
-    const open = () => { backdrop.hidden = false; document.body.classList.add('command-open'); activeIndex = -1; requestAnimationFrame(() => input.focus()); };
+    const escape = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const normalize = (value) => /^(https?:|mailto:|tel:|#|\/)/i.test(String(value || '')) ? String(value || '#') : `https://${value}`;
+    const isSiteSearch = () => searchUrl === 'site:';
+    const readMemory = () => {
+      try { return JSON.parse(localStorage.getItem(memoryKey) || '[]').filter((item) => item?.query); }
+      catch { return []; }
+    };
+    const renderMemory = () => {
+      const items = readMemory().sort((left, right) => Number(right.lastUsed || 0) - Number(left.lastUsed || 0));
+      const common = [...items].filter((item) => Number(item.count || 0) > 1).sort((left, right) => Number(right.count || 0) - Number(left.count || 0) || Number(right.lastUsed || 0) - Number(left.lastUsed || 0)).slice(0, 6);
+      if (commonSearches) commonSearches.innerHTML = common.length ? common.map((item) => `<button type="button" data-command-memory="${escape(item.query)}"><span>${escape(item.query)}</span><small>${Number(item.count || 0)} 次</small></button>`).join('') : '<small>重复搜索后会出现在这里</small>';
+      if (searchHistory) searchHistory.innerHTML = items.length ? items.slice(0, 8).map((item) => `<button type="button" data-command-memory="${escape(item.query)}"><span>${escape(item.query)}</span></button>`).join('') : '<small>还没有搜索记录</small>';
+    };
+    const recordSearch = (value) => {
+      const query = String(value || '').trim().replace(/\s+/g, ' ').slice(0, 100);
+      if (!query) return;
+      const items = readMemory();
+      const existing = items.find((item) => String(item.query).toLowerCase() === query.toLowerCase());
+      if (existing) { existing.query = query; existing.count = Number(existing.count || 0) + 1; existing.lastUsed = Date.now(); }
+      else items.push({ query, count: 1, lastUsed: Date.now() });
+      localStorage.setItem(memoryKey, JSON.stringify(items.sort((left, right) => right.lastUsed - left.lastUsed).slice(0, 30)));
+      renderMemory();
+    };
+    const renderExternalPrompt = (query) => {
+      const engine = engineButtons.find((button) => button.dataset.commandEngine === activeEngine);
+      const engineName = engine?.dataset.commandName || '当前搜索引擎';
+      staticResults.innerHTML = query
+        ? `<p>网页搜索</p><button class="command-web-submit" type="button" data-command-submit><span>使用 ${escape(engineName)} 搜索“${escape(query)}”</span><small>↗</small></button>`
+        : defaultMarkup;
+    };
+    const renderSiteResults = (items, query) => {
+      staticResults.innerHTML = items.length
+        ? `<p>博客内容</p>${items.map((item) => { const href = normalize(item.href); const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''; return `<a href="${escape(href)}"${external}><span>${escape(item.title)}</span><small>${escape(item.kind_label || '打开')}</small></a>`; }).join('')}`
+        : `<p>没有找到“${escape(query)}”</p><a href="/search?q=${encodeURIComponent(query)}"><span>打开完整站内搜索</span><small>↗</small></a>`;
+    };
+    const searchSite = (query) => {
+      window.clearTimeout(timer);
+      controller?.abort();
+      activeIndex = -1;
+      if (!query) { staticResults.innerHTML = defaultMarkup; return; }
+      timer = window.setTimeout(async () => {
+        controller = new AbortController();
+        staticResults.innerHTML = '<p>正在搜索博客内容…</p>';
+        try {
+          const response = await fetch(`${window.__PUBLIC_API_BASE__ || '/api'}/search/all?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal });
+          if (!response.ok) throw new Error('search failed');
+          const json = await response.json();
+          renderSiteResults(json.data?.results || [], query);
+        } catch (error) {
+          if (error?.name !== 'AbortError') staticResults.innerHTML = '<p>搜索暂时不可用，请稍后再试</p>';
+        }
+      }, 180);
+    };
+    const buildSearchUrl = (query) => searchUrl.includes('{query}')
+      ? searchUrl.replace('{query}', encodeURIComponent(query))
+      : `${searchUrl}${searchUrl.includes('?') ? '&' : '?'}q=${encodeURIComponent(query)}`;
+    const runSearch = (value) => {
+      const query = String(value || '').trim();
+      if (!query) return;
+      recordSearch(query);
+      input.value = query;
+      if (isSiteSearch()) searchSite(query);
+      else window.location.assign(buildSearchUrl(query));
+    };
+    const chooseEngine = (button, focusInput = true) => {
+      activeEngine = button.dataset.commandEngine || '';
+      searchUrl = button.dataset.commandUrl || 'site:';
+      engineButtons.forEach((item) => {
+        const selected = item === button;
+        item.classList.toggle('is-selected', selected);
+        item.setAttribute('aria-selected', String(selected));
+      });
+      localStorage.setItem(engineKey, activeEngine);
+      input.placeholder = isSiteSearch() ? '搜索博客内容' : `使用 ${button.dataset.commandName || '搜索引擎'} 搜索`;
+      const query = input.value.trim();
+      if (isSiteSearch()) searchSite(query); else renderExternalPrompt(query);
+      if (focusInput) input.focus();
+    };
+    const close = () => {
+      controller?.abort();
+      backdrop.hidden = true;
+      document.body.classList.remove('command-open');
+      input.value = '';
+      staticResults.innerHTML = defaultMarkup;
+      activeIndex = -1;
+    };
+    const open = () => {
+      backdrop.hidden = false;
+      document.body.classList.add('command-open');
+      activeIndex = -1;
+      renderMemory();
+      requestAnimationFrame(() => input.focus());
+    };
+    const selectableItems = () => Array.from(staticResults.querySelectorAll('a, button[data-command-submit]'));
     const moveSelection = (direction) => {
-      const items = Array.from(staticResults.querySelectorAll('a'));
+      const items = selectableItems();
       if (!items.length) return;
       activeIndex = (activeIndex + direction + items.length) % items.length;
       items.forEach((item, index) => item.classList.toggle('is-selected', index === activeIndex));
       items[activeIndex]?.scrollIntoView({ block: 'nearest' });
     };
+    const storedEngine = localStorage.getItem(engineKey);
+    chooseEngine(engineButtons.find((button) => button.dataset.commandEngine === storedEngine) || engineButtons[0], false);
+    engineButtons.forEach((button) => button.addEventListener('click', () => chooseEngine(button)));
     trigger?.addEventListener('click', open);
     backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(); });
+    staticResults.addEventListener('click', (event) => {
+      const submit = event.target.closest('[data-command-submit]');
+      if (submit) { event.preventDefault(); runSearch(input.value); return; }
+      if (event.target.closest('a') && input.value.trim()) recordSearch(input.value);
+    });
+    document.getElementById('command-memory')?.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-command-memory]');
+      if (button?.dataset.commandMemory) runSearch(button.dataset.commandMemory);
+    });
+    clearHistory?.addEventListener('click', () => { localStorage.removeItem(memoryKey); renderMemory(); });
     document.addEventListener('keydown', (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); backdrop.hidden ? open() : close(); }
       if (event.key === 'Escape' && !backdrop.hidden) close();
@@ -186,31 +329,17 @@ const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.st
         moveSelection(event.key === 'ArrowDown' ? 1 : -1);
       }
       if (event.key === 'Enter') {
-        const items = Array.from(staticResults.querySelectorAll('a'));
-        const target = items[activeIndex] || items[0];
+        const items = selectableItems();
+        const target = activeIndex >= 0 ? items[activeIndex] : items[0];
         if (target) { event.preventDefault(); target.click(); }
+        else if (input.value.trim()) { event.preventDefault(); runSearch(input.value); }
       }
     });
     input.addEventListener('input', () => {
-      window.clearTimeout(timer);
-      activeIndex = -1;
       const query = input.value.trim();
-      if (!query) { staticResults.innerHTML = defaultMarkup; return; }
-      timer = window.setTimeout(async () => {
-        controller?.abort();
-        controller = new AbortController();
-        staticResults.innerHTML = '<p>正在搜索…</p>';
-        try {
-          const response = await fetch(`${window.__PUBLIC_API_BASE__ || '/api'}/search/all?q=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal });
-          const json = await response.json();
-          const items = json.data?.results || [];
-          const escape = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-          const normalize = (value) => /^(https?:|mailto:|tel:|#|\/)/i.test(String(value || '')) ? String(value || '#') : `https://${value}`;
-          staticResults.innerHTML = items.length ? `<p>全部内容</p>${items.map((item) => { const href = normalize(item.href); const external = href.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : ''; return `<a href="${escape(href)}"${external}><span>${escape(item.title)}</span><small>${escape(item.kind_label || '打开')}</small></a>`; }).join('')}` : `<p>没有找到“${escape(query)}”</p><a href="/search?q=${encodeURIComponent(query)}"><span>搜索博客文章</span><small>↗</small></a>`;
-        } catch (error) { if (error?.name !== 'AbortError') staticResults.innerHTML = '<p>搜索暂时不可用</p>'; }
-      }, 180);
+      activeIndex = -1;
+      if (isSiteSearch()) searchSite(query); else renderExternalPrompt(query);
     });
-
     const installButton = document.getElementById('install-app');
     if (installButton && !installButton.dataset.boundInstall) {
       installButton.dataset.boundInstall = 'true';
