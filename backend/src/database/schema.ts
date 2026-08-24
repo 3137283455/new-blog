@@ -672,6 +672,50 @@ export function migrate() {
     // Legacy settings may be empty or malformed; keep migration non-blocking.
   }
 
+  try {
+    const legacyVolumes = db.prepare(`
+      SELECT v.* FROM book_volumes v
+      WHERE v.deleted_at IS NULL
+        AND trim(v.title) IN ('正文', '全文', '全书', '未分卷')
+        AND (SELECT COUNT(*) FROM book_volumes sibling WHERE sibling.book_id = v.book_id AND sibling.deleted_at IS NULL) = 1
+    `).all() as any[]
+    const markerPattern = /(?:第\s*[0-9一二三四五六七八九十百零〇两]+\s*卷|卷\s*[0-9一二三四五六七八九十百零〇两]+|\bvol(?:ume)?[.\s_-]*\d+\b)/i
+    const volumeSlug = (bookId: number, title: string, excludeId = 0) => {
+      const base = String(title || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'volume'
+      let slug = base, index = 2
+      while (db.prepare('SELECT 1 FROM book_volumes WHERE book_id = ? AND slug = ? AND id != ?').get(bookId, slug, excludeId)) slug = `${base}-${index++}`
+      return slug
+    }
+    const repairLegacyVolume = db.transaction((volume: any) => {
+      const chapters = db.prepare('SELECT id, title FROM book_chapters WHERE volume_id = ? ORDER BY sort_order, id').all(volume.id) as any[]
+      const markers = chapters.map((chapter, index) => markerPattern.test(String(chapter.title || '')) ? index : -1).filter(index => index >= 0)
+      if (!markers.length) return false
+      const groups = markers.map((markerIndex, index) => ({
+        title: String(chapters[markerIndex].title || `第 ${index + 1} 卷`),
+        chapters: chapters.slice(index === 0 ? 0 : markerIndex, markers[index + 1] ?? chapters.length),
+      }))
+      db.prepare("UPDATE book_volumes SET title = ?, slug = ?, updated_at = datetime('now') WHERE id = ?")
+        .run(groups[0].title, volumeSlug(volume.book_id, groups[0].title, volume.id), volume.id)
+      groups.forEach((group, groupIndex) => {
+        let targetId = Number(volume.id)
+        if (groupIndex > 0) {
+          const inserted = db.prepare('INSERT INTO book_volumes (book_id, title, slug, sort_order, source_filename) VALUES (?, ?, ?, ?, ?)')
+            .run(volume.book_id, group.title, volumeSlug(volume.book_id, group.title), Number(volume.sort_order || 0) + groupIndex, volume.source_filename || '')
+          targetId = Number(inserted.lastInsertRowid)
+        }
+        group.chapters.forEach((chapter: any, chapterIndex: number) => {
+          db.prepare('UPDATE book_chapters SET volume_id = ?, sort_order = ? WHERE id = ?').run(targetId, chapterIndex, chapter.id)
+        })
+      })
+      db.prepare('UPDATE reader_annotations SET volume_id = (SELECT volume_id FROM book_chapters WHERE id = reader_annotations.chapter_id) WHERE book_id = ? AND chapter_id IS NOT NULL').run(volume.book_id)
+      db.prepare('UPDATE reading_states SET volume_id = (SELECT volume_id FROM book_chapters WHERE id = reading_states.chapter_id) WHERE book_id = ? AND chapter_id IS NOT NULL').run(volume.book_id)
+      db.prepare("UPDATE books SET updated_at = datetime('now') WHERE id = ?").run(volume.book_id)
+      return true
+    })
+    legacyVolumes.forEach(volume => repairLegacyVolume(volume))
+  } catch {
+    // Existing libraries remain readable even if a legacy volume cannot be restructured.
+  }
   console.log('[DB] 数据库迁移完成')
 }
 

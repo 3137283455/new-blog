@@ -150,8 +150,8 @@ export function chapterDetail(req: DeviceRequest, res: Response) {
   ).get(book.id, String(req.params.volume), String(req.params.chapter)) as any
   if (!chapter) return error(res, '章节不存在', 'NOT_FOUND', 404)
   const navigation = db.prepare(
-    'SELECT id, title, slug, sort_order FROM book_chapters WHERE volume_id=? ORDER BY sort_order, id'
-  ).all(chapter.volume_id)
+    'SELECT c.id, c.title, c.slug, c.sort_order, v.id volume_id, v.title volume_title, v.slug volume_slug FROM book_chapters c JOIN book_volumes v ON v.id=c.volume_id WHERE v.book_id=? AND v.deleted_at IS NULL ORDER BY v.sort_order, v.id, c.sort_order, c.id'
+  ).all(book.id)
   return success(res, { book, chapter, navigation })
 }
 
@@ -259,7 +259,8 @@ export function putReadingState(req: DeviceRequest,res: Response){
   if(!db.prepare("SELECT 1 FROM books WHERE id=? AND deleted_at IS NULL").get(bookId)) return error(res,'书籍不存在','NOT_FOUND',404)
   const current=db.prepare('SELECT * FROM reading_states WHERE user_id=? AND book_id=?').get(userId,bookId) as any
   const base=integer(req.body?.revision,0)
-  if(current && base!==current.revision && !req.body?.force){
+  const sameDevice=Boolean(current&&Number(current.device_id)===Number(req.deviceId))
+  if(current && base!==current.revision && !sameDevice && !req.body?.force){
     current.settings=json(current.settings)
     return res.status(409).json({success:false,code:'READING_CONFLICT',message:'另一台设备已有更新，请选择保留哪一份进度',data:{server:current,submitted:req.body}})
   }

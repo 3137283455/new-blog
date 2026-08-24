@@ -43,26 +43,22 @@ function chapterBodies(content: string, titles: Array<{title:string}>) {
 }
 function volumeMarker(title: string) {
   const value=title.trim()
-  return /^(?:第\s*[0-9一二三四五六七八九十百零〇两]+\s*卷|卷\s*[0-9一二三四五六七八九十百零〇两]+|(?:vol(?:ume)?)[.\s_-]*\d+)\b/i.test(value)
+  return /(?:第\s*[0-9一二三四五六七八九十百零〇两]+\s*卷|卷\s*[0-9一二三四五六七八九十百零〇两]+|\bvol(?:ume)?[.\s_-]*\d+\b)/i.test(value)
 }
 function fileVolumeName(filename: string, fallback: string, multiple: boolean) {
   const plain=filename.replace(/\.epub$/i,'').trim()
-  if(multiple) return plain || fallback
-  return '正文'
+  if(multiple) return plain || fallback || '未命名卷'
+  if(plain && !/^(?:book|ebook|novel|full[-_ ]?book|正文|全文)$/i.test(plain)) return plain
+  return fallback || '全书'
 }
 function splitVolumes(chapters: Chapter[], filename: string, fallback: string, multiple: boolean): Volume[] {
-  const volumes: Volume[]=[]
-  let current: Volume={title:fileVolumeName(filename,fallback,multiple),sourceFilename:filename,chapters:[]}
-  for(const chapter of chapters){
-    if(volumeMarker(chapter.title)){
-      if(current.chapters.length) volumes.push(current)
-      current={title:chapter.title,sourceFilename:filename,chapters:[]}
-      continue
-    }
-    current.chapters.push(chapter)
-  }
-  if(current.chapters.length) volumes.push(current)
-  return volumes.length?volumes:[{title:fileVolumeName(filename,fallback,multiple),sourceFilename:filename,chapters}]
+  const markers=chapters.map((chapter,index)=>volumeMarker(chapter.title)?index:-1).filter(index=>index>=0)
+  if(!markers.length) return [{title:fileVolumeName(filename,fallback,multiple),sourceFilename:filename,chapters}]
+  return markers.map((markerIndex,index)=>{
+    const start=index===0?0:markerIndex
+    const end=markers[index+1]??chapters.length
+    return {title:chapters[markerIndex].title,sourceFilename:filename,chapters:chapters.slice(start,end)}
+  }).filter(volume=>volume.chapters.length)
 }
 function cleanup(){
   const expiry=Date.now()-30*60*1000
