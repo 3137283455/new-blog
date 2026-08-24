@@ -274,7 +274,7 @@ export function putReadingState(req: DeviceRequest,res: Response){
   return success(res,{revision},'阅读进度已同步')
 }
 export function annotations(req: DeviceRequest,res: Response){
-  const rows=db.prepare('SELECT * FROM reader_annotations WHERE user_id=? AND book_id=? ORDER BY updated_at DESC').all(req.deviceUserId!,integer(req.params.bookId)) as any[]
+  const rows=db.prepare('SELECT a.*, c.title chapter_title, c.slug chapter_slug, v.title volume_title, v.slug volume_slug FROM reader_annotations a LEFT JOIN book_chapters c ON c.id=a.chapter_id LEFT JOIN book_volumes v ON v.id=a.volume_id WHERE a.user_id=? AND a.book_id=? ORDER BY a.updated_at DESC').all(req.deviceUserId!,integer(req.params.bookId)) as any[]
   rows.forEach(row=>row.position=json(row.position))
   return success(res,rows)
 }
