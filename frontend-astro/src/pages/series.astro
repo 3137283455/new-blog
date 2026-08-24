@@ -18,7 +18,7 @@ const series = await getSeries()
         <a href={`/series/${item.slug}`} class="series-card">
           <div>{item.cover && <img src={resolveUploadUrl(item.cover)} alt="" loading="lazy" />}<span>{String(index + 1).padStart(2, '0')}</span></div>
           <section>
-            <small>{item.article_count || 0} 篇 · {item.total_views || 0} 阅读</small>
+            <small>{item.series_type === 'book' ? '小说书籍' : item.series_type === 'project' ? '项目时间线' : '文章专题'} · {item.article_count || 0} 篇 · {item.total_views || 0} 阅读</small>
             <h2>{item.title}</h2>
             <p>{item.description || '这个专题正在持续记录中。'}</p>
             <b>进入专题 ↗</b>

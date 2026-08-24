@@ -125,7 +125,7 @@ export function create(req: AuthRequest, res: Response) {
 
   const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || req.socket.remoteAddress || ''
   const result = db.prepare(`
-    INSERT INTO comments (article_id, parent_id, author_name, author_email, author_url, content, status, ip, user_agent)
+    INSERT INTO comments (article_id, book_volume_id, parent_id, author_name, author_email, author_url, content, status, ip, user_agent)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     articleId, parentId, safeAuthor, safeEmail, safeUrl,
@@ -140,6 +140,45 @@ export function create(req: AuthRequest, res: Response) {
   return success(res, { id: Number(result.lastInsertRowid), status }, msg)
 }
 
+export function listVolume(req: AuthRequest, res: Response) {
+  const volumeId = Number(req.params.id)
+  const page = normalizePage(req.query.page)
+  const pageSize = normalizePageSize(req.query.pageSize)
+  const comments = db.prepare("SELECT * FROM comments WHERE book_volume_id = ? AND status = 'approved' ORDER BY created_at ASC LIMIT ? OFFSET ?")
+    .all(volumeId, pageSize, (page - 1) * pageSize) as any[]
+  const roots:any[] = [], map = new Map<number,any>()
+  comments.forEach(comment => map.set(comment.id, { ...comment, children: [] }))
+  comments.forEach(comment => {
+    const node = map.get(comment.id)
+    if (comment.parent_id && map.has(comment.parent_id)) map.get(comment.parent_id).children.push(node)
+    else roots.push(node)
+  })
+  const total = Number((db.prepare("SELECT COUNT(*) total FROM comments WHERE book_volume_id=? AND status='approved'").get(volumeId) as any)?.total || 0)
+  return success(res, roots, '获取成功', paginationResult(page, pageSize, total))
+}
+
+export function createVolume(req: AuthRequest, res: Response) {
+  const volumeId = Number(req.params.id)
+  const safeAuthor = cleanText(req.body?.author_name)
+  const safeEmail = cleanText(req.body?.author_email)
+  const safeUrl = normalizeUrl(cleanText(req.body?.author_url))
+  const safeContent = cleanText(req.body?.content)
+  if (!safeAuthor || !safeContent) return error(res, '昵称和内容不能为空')
+  if (safeAuthor.length > COMMENT_LIMITS.author || safeContent.length > COMMENT_LIMITS.content) return error(res, '评论内容过长')
+  if (!isValidEmail(safeEmail) || !isValidUrl(safeUrl)) return error(res, '邮箱或网址格式不正确')
+  const volume = db.prepare("SELECT v.id FROM book_volumes v JOIN books b ON b.id=v.book_id WHERE v.id=? AND v.deleted_at IS NULL AND b.status='published' AND b.deleted_at IS NULL").get(volumeId)
+  if (!volume) return error(res, '分卷不存在', 'NOT_FOUND', 404)
+  const parentId = req.body?.parent_id ? Number(req.body.parent_id) : null
+  if (parentId && !db.prepare("SELECT 1 FROM comments WHERE id=? AND book_volume_id=? AND status='approved'").get(parentId, volumeId)) {
+    return error(res, '回复的评论不存在', 'NOT_FOUND', 404)
+  }
+  const moderation = db.prepare("SELECT value FROM settings WHERE key='comment_moderation'").get() as any
+  const status = moderation?.value === 'true' ? 'pending' : 'approved'
+  const ip = req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || ''
+  const result = db.prepare('INSERT INTO comments (book_volume_id,parent_id,author_name,author_email,author_url,content,status,ip,user_agent) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(volumeId,parentId,safeAuthor,safeEmail,safeUrl,safeContent,status,ip,req.headers['user-agent']||'')
+  return success(res,{id:Number(result.lastInsertRowid),status},status==='pending'?'评论已提交，审核通过后显示':'评论成功')
+}
 // ===== 管理 =====
 export function adminList(req: AuthRequest, res: Response) {
   const page = normalizePage(req.query.page)
@@ -151,8 +190,8 @@ export function adminList(req: AuthRequest, res: Response) {
   if (status) { where += ' AND c.status = ?'; params.push(status) }
 
   const comments = db.prepare(`
-    SELECT c.*, a.title as article_title
-    FROM comments c LEFT JOIN articles a ON c.article_id = a.id
+    SELECT c.*, a.title as article_title, v.title as volume_title, b.title as book_title
+    FROM comments c LEFT JOIN articles a ON c.article_id = a.id LEFT JOIN book_volumes v ON c.book_volume_id = v.id LEFT JOIN books b ON v.book_id = b.id
     WHERE ${where}
     ORDER BY c.created_at DESC LIMIT ? OFFSET ?
   `).all(...params, pageSize, (page - 1) * pageSize)
@@ -169,7 +208,7 @@ export function adminReply(req: AuthRequest, res: Response) {
   if (!safeContent) return error(res, '回复内容不能为空')
   if (safeContent.length > COMMENT_LIMITS.content) return error(res, `回复不能超过 ${COMMENT_LIMITS.content} 个字符`)
 
-  const parent = db.prepare('SELECT id, article_id, status FROM comments WHERE id = ?').get(parentId) as any
+  const parent = db.prepare('SELECT id, article_id, book_volume_id, status FROM comments WHERE id = ?').get(parentId) as any
   if (!parent) return error(res, '评论不存在', 'NOT_FOUND', 404)
   if (parent.status === 'spam') return error(res, '请先将评论通过审核后再回复')
   const profile = db.prepare("SELECT value FROM settings WHERE key = 'profile_name'").get() as any
@@ -179,12 +218,12 @@ export function adminReply(req: AuthRequest, res: Response) {
   const publishReply = db.transaction(() => {
     if (parent.status === 'pending') db.prepare("UPDATE comments SET status = 'approved' WHERE id = ?").run(parentId)
     db.prepare(`
-      INSERT INTO comments (article_id, parent_id, author_name, author_email, author_url, content, status, ip, user_agent)
-      VALUES (?, ?, ?, '', '', ?, 'approved', '', 'admin-reply')
-    `).run(Number(parent.article_id), parentId, authorName, safeContent)
+      INSERT INTO comments (article_id, book_volume_id, parent_id, author_name, author_email, author_url, content, status, ip, user_agent)
+      VALUES (?, ?, ?, ?, '', '', ?, 'approved', '', 'admin-reply')
+    `).run(parent.article_id || null, parent.book_volume_id || null, parentId, authorName, safeContent)
   })
   publishReply()
-  refreshArticleCommentCount(Number(parent.article_id))
+  if (parent.article_id) refreshArticleCommentCount(Number(parent.article_id))
   return success(res, null, '回复已发布')
 }
 
@@ -197,7 +236,7 @@ export function updateStatus(req: AuthRequest, res: Response) {
   const comment = db.prepare('SELECT article_id FROM comments WHERE id = ?').get(Number(id)) as any
   if (!comment) return error(res, '评论不存在', 'NOT_FOUND', 404)
   const result = db.prepare('UPDATE comments SET status = ? WHERE id = ?').run(status, Number(id))
-  if (result.changes !== 0) refreshArticleCommentCount(Number(comment.article_id))
+  if (result.changes !== 0 && comment.article_id) refreshArticleCommentCount(Number(comment.article_id))
   if (result.changes === 0) return error(res, '评论不存在', 'NOT_FOUND', 404)
   return success(res, null, '状态已更新')
 }
@@ -207,7 +246,7 @@ export function remove(req: AuthRequest, res: Response) {
   const comment = db.prepare('SELECT article_id FROM comments WHERE id = ?').get(Number(id)) as any
   if (!comment) return error(res, '评论不存在', 'NOT_FOUND', 404)
   const result = db.prepare('DELETE FROM comments WHERE id = ?').run(Number(id))
-  if (result.changes !== 0) refreshArticleCommentCount(Number(comment.article_id))
+  if (result.changes !== 0 && comment.article_id) refreshArticleCommentCount(Number(comment.article_id))
   if (result.changes === 0) return error(res, '评论不存在', 'NOT_FOUND', 404)
   return success(res, null, '评论已删除')
 }

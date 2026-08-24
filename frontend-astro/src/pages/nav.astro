@@ -163,11 +163,11 @@ const getFavicon = (url: string) => {
       getCards().forEach((card) => {
         if (card.dataset.bound === 'true') return
         card.dataset.bound = 'true'
-        card.querySelector('.bookmark-star')?.addEventListener('click', () => { const favorites = getFavorites(); const id = card.dataset.id || ''; favorites.has(id) ? favorites.delete(id) : favorites.add(id); localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); updateFavoriteState(); applyFilter() })
+        card.querySelector('.bookmark-star')?.addEventListener('click', () => { const favorites = getFavorites(); const id = card.dataset.id || ''; favorites.has(id) ? favorites.delete(id) : favorites.add(id); localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); updateFavoriteState(); applyFilter(); scheduleNavigationSync() })
         card.querySelector('[data-track-recent]')?.addEventListener('click', () => {
           const link = card.querySelector<HTMLAnchorElement>('.bookmark-card-link'); const title = card.querySelector('strong')?.textContent || ''; const icon = card.querySelector('.bookmark-icon')?.textContent?.trim() || title.slice(0, 1); const id = card.dataset.id || title; const now = Date.now()
           const recents = readStorage<RecentItem[]>(RECENTS_KEY, []).filter((item) => item.id !== id); recents.unshift({ id, title, href: link?.href || '#', icon, visitedAt: now }); localStorage.setItem(RECENTS_KEY, JSON.stringify(recents.slice(0, 6)))
-          const usage = readStorage<Record<string, UsageItem>>(USAGE_KEY, {}); usage[id] = { count: (usage[id]?.count || 0) + 1, lastVisited: now }; localStorage.setItem(USAGE_KEY, JSON.stringify(usage)); renderRecents(); sortCards()
+          const usage = readStorage<Record<string, UsageItem>>(USAGE_KEY, {}); usage[id] = { count: (usage[id]?.count || 0) + 1, lastVisited: now }; localStorage.setItem(USAGE_KEY, JSON.stringify(usage)); renderRecents(); sortCards(); scheduleNavigationSync()
         })
       })
       sortCards()
@@ -180,18 +180,90 @@ const getFavicon = (url: string) => {
       try { const response = await fetch(`${apiBase}/navigation`, { cache: 'no-store' }); if (!response.ok) throw new Error(); const json = await response.json(); const items = ((json.data || []) as NavItem[]).filter((item) => item?.title && item?.url && item.is_active !== 0 && item.is_active !== false); if (!grid) return; grid.innerHTML = items.map(renderCard).join(''); renderCategories(items); bindCards(); applyFilter() } catch { bindCards(); sortCards(); applyFilter() }
     }
 
+    let syncRevision = 0
+    let syncTimer = 0
+    const privateDeviceToken = localStorage.getItem('boke_private_device_token') || ''
+    const collectSyncState = () => ({
+      favorites: readStorage<string[]>(FAVORITES_KEY, []),
+      recents: readStorage<RecentItem[]>(RECENTS_KEY, []),
+      usage: readStorage<Record<string, UsageItem>>(USAGE_KEY, {}),
+      sort: localStorage.getItem(SORT_KEY) || 'original',
+      workspace: localStorage.getItem(WORKSPACE_KEY) || 'all',
+      compact: localStorage.getItem('boke-nav-compact') === 'true',
+      searchMemory: readStorage<any[]>('boke-nav-search-memory-v1', []),
+      searchEngine: localStorage.getItem('boke-search-engine') || 'site',
+    })
+    const applySyncState = (state: any) => {
+      if (!state || typeof state !== 'object') return
+      if (Array.isArray(state.favorites)) localStorage.setItem(FAVORITES_KEY, JSON.stringify(state.favorites))
+      if (Array.isArray(state.recents)) localStorage.setItem(RECENTS_KEY, JSON.stringify(state.recents.slice(0, 6)))
+      if (state.usage && typeof state.usage === 'object') localStorage.setItem(USAGE_KEY, JSON.stringify(state.usage))
+      if (state.sort) localStorage.setItem(SORT_KEY, state.sort)
+      if (state.workspace) localStorage.setItem(WORKSPACE_KEY, state.workspace)
+      if (typeof state.compact === 'boolean') localStorage.setItem('boke-nav-compact', String(state.compact))
+      if (Array.isArray(state.searchMemory)) localStorage.setItem('boke-nav-search-memory-v1', JSON.stringify(state.searchMemory.slice(0, 30)))
+      if (state.searchEngine) localStorage.setItem('boke-search-engine', state.searchEngine)
+    }
+    const mergeSyncState = (local: any, remote: any) => {
+      const recents = [...(local.recents || []), ...(remote.recents || [])].sort((a, b) => Number(b.visitedAt || 0) - Number(a.visitedAt || 0))
+      const recentMap = new Map<string, any>(); recents.forEach((item) => { if (!recentMap.has(String(item.id))) recentMap.set(String(item.id), item) })
+      const usage: Record<string, UsageItem> = { ...(remote.usage || {}) }
+      Object.entries(local.usage || {}).forEach(([id, item]: any) => { const old = usage[id]; usage[id] = { count: Math.max(Number(old?.count || 0), Number(item?.count || 0)), lastVisited: Math.max(Number(old?.lastVisited || 0), Number(item?.lastVisited || 0)) } })
+      const searches = [...(local.searchMemory || []), ...(remote.searchMemory || [])]
+      const searchMap = new Map<string, any>(); searches.forEach((item) => { const key = String(item?.query || '').toLowerCase(); if (!key) return; const old = searchMap.get(key); searchMap.set(key, !old ? item : { query: item.query, count: Math.max(Number(old.count || 0), Number(item.count || 0)), lastUsed: Math.max(Number(old.lastUsed || 0), Number(item.lastUsed || 0)) }) })
+      return { ...local, ...remote,
+        favorites: Array.from(new Set([...(local.favorites || []), ...(remote.favorites || [])])),
+        recents: Array.from(recentMap.values()).slice(0, 6), usage,
+        searchMemory: Array.from(searchMap.values()).sort((a,b)=>Number(b.lastUsed||0)-Number(a.lastUsed||0)).slice(0,30),
+      }
+    }
+    async function uploadNavigationState(force = false) {
+      if (!privateDeviceToken) return
+      const response = await fetch(apiBase + '/private/navigation', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Device-Token': privateDeviceToken }, body: JSON.stringify({ state: collectSyncState(), revision: syncRevision, force }) })
+      const json = await response.json().catch(() => ({}))
+      if (response.status === 409 && json.data?.server) {
+        const merged = mergeSyncState(collectSyncState(), json.data.server.state || {})
+        applySyncState(merged); syncRevision = Number(json.data.server.revision || 0)
+        return uploadNavigationState(true)
+      }
+      if (response.ok) syncRevision = Number(json.data?.revision || syncRevision)
+    }
+    function scheduleNavigationSync() {
+      if (!privateDeviceToken) return
+      window.clearTimeout(syncTimer)
+      syncTimer = window.setTimeout(() => uploadNavigationState().catch(() => {}), 650)
+    }
+    async function hydrateNavigationState() {
+      if (!privateDeviceToken) return
+      try {
+        const response = await fetch(apiBase + '/private/navigation', { headers: { 'X-Device-Token': privateDeviceToken } })
+        if (!response.ok) return
+        const json = await response.json(); syncRevision = Number(json.data?.revision || 0)
+        const remote = json.data?.state || {}
+        const merged = syncRevision ? mergeSyncState(collectSyncState(), remote) : collectSyncState()
+        applySyncState(merged)
+        if (syncRevision === 0) scheduleNavigationSync()
+        if (navSort) navSort.value = localStorage.getItem(SORT_KEY) || 'original'
+        if (navWorkspace) navWorkspace.value = localStorage.getItem(WORKSPACE_KEY) || 'all'
+        grid?.classList.toggle('is-compact', localStorage.getItem('boke-nav-compact') === 'true')
+        renderRecents(); updateFavoriteState(); sortCards(); applyFilter()
+      } catch {}
+    }
     const navSort = document.getElementById('nav-sort') as HTMLSelectElement | null
     const navWorkspace = document.getElementById('nav-workspace') as HTMLSelectElement | null
     if (navSort) navSort.value = localStorage.getItem(SORT_KEY) || 'original'
     if (navWorkspace) navWorkspace.value = localStorage.getItem(WORKSPACE_KEY) || 'all'
-    renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation()
+    renderRecents(); bindPills(); bindCards(); sortCards(); applyFilter(); refreshNavigation(); hydrateNavigationState()
+    let syncFingerprint = JSON.stringify(collectSyncState())
+    window.setInterval(() => { const next = JSON.stringify(collectSyncState()); if (next !== syncFingerprint) { syncFingerprint = next; scheduleNavigationSync() } }, 1800)
+    window.addEventListener('pagehide', () => uploadNavigationState().catch(() => {}))
     input?.addEventListener('input', applyFilter)
     favoritesButton?.addEventListener('click', () => { favoritesOnly = !favoritesOnly; favoritesButton.classList.toggle('is-active', favoritesOnly); favoritesButton.setAttribute('aria-pressed', String(favoritesOnly)); applyFilter() })
-    document.getElementById('density-toggle')?.addEventListener('click', () => { const compact = grid?.classList.toggle('is-compact') || false; localStorage.setItem('boke-nav-compact', String(compact)) })
+    document.getElementById('density-toggle')?.addEventListener('click', () => { const compact = grid?.classList.toggle('is-compact') || false; localStorage.setItem('boke-nav-compact', String(compact)); scheduleNavigationSync() })
     if (localStorage.getItem('boke-nav-compact') === 'true') grid?.classList.add('is-compact')
-    document.getElementById('clear-recents')?.addEventListener('click', () => { localStorage.removeItem(RECENTS_KEY); renderRecents() })
-    navSort?.addEventListener('change', () => { localStorage.setItem(SORT_KEY, navSort.value); sortCards(); applyFilter() })
-    navWorkspace?.addEventListener('change', () => { localStorage.setItem(WORKSPACE_KEY, navWorkspace.value); activeCategory = 'all'; document.querySelectorAll('[data-nav-category]').forEach((item, index) => item.classList.toggle('is-active', index === 0)); applyFilter() })
+    document.getElementById('clear-recents')?.addEventListener('click', () => { localStorage.removeItem(RECENTS_KEY); renderRecents(); scheduleNavigationSync() })
+    navSort?.addEventListener('change', () => { localStorage.setItem(SORT_KEY, navSort.value); sortCards(); applyFilter(); scheduleNavigationSync() })
+    navWorkspace?.addEventListener('change', () => { localStorage.setItem(WORKSPACE_KEY, navWorkspace.value); activeCategory = 'all'; document.querySelectorAll('[data-nav-category]').forEach((item, index) => item.classList.toggle('is-active', index === 0)); applyFilter(); scheduleNavigationSync() })
     document.addEventListener('keydown', (event) => { const active = document.activeElement as HTMLElement | null; const editing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(active?.tagName || ''); if (event.key === 'Escape' && editing) active?.blur(); if (event.key === '/' && !editing) { event.preventDefault(); input?.focus() } if (event.key === 'Enter' && active === input) document.querySelector<HTMLAnchorElement>('.bookmark-card:not([hidden]) .bookmark-card-link')?.click(); if (!editing && /^[1-9]$/.test(event.key)) { const card = getCards().filter((item) => !item.hidden)[Number(event.key) - 1]; card?.querySelector<HTMLAnchorElement>('.bookmark-card-link')?.click() } })
   </script>
 </BaseLayout>

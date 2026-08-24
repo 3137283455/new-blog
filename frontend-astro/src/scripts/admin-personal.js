@@ -77,7 +77,7 @@
   function fillSeries(item = {}) {
     const form = $('#personal-series-form')
     form.reset()
-    ;['id', 'title', 'slug', 'cover', 'description', 'sort_order', 'status'].forEach((name) => { if (form.elements.namedItem(name)) form.elements.namedItem(name).value = item[name] ?? (name === 'status' ? 'published' : '') })
+    ;['id', 'title', 'slug', 'cover', 'description', 'sort_order', 'status', 'series_type', 'book_id'].forEach((name) => { if (form.elements.namedItem(name)) form.elements.namedItem(name).value = item[name] ?? (name === 'status' ? 'published' : (name === 'series_type' ? 'article' : '')) })
     form.elements.namedItem('is_featured').checked = Boolean(item.is_featured)
     state.activeSeriesId = item.id ? Number(item.id) : null
     state.selectedArticleIds = state.activeSeriesId

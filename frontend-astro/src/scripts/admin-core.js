@@ -51,10 +51,11 @@ function notify(message, error = false) {
 }
 window.notifyAdmin = notify;
 
-const contentPanels = ['articles', 'series', 'navigation', 'bangumi', 'albums', 'music'];
+const contentPanels = ['articles', 'series', 'books', 'navigation', 'bangumi', 'albums', 'music'];
 const settingsPanels = ['settings', 'taxonomy', 'comments', 'plugins'];
 const navPanelMap = {
   series: 'articles',
+  books: 'articles',
   navigation: 'articles',
   bangumi: 'articles',
   albums: 'articles',
@@ -66,6 +67,7 @@ const navPanelMap = {
 const contentLabels = {
   articles: '文章',
   series: '专题',
+  books: '书库',
   navigation: '导航',
   bangumi: '追番',
   albums: '相册',
@@ -162,6 +164,7 @@ async function login(username, password) {
   });
   state.token = json.data.token;
   localStorage.setItem(tokenKey, state.token);
+  await ensurePrivateDevice();
   $('#logout-admin').classList.remove('hidden');
   return json.data.user;
 }
@@ -297,6 +300,29 @@ async function loadPlugins() {
   renderPlugins();
 }
 
+async function ensurePrivateDevice() {
+  if (!state.token) return;
+  const existing = localStorage.getItem('boke_private_device_token');
+  if (existing) {
+    try {
+      const response = await fetch(API_BASE + '/private/navigation', { headers: { 'X-Device-Token': existing } });
+      if (response.ok) return;
+    } catch {}
+    localStorage.removeItem('boke_private_device_token');
+  }
+  try {
+    const json = await request('/admin/devices/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: (navigator.userAgentData?.platform || '设备') + ' · ' + (navigator.userAgent.includes('Mobile') ? '移动端' : '浏览器'),
+        platform: navigator.userAgent,
+      }),
+    });
+    if (json.data?.token) localStorage.setItem('boke_private_device_token', json.data.token);
+  } catch (error) {
+    console.warn('私人设备登记失败', error);
+  }
+}
 async function loadAll() {
   if (!state.token) {
     setStatus('请先登录后台');
@@ -306,6 +332,7 @@ async function loadAll() {
   try {
     setStatus('正在读取 Express API...');
     await loadMe();
+    await ensurePrivateDevice();
     $('#logout-admin').classList.remove('hidden');
   } catch (error) {
     localStorage.removeItem(tokenKey);
@@ -1374,7 +1401,9 @@ async function loadBackupManifest() {
 
 async function handleBackupDownload(type) {
   try {
-    if (type === 'database') {
+    if (type === 'full') {
+      await downloadAdminFile('/admin/backup/full', 'boke-full.zip');
+    } else if (type === 'database') {
       await downloadAdminFile('/admin/backup/database', 'blog.db');
     } else if (type === 'articles') {
       await downloadAdminFile('/admin/backup/articles', 'articles.json');

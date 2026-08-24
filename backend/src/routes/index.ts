@@ -1,5 +1,6 @@
-﻿import { Router } from 'express'
+import { Router } from 'express'
 import { auth, adminOnly } from '../middleware/auth'
+import { deviceAuth } from '../middleware/device'
 import * as authCtrl from '../controllers/auth'
 import * as articleCtrl from '../controllers/article'
 import * as categoryCtrl from '../controllers/category'
@@ -19,6 +20,8 @@ import * as backupCtrl from '../controllers/backup'
 import * as hubCtrl from '../controllers/hub'
 import * as personalCtrl from '../controllers/personal'
 import * as epubCtrl from '../controllers/epub'
+import * as libraryCtrl from '../controllers/library'
+import * as bookImportCtrl from '../controllers/book-import'
 import { upload, backupUpload, epubUpload } from '../middleware/upload'
 
 const router = Router()
@@ -39,6 +42,18 @@ router.get('/hub/insights', personalCtrl.insights)
 router.post('/hub/inbox', personalCtrl.submitInbox)
 router.get('/series', personalCtrl.seriesList)
 router.get('/series/:slug', personalCtrl.seriesDetail)
+router.get('/books', libraryCtrl.books)
+router.get('/books/:book', libraryCtrl.bookDetail)
+router.get('/books/:book/:volume', libraryCtrl.volumeDetail)
+router.get('/books/:book/:volume/:chapter', libraryCtrl.chapterDetail)
+router.get('/private/navigation', deviceAuth, libraryCtrl.getNavigationState)
+router.put('/private/navigation', deviceAuth, libraryCtrl.putNavigationState)
+router.get('/private/books/:bookId/progress', deviceAuth, libraryCtrl.getReadingState)
+router.put('/private/books/:bookId/progress', deviceAuth, libraryCtrl.putReadingState)
+router.get('/private/books/:bookId/annotations', deviceAuth, libraryCtrl.annotations)
+router.post('/private/books/:bookId/annotations', deviceAuth, libraryCtrl.createAnnotation)
+router.put('/private/books/:bookId/annotations/:annotationId', deviceAuth, libraryCtrl.updateAnnotation)
+router.delete('/private/books/:bookId/annotations/:annotationId', deviceAuth, libraryCtrl.removeAnnotation)
 router.get('/categories', categoryCtrl.list)
 router.get('/tags', categoryCtrl.tagList)
 router.get('/pages', pageCtrl.publicList)
@@ -52,6 +67,8 @@ router.get('/music/stats', musicCtrl.stats)
 router.post('/music/:id/play', musicCtrl.recordPlay)
 router.get('/articles/:id/comments', commentCtrl.list)
 router.post('/articles/:id/comments', commentCtrl.create)
+router.get('/book-volumes/:id/comments', commentCtrl.listVolume)
+router.post('/book-volumes/:id/comments', commentCtrl.createVolume)
 router.post('/articles/:id/like', articleCtrl.like)
 router.get('/themes/active', themeCtrl.active)
 router.get('/plugins/active', pluginCtrl.activePlugins)
@@ -65,6 +82,25 @@ router.get('/admin/articles', auth, articleCtrl.adminList)
 router.get('/admin/articles/:id', auth, articleCtrl.getById)
 router.post('/admin/articles', auth, articleCtrl.create)
 router.post('/admin/articles/epub/import', auth, epubUpload.single('file'), epubCtrl.importEpub)
+router.post('/admin/books/epub/preview', auth, epubUpload.array('files', 20), bookImportCtrl.previewEpub)
+router.post('/admin/books/epub/commit', auth, bookImportCtrl.commitEpub)
+router.post('/admin/devices/register', auth, libraryCtrl.registerDevice)
+router.get('/admin/devices', auth, libraryCtrl.devices)
+router.delete('/admin/devices/:id', auth, libraryCtrl.revokeDevice)
+router.get('/admin/books', auth, libraryCtrl.adminBooks)
+router.get('/admin/books/:id', auth, libraryCtrl.adminBookDetail)
+router.get('/admin/books/:id/annotations/pending', auth, libraryCtrl.pendingAnnotations)
+router.put('/admin/books/:id/annotations/:annotationId/resolve', auth, libraryCtrl.resolveAnnotation)
+router.post('/admin/books', auth, libraryCtrl.createBook)
+router.put('/admin/books/:id', auth, libraryCtrl.updateBook)
+router.delete('/admin/books/:id', auth, libraryCtrl.removeBook)
+router.put('/admin/books/:id/restore', auth, libraryCtrl.restoreBook)
+router.post('/admin/books/:id/volumes', auth, libraryCtrl.createVolume)
+router.put('/admin/books/:id/volumes/:volumeId', auth, libraryCtrl.updateVolume)
+router.delete('/admin/books/:id/volumes/:volumeId', auth, libraryCtrl.removeVolume)
+router.post('/admin/books/:id/volumes/:volumeId/chapters', auth, libraryCtrl.createChapter)
+router.put('/admin/books/:id/volumes/:volumeId/chapters/:chapterId', auth, libraryCtrl.updateChapter)
+router.delete('/admin/books/:id/volumes/:volumeId/chapters/:chapterId', auth, libraryCtrl.removeChapter)
 router.put('/admin/articles/:id', auth, articleCtrl.update)
 router.delete('/admin/articles/:id', auth, articleCtrl.softDelete)
 router.post('/admin/articles/batch-delete', auth, articleCtrl.batchDelete)
@@ -187,6 +223,7 @@ router.put('/admin/settings', auth, settingCtrl.update)
 
 // 澶囦唤瀵煎嚭
 router.get('/admin/backup/database', auth, backupCtrl.databaseBackup)
+router.get('/admin/backup/full', auth, backupCtrl.fullBackup)
 router.get('/admin/backup/articles', auth, backupCtrl.articlesMarkdown)
 router.get('/admin/backup/manifest', auth, backupCtrl.manifest)
 router.post('/admin/backup/database/import', auth, adminOnly, backupUpload.single('file'), backupCtrl.restoreDatabase)

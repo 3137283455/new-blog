@@ -293,6 +293,96 @@ export function migrate() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- 独立书库：书籍 / 分卷 / 章节
+    CREATE TABLE IF NOT EXISTS books (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      author TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      cover TEXT DEFAULT '',
+      status TEXT DEFAULT 'published',
+      reading_status TEXT DEFAULT 'reading',
+      sort_order INTEGER DEFAULT 0,
+      is_featured INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      deleted_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS book_volumes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      cover TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      source_filename TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      deleted_at TEXT,
+      UNIQUE(book_id, slug)
+    );
+    CREATE TABLE IF NOT EXISTS book_chapters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      volume_id INTEGER NOT NULL REFERENCES book_volumes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      content_html TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      source_key TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(volume_id, slug)
+    );
+    CREATE TABLE IF NOT EXISTS private_devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      platform TEXT DEFAULT '',
+      token_hash TEXT NOT NULL UNIQUE,
+      last_seen_at TEXT DEFAULT (datetime('now')),
+      revoked_at TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS personal_sync_state (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      navigation_state TEXT DEFAULT '{}',
+      navigation_revision INTEGER DEFAULT 0,
+      updated_by_device_id INTEGER REFERENCES private_devices(id) ON DELETE SET NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS reading_states (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      volume_id INTEGER REFERENCES book_volumes(id) ON DELETE SET NULL,
+      chapter_id INTEGER REFERENCES book_chapters(id) ON DELETE SET NULL,
+      mode TEXT DEFAULT 'scroll',
+      position REAL DEFAULT 0,
+      anchor TEXT DEFAULT '',
+      settings TEXT DEFAULT '{}',
+      revision INTEGER DEFAULT 0,
+      device_id INTEGER REFERENCES private_devices(id) ON DELETE SET NULL,
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY(user_id, book_id)
+    );
+    CREATE TABLE IF NOT EXISTS reader_annotations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      book_id INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      volume_id INTEGER REFERENCES book_volumes(id) ON DELETE CASCADE,
+      chapter_id INTEGER REFERENCES book_chapters(id) ON DELETE CASCADE,
+      type TEXT NOT NULL DEFAULT 'bookmark',
+      quote TEXT DEFAULT '',
+      prefix TEXT DEFAULT '',
+      suffix TEXT DEFAULT '',
+      note TEXT DEFAULT '',
+      color TEXT DEFAULT '',
+      position TEXT DEFAULT '{}',
+      status TEXT DEFAULT 'active',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
     -- 个人收集箱
     CREATE TABLE IF NOT EXISTS personal_inbox (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -384,7 +474,11 @@ export function migrate() {
       ON music_tracks(is_active, playlist_id, sort_order);
     CREATE INDEX IF NOT EXISTS idx_article_series_public
       ON article_series(status, is_featured, sort_order);
-    CREATE INDEX IF NOT EXISTS idx_personal_inbox_status
+    CREATE INDEX IF NOT EXISTS idx_books_public ON books(status, deleted_at, is_featured, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_book_volumes_book ON book_volumes(book_id, deleted_at, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_book_chapters_volume ON book_chapters(volume_id, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_private_devices_user ON private_devices(user_id, revoked_at, last_seen_at);
+    CREATE INDEX IF NOT EXISTS idx_reader_annotations_book ON reader_annotations(user_id, book_id, status, updated_at);    CREATE INDEX IF NOT EXISTS idx_personal_inbox_status
       ON personal_inbox(status, created_at);
     CREATE INDEX IF NOT EXISTS idx_personal_todos_done
       ON personal_todos(done, created_at);
@@ -504,6 +598,9 @@ export function migrate() {
   addColumn('music_tracks', 'article_id', 'INTEGER REFERENCES articles(id) ON DELETE SET NULL')
   addColumn('music_tracks', 'photo_id', 'INTEGER REFERENCES album_photos(id) ON DELETE SET NULL')
   addColumn('media', 'folder_id', 'INTEGER REFERENCES media_folders(id) ON DELETE SET NULL')
+  addColumn('article_series', 'series_type', "TEXT DEFAULT 'article'")
+  addColumn('article_series', 'book_id', 'INTEGER REFERENCES books(id) ON DELETE SET NULL')
+  addColumn('comments', 'book_volume_id', 'INTEGER REFERENCES book_volumes(id) ON DELETE CASCADE')
 
   try {
     db.exec(`

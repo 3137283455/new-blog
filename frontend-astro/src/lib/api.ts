@@ -99,6 +99,9 @@ export interface ArticleSeries {
   article_count?: number
   total_views?: number
   is_novel?: number | boolean
+  series_type?: 'article' | 'book' | 'project'
+  book_id?: number
+  linked_book?: { id:number; title:string; slug:string; cover?:string }
   articles?: ArticleSummary[]
 }
 
@@ -405,4 +408,39 @@ export function formatDate(date?: string | null) {
     month: 'long',
     day: 'numeric',
   })
+}
+
+export interface BookSummary {
+  id: number
+  title: string
+  slug: string
+  author?: string
+  description?: string
+  cover?: string
+  reading_status?: string
+  volume_count?: number
+  chapter_count?: number
+  updated_at?: string
+}
+export interface BookVolume {
+  id: number
+  book_id: number
+  title: string
+  slug: string
+  description?: string
+  cover?: string
+  chapter_count?: number
+  chapters?: Array<{ id:number; title:string; slug:string; sort_order:number }>
+}
+export async function getBooks(): Promise<BookSummary[]> {
+  try { const res=await apiFetch(API_BASE+'/books'); if(!res.ok) return []; return (await res.json()).data||[] } catch { return [] }
+}
+export async function getBook(slug:string): Promise<(BookSummary & {volumes:BookVolume[]})|null> {
+  try { const res=await apiFetch(API_BASE+'/books/'+encodeURIComponent(slug)); if(!res.ok) return null; return (await res.json()).data||null } catch { return null }
+}
+export async function getBookVolume(book:string,volume:string): Promise<{book:BookSummary;volume:BookVolume}|null> {
+  try { const res=await apiFetch(API_BASE+'/books/'+encodeURIComponent(book)+'/'+encodeURIComponent(volume)); if(!res.ok) return null; return (await res.json()).data||null } catch { return null }
+}
+export async function getBookChapter(book:string,volume:string,chapter:string): Promise<any|null> {
+  try { const res=await apiFetch(API_BASE+'/books/'+encodeURIComponent(book)+'/'+encodeURIComponent(volume)+'/'+encodeURIComponent(chapter)); if(!res.ok) return null; return (await res.json()).data||null } catch { return null }
 }

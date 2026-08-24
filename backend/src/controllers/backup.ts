@@ -1,5 +1,6 @@
 import { Response } from 'express'
 import Database from 'better-sqlite3'
+import AdmZip from 'adm-zip'
 import path from 'path'
 import fs from 'fs'
 import db from '../config/database'
@@ -13,10 +14,18 @@ const APP_TABLES = [
   'categories',
   'tags',
   'article_series',
+  'books',
+  'book_volumes',
+  'book_chapters',
+  'private_devices',
+  'personal_sync_state',
+  'reading_states',
+  'reader_annotations',
   'articles',
   'article_tags',
   'comments',
   'pages',
+  'media_folders',
   'media',
   'settings',
   'likes',
@@ -102,6 +111,32 @@ export async function databaseBackup(_req: AuthRequest, res: Response) {
   }
 }
 
+export async function fullBackup(_req: AuthRequest, res: Response) {
+  try {
+    const snapshot = await createDatabaseSnapshot('full')
+    const zip = new AdmZip()
+    zip.addLocalFile(snapshot.target, '', 'blog.db')
+    if (fs.existsSync(config.uploadDir)) {
+      zip.addLocalFolder(config.uploadDir, 'uploads', (filename) => !filename.includes('/.epub-preview/'))
+    }
+    const counts = {
+      books: Number((db.prepare('SELECT COUNT(*) count FROM books WHERE deleted_at IS NULL').get() as any)?.count || 0),
+      articles: Number((db.prepare('SELECT COUNT(*) count FROM articles WHERE deleted_at IS NULL').get() as any)?.count || 0),
+      navigation: Number((db.prepare('SELECT COUNT(*) count FROM navigation_links').get() as any)?.count || 0),
+      bangumi: Number((db.prepare('SELECT COUNT(*) count FROM bangumi_items').get() as any)?.count || 0),
+      media: Number((db.prepare('SELECT COUNT(*) count FROM media WHERE deleted_at IS NULL').get() as any)?.count || 0),
+      annotations: Number((db.prepare('SELECT COUNT(*) count FROM reader_annotations').get() as any)?.count || 0),
+    }
+    zip.addFile('manifest.json', Buffer.from(JSON.stringify({ generated_at: new Date().toISOString(), counts, includes: ['database','uploads','books','reading-progress','annotations','navigation','bangumi','articles'] }, null, 2)))
+    const filename = 'boke-full-' + timestamp() + '.zip'
+    res.setHeader('Content-Type', 'application/zip')
+    res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"')
+    res.send(zip.toBuffer())
+    fs.rmSync(snapshot.target, { force: true })
+  } catch (cause) {
+    return error(res, cause instanceof Error ? cause.message : '完整备份失败', 'FULL_BACKUP_FAILED', 500)
+  }
+}
 export async function restoreDatabase(req: AuthRequest, res: Response) {
   if (!req.file?.buffer) return error(res, '请选择数据库备份文件', 'FILE_REQUIRED', 400)
   if (!sqliteHeaderIsValid(req.file.buffer)) return error(res, '文件不是有效的 SQLite 数据库', 'INVALID_DATABASE', 400)
@@ -357,11 +392,15 @@ export function manifest(_req: AuthRequest, res: Response) {
   const media = (db.prepare('SELECT COUNT(*) as count FROM media WHERE deleted_at IS NULL').get() as any).count
   const trashedMedia = (db.prepare('SELECT COUNT(*) as count FROM media WHERE deleted_at IS NOT NULL').get() as any).count
   const settings = db.prepare('SELECT key, value, type FROM settings ORDER BY key').all()
+  const books = (db.prepare('SELECT COUNT(*) as count FROM books WHERE deleted_at IS NULL').get() as any).count
+  const navigation = (db.prepare('SELECT COUNT(*) as count FROM navigation_links').get() as any).count
+  const bangumi = (db.prepare('SELECT COUNT(*) as count FROM bangumi_items').get() as any).count
+  const annotations = (db.prepare('SELECT COUNT(*) as count FROM reader_annotations').get() as any).count
   return success(res, {
     generated_at: new Date().toISOString(),
     database_path: config.dbPath,
     upload_dir: config.uploadDir,
-    counts: { articles, media, trashedMedia },
+    counts: { articles, media, trashedMedia, books, navigation, bangumi, annotations },
     settings,
   }, '备份清单生成成功')
 }

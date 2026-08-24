@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro'
+import { getBook } from '../../../lib/api'
+import { resolveUploadUrl } from '../../../lib/media'
+const slug=Astro.params.book||''
+const book=await getBook(slug)
+if(!book) return Astro.redirect('/404')
+---
+<BaseLayout title={book.title} subtitle={book.author||'个人书库'} showSidebar={false} showBanner={false} wide>
+  <article class="book-detail">
+    <header>
+      <div class="cover">{book.cover?<img src={resolveUploadUrl(book.cover)} alt="" />:<span>{book.title.slice(0,1)}</span>}</div>
+      <div><a href="/books">← 返回书库</a><small>BOOK</small><h1>{book.title}</h1><p class="author">{book.author||'作者未填写'}</p><p>{book.description||'这本书还没有简介。'}</p></div>
+    </header>
+    <section><div class="section-title"><h2>分卷目录</h2><span>{book.volumes?.length||0} 卷</span></div>
+      <div class="volumes">{book.volumes?.map((volume,index)=><a href={'/books/'+book.slug+'/'+volume.slug}><b>{String(index+1).padStart(2,'0')}</b><div><h3>{volume.title}</h3><p>{volume.chapter_count||0} 章</p></div><span>开始阅读 →</span></a>)}</div>
+    </section>
+  </article>
+</BaseLayout>
+<style>
+.book-detail{max-width:1050px;margin:0 auto;padding:2rem 1rem 5rem}.book-detail>header{display:grid;grid-template-columns:240px 1fr;gap:3rem;align-items:center;padding:2rem 0 4rem}.cover{aspect-ratio:2/3;border-radius:18px;overflow:hidden;background:color-mix(in srgb,var(--brand) 12%,white);display:grid;place-items:center;font:600 5rem var(--theme-title-font);box-shadow:0 24px 50px rgba(24,45,31,.18)}.cover img{width:100%;height:100%;object-fit:cover}.book-detail header a{font-size:.8rem;color:inherit;opacity:.6}.book-detail header small{display:block;margin-top:2rem;letter-spacing:.2em;color:var(--brand)}.book-detail h1{font:500 clamp(3rem,7vw,6rem)/1 var(--theme-title-font);margin:.5rem 0 1rem}.author{font-weight:700;margin-bottom:1.5rem}.book-detail header p:last-child{max-width:42rem;line-height:1.9;opacity:.68}.section-title{display:flex;justify-content:space-between;align-items:end;border-bottom:1px solid color-mix(in srgb,currentColor 15%,transparent);padding-bottom:1rem}.section-title h2{font:600 2rem var(--theme-title-font)}.volumes a{display:grid;grid-template-columns:3rem 1fr auto;gap:1rem;align-items:center;padding:1.4rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 10%,transparent);color:inherit;text-decoration:none}.volumes b{opacity:.35}.volumes h3{font-size:1.1rem}.volumes p,.volumes span{font-size:.8rem;opacity:.55}@media(max-width:650px){.book-detail>header{grid-template-columns:110px 1fr;gap:1.3rem;align-items:start}.book-detail h1{font-size:2.3rem}.book-detail header small{margin-top:1rem}.book-detail header p:last-child{grid-column:1/-1}.volumes a{grid-template-columns:2rem 1fr}.volumes a>span{display:none}}
+</style>

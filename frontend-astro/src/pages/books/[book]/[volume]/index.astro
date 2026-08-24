@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro'
+import { getBookVolume } from '../../../../lib/api'
+const data=await getBookVolume(Astro.params.book||'',Astro.params.volume||'')
+if(!data) return Astro.redirect('/404')
+const {book,volume}=data
+const first=volume.chapters?.[0]
+---
+<BaseLayout title={volume.title} subtitle={book.title} showSidebar={false} showBanner={false}>
+  <section class="volume-page">
+    <nav><a href={'/books/'+book.slug}>← {book.title}</a></nav>
+    <header><small>VOLUME</small><h1>{volume.title}</h1><p>{volume.description||'选择章节开始阅读。每一卷拥有独立评论。'}</p>{first&&<a class="start" href={'/books/'+book.slug+'/'+volume.slug+'/'+first.slug}>开始阅读 →</a>}</header>
+    <ol>{volume.chapters?.map((chapter,index)=><li><a href={'/books/'+book.slug+'/'+volume.slug+'/'+chapter.slug}><span>{String(index+1).padStart(2,'0')}</span><b>{chapter.title}</b><i>阅读 →</i></a></li>)}</ol>
+    <section class="volume-comments" data-volume-comments={volume.id}>
+      <header><h2>本卷评论</h2><button type="button" data-comment-refresh>刷新</button></header>
+      <div data-comment-list>正在加载评论…</div>
+      <form data-comment-form><div><input name="author_name" placeholder="昵称" required maxlength="40"/><input name="author_email" type="email" placeholder="邮箱，可选"/></div><textarea name="content" placeholder="写下对这一卷的想法…" required maxlength="2000"></textarea><button type="submit">提交评论</button><p data-comment-status></p></form>
+    </section>
+  </section>
+</BaseLayout>
+<style>
+.volume-page{max-width:860px;margin:0 auto;padding:2rem 1rem 5rem}.volume-page>nav a{color:inherit;opacity:.6;text-decoration:none}.volume-page>header{padding:4rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 15%,transparent)}.volume-page>header small{color:var(--brand);letter-spacing:.2em}.volume-page h1{font:500 clamp(3.5rem,8vw,6rem)/1 var(--theme-title-font);margin:.5rem 0 1rem}.volume-page>header p{opacity:.65}.start{display:inline-flex;margin-top:2rem;padding:.9rem 1.3rem;border-radius:999px;background:#172019;color:white;text-decoration:none}.volume-page ol{list-style:none;margin:2rem 0;padding:0}.volume-page li a{display:grid;grid-template-columns:3rem 1fr auto;gap:1rem;padding:1.1rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 10%,transparent);color:inherit;text-decoration:none}.volume-page li span,.volume-page li i{font-size:.78rem;opacity:.45}.volume-comments{margin-top:4rem;padding:1.5rem;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:22px}.volume-comments>header{display:flex;justify-content:space-between}.volume-comments input,.volume-comments textarea{width:100%;padding:.8rem;border:1px solid color-mix(in srgb,currentColor 15%,transparent);border-radius:10px;background:transparent}.volume-comments form>div{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}.volume-comments textarea{min-height:110px;margin-top:.7rem}.volume-comments button{margin-top:.7rem;padding:.7rem 1rem;border-radius:999px}.comment-item{padding:1rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 8%,transparent)}.comment-item p{margin-top:.4rem;white-space:pre-wrap}.comment-item small{opacity:.45}@media(max-width:600px){.volume-page li a{grid-template-columns:2.2rem 1fr}.volume-page li i{display:none}.volume-comments form>div{grid-template-columns:1fr}}
+</style>
+<script is:inline>
+  function initVolumeComments(){
+    const root=document.querySelector('[data-volume-comments]'); if(!root||root.dataset.ready)return; root.dataset.ready='1';
+    const id=root.dataset.volumeComments, api=window.__PUBLIC_API_BASE__||'/api', list=root.querySelector('[data-comment-list]'), form=root.querySelector('form'), status=root.querySelector('[data-comment-status]');
+    const esc=(v)=>String(v||'').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const load=async()=>{try{const r=await fetch(api+'/book-volumes/'+id+'/comments');const j=await r.json();const items=j.data||[];list.innerHTML=items.length?items.map((c)=>'<article class="comment-item"><b>'+esc(c.author_name)+'</b><small> · '+esc(c.created_at)+'</small><p>'+esc(c.content)+'</p></article>').join(''):'<p>还没有评论。</p>'}catch{list.textContent='评论暂时无法加载'}};
+    root.querySelector('[data-comment-refresh]')?.addEventListener('click',load);
+    form?.addEventListener('submit',async(e)=>{e.preventDefault();status.textContent='提交中…';const body=Object.fromEntries(new FormData(form));try{const r=await fetch(api+'/book-volumes/'+id+'/comments',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.message);status.textContent=j.message;form.reset();load()}catch(err){status.textContent=err.message||'提交失败'}});
+    load();
+  }
+  document.addEventListener('astro:page-load',initVolumeComments); initVolumeComments();
+</script>

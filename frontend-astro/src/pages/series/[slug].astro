@@ -6,16 +6,18 @@ import { resolveUploadUrl } from '@/lib/media'
 const { slug } = Astro.params
 const series = slug ? await getSeriesDetail(slug) : null
 if (!series) return Astro.redirect('/404')
+const typeLabel = series.series_type === 'project' ? 'PROJECT TIMELINE' : series.series_type === 'book' ? 'NOVEL BOOK' : 'ARTICLE COLLECTION'
 ---
 
 <BaseLayout title={series.title} subtitle={series.description || '文章专题'} showSidebar={false} image={series.cover}>
-  <article class="series-detail">
+  <article class:list={['series-detail', series.series_type === 'project' && 'is-timeline']}>
     <header class="series-detail-hero">
       <div>{series.cover && <img src={resolveUploadUrl(series.cover)} alt="" />}</div>
       <section>
-        <p>{series.is_novel ? 'BOOK SERIES' : 'ARTICLE SERIES'} · {series.article_count || 0} {series.is_novel ? 'VOLUMES' : 'CHAPTERS'}</p>
+        <p>{typeLabel} · {series.article_count || 0} {series.is_novel ? 'VOLUMES' : 'CHAPTERS'}</p>
         <h1>{series.title}</h1>
         <span>{series.description || (series.is_novel ? '由多卷文章组成的持续阅读书籍。' : '持续更新中的文章专题。')}</span>
+        {series.linked_book && <a class="series-book-link" href={"/books/"+series.linked_book.slug}>打开独立书库版本 →</a>}
       </section>
     </header>
     <ol class="series-chapters">
@@ -31,3 +33,11 @@ if (!series) return Astro.redirect('/404')
     </ol>
   </article>
 </BaseLayout>
+
+<style>
+.series-book-link{display:inline-flex;margin-top:1rem;padding:.7rem 1rem;border-radius:999px;background:#172019;color:#fff;text-decoration:none}
+.series-detail.is-timeline .series-chapters{position:relative;padding-left:1.5rem}
+.series-detail.is-timeline .series-chapters:before{content:"";position:absolute;left:.55rem;top:1rem;bottom:1rem;width:1px;background:color-mix(in srgb,currentColor 18%,transparent)}
+.series-detail.is-timeline .series-chapters li{position:relative}
+.series-detail.is-timeline .series-chapters li:before{content:"";position:absolute;left:-1.25rem;top:2rem;width:.65rem;height:.65rem;border-radius:50%;background:var(--brand)}
+</style>

@@ -4,7 +4,7 @@ export const GET: APIRoute = () => new Response(JSON.stringify({
   name: 'My Blog · Notes & Stories',
   short_name: 'My Blog',
   description: '记录技术、生活与灵感的个人空间',
-  start_url: '/',
+  start_url: '/nav',
   scope: '/',
   display: 'standalone',
   background_color: '#f4f2ea',

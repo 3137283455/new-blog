@@ -170,7 +170,8 @@ export function seriesDetail(req: AuthRequest, res: Response) {
     WHERE series_id = ? AND deleted_at IS NULL AND content LIKE '%<!-- boke:epub-novel -->%'
     LIMIT 1
   `).get(series.id)
-  return success(res, { ...series, articles, article_count: articles.length, is_novel: Boolean(novel) })
+  const linkedBook = series.book_id ? db.prepare("SELECT id, title, slug, cover FROM books WHERE id = ? AND status = 'published' AND deleted_at IS NULL").get(series.book_id) : null
+  return success(res, { ...series, articles, article_count: articles.length, is_novel: series.series_type === 'book' || Boolean(novel), linked_book: linkedBook })
 }
 
 export function adminSeriesList(_req: AuthRequest, res: Response) {
@@ -229,9 +230,9 @@ export function createSeries(req: AuthRequest, res: Response) {
   const title = clean(req.body?.title, 100)
   if (!title) return error(res, '专题标题不能为空', 'VALIDATION_ERROR')
   const result = db.prepare(`
-    INSERT INTO article_series (title, slug, description, cover, sort_order, is_featured, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(title, slugify(req.body?.slug || title), clean(req.body?.description, 1000), clean(req.body?.cover, 600), Number(req.body?.sort_order) || 0, req.body?.is_featured ? 1 : 0, req.body?.status === 'draft' ? 'draft' : 'published')
+    INSERT INTO article_series (title, slug, description, cover, sort_order, is_featured, status, series_type, book_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(title, slugify(req.body?.slug || title), clean(req.body?.description, 1000), clean(req.body?.cover, 600), Number(req.body?.sort_order) || 0, req.body?.is_featured ? 1 : 0, req.body?.status === 'draft' ? 'draft' : 'published', ['article','book','project'].includes(req.body?.series_type) ? req.body.series_type : 'article', Number(req.body?.book_id) || null)
   return success(res, db.prepare('SELECT * FROM article_series WHERE id = ?').get(result.lastInsertRowid), '专题已创建')
 }
 
@@ -245,8 +246,8 @@ export function updateSeries(req: AuthRequest, res: Response) {
   if (duplicate) slug = slugify(title)
   db.prepare(`
     UPDATE article_series SET title = ?, slug = ?, description = ?, cover = ?, sort_order = ?,
-      is_featured = ?, status = ?, updated_at = datetime('now') WHERE id = ?
-  `).run(title, slug, clean(req.body?.description ?? row.description, 1000), clean(req.body?.cover ?? row.cover, 600), Number(req.body?.sort_order ?? row.sort_order) || 0, req.body?.is_featured === undefined ? row.is_featured : (req.body.is_featured ? 1 : 0), req.body?.status === 'draft' ? 'draft' : 'published', id)
+      is_featured = ?, status = ?, series_type = ?, book_id = ?, updated_at = datetime('now') WHERE id = ?
+  `).run(title, slug, clean(req.body?.description ?? row.description, 1000), clean(req.body?.cover ?? row.cover, 600), Number(req.body?.sort_order ?? row.sort_order) || 0, req.body?.is_featured === undefined ? row.is_featured : (req.body.is_featured ? 1 : 0), req.body?.status === 'draft' ? 'draft' : 'published', ['article','book','project'].includes(req.body?.series_type) ? req.body.series_type : (row.series_type || 'article'), Number(req.body?.book_id ?? row.book_id) || null, id)
   return success(res, db.prepare('SELECT * FROM article_series WHERE id = ?').get(id), '专题已更新')
 }
 
