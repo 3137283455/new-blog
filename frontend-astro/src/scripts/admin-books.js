@@ -6,6 +6,12 @@
   const html=(value)=>String(value??'').replace(/[&<>"']/g,(char)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))
   const state={books:[],preview:null,active:null}
   const notify=(message,failed=false)=>window.notifyAdmin?.(message,failed)
+  function deviceClientId(){
+    const key='boke_private_device_client_id'
+    let id=localStorage.getItem(key)
+    if(!id){id=globalThis.crypto?.randomUUID?.()||'device-'+Date.now()+'-'+Math.random().toString(36).slice(2);localStorage.setItem(key,id)}
+    return id
+  }
   async function api(path,options={}){
     const isForm=options.body instanceof FormData
     const response=await fetch(apiBase+path,{...options,headers:{...(isForm?{}:{'Content-Type':'application/json'}),Authorization:'Bearer '+token(),...(options.headers||{})}})
@@ -50,14 +56,15 @@
     list.innerHTML=devices.map((device)=>'<article class="admin-personal-item '+(device.revoked_at?'is-done':'')+'"><header><span>'+(device.revoked_at?'已撤销':'同步中')+'</span><small>'+html(String(device.last_seen_at||'').slice(0,16))+'</small></header><strong>'+html(device.name)+'</strong><p>'+html(device.platform||'')+'</p><footer>'+(device.revoked_at?'':'<button class="is-danger" data-device-revoke="'+device.id+'">撤销设备</button>')+'</footer></article>').join('')
   }
   async function registerDevice(){
-    const data=await api('/admin/devices/register',{method:'POST',body:JSON.stringify({name:(navigator.userAgentData?.platform||'设备')+' · '+(navigator.userAgent.includes('Mobile')?'移动端':'浏览器'),platform:navigator.userAgent})})
-    if(data.token)localStorage.setItem('boke_private_device_token',data.token)
-    await loadDevices();notify('当前设备已登记并开始同步')
+    const data=await api('/admin/devices/register',{method:'POST',body:JSON.stringify({name:(navigator.userAgentData?.platform||'设备')+' · '+(navigator.userAgent.includes('Mobile')?'移动端':'浏览器'),platform:navigator.userAgent,client_id:deviceClientId()})})
+    if(data.token){localStorage.setItem('boke_private_device_token',data.token);localStorage.setItem('boke_private_device_registered_client_id',deviceClientId())}
+    await loadDevices();notify(data.reused?'当前设备信息已更新，没有重复添加':'当前设备已登记并开始同步')
   }
   document.addEventListener('click',async(event)=>{
     const button=event.target.closest('button');if(!button||!token())return
     try{
-      if(button.closest('[data-panel-tab="books"]')){await Promise.all([loadBooks(),loadDevices()])}
+      if(button.closest('[data-panel-tab="books"]'))await loadBooks()
+      if(button.closest('[data-personal-tab="devices"]'))await loadDevices()
       if(button.dataset.bookEdit)await editBook(button.dataset.bookEdit)
       if(button.dataset.bookDelete&&confirm('把这本书移入回收站吗？')){await api('/admin/books/'+button.dataset.bookDelete,{method:'DELETE'});await loadBooks()}
       if(button.dataset.bookRestore){await api('/admin/books/'+button.dataset.bookRestore+'/restore',{method:'PUT'});await loadBooks()}

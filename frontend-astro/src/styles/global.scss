@@ -5909,9 +5909,7 @@ select {
 }
 body[data-admin-mode='simple'] .admin-sidebar [data-panel='fonts'],
 body[data-admin-mode='simple'] .admin-sidebar [data-panel='appearance'],
-body[data-admin-mode='simple'] .admin-sidebar [data-panel='personal'],
-body[data-admin-mode='simple'] .admin-sidebar [data-panel='settings'],
-body[data-admin-mode='simple'] .admin-sidebar [data-panel='backup'] { display: none; }
+body[data-admin-mode='simple'] .admin-sidebar [data-panel='settings'] { display: none; }
 .admin-book-preview-volumes { display: grid; gap: .7rem; max-height: 28rem; overflow: auto; }
 .admin-book-preview-volumes details { border: 1px solid color-mix(in srgb, currentColor 12%, transparent); border-radius: .9rem; padding: .8rem; }
 .admin-book-preview-volumes summary { cursor: pointer; margin-bottom: .65rem; }

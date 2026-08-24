@@ -300,10 +300,22 @@ async function loadPlugins() {
   renderPlugins();
 }
 
+function getPrivateDeviceClientId() {
+  const key = 'boke_private_device_client_id';
+  let clientId = localStorage.getItem(key);
+  if (!clientId) {
+    clientId = globalThis.crypto?.randomUUID?.() || `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(key, clientId);
+  }
+  return clientId;
+}
+
 async function ensurePrivateDevice() {
   if (!state.token) return;
+  const clientId = getPrivateDeviceClientId();
   const existing = localStorage.getItem('boke_private_device_token');
-  if (existing) {
+  const registeredClientId = localStorage.getItem('boke_private_device_registered_client_id');
+  if (existing && registeredClientId === clientId) {
     try {
       const response = await fetch(API_BASE + '/private/navigation', { headers: { 'X-Device-Token': existing } });
       if (response.ok) return;
@@ -316,9 +328,13 @@ async function ensurePrivateDevice() {
       body: JSON.stringify({
         name: (navigator.userAgentData?.platform || '设备') + ' · ' + (navigator.userAgent.includes('Mobile') ? '移动端' : '浏览器'),
         platform: navigator.userAgent,
+        client_id: clientId,
       }),
     });
-    if (json.data?.token) localStorage.setItem('boke_private_device_token', json.data.token);
+    if (json.data?.token) {
+      localStorage.setItem('boke_private_device_token', json.data.token);
+      localStorage.setItem('boke_private_device_registered_client_id', clientId);
+    }
   } catch (error) {
     console.warn('私人设备登记失败', error);
   }

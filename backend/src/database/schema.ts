@@ -340,6 +340,7 @@ export function migrate() {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       platform TEXT DEFAULT '',
+      client_id TEXT DEFAULT '',
       token_hash TEXT NOT NULL UNIQUE,
       last_seen_at TEXT DEFAULT (datetime('now')),
       revoked_at TEXT,
@@ -601,6 +602,13 @@ export function migrate() {
   addColumn('article_series', 'series_type', "TEXT DEFAULT 'article'")
   addColumn('article_series', 'book_id', 'INTEGER REFERENCES books(id) ON DELETE SET NULL')
   addColumn('comments', 'book_volume_id', 'INTEGER REFERENCES book_volumes(id) ON DELETE CASCADE')
+  addColumn('private_devices', 'client_id', "TEXT DEFAULT ''")
+
+  try {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_private_devices_user_client ON private_devices(user_id, client_id) WHERE client_id != ''")
+  } catch {
+    // Existing device rows without a client id remain compatible.
+  }
 
   try {
     db.exec(`

@@ -199,10 +199,6 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             </form>
             <div id="book-volume-editor" class="mt-5"></div>
           </section>
-          <section class="ryu-card p-5">
-            <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-xl font-black">私人设备</h3><p class="text-sm text-base-content/50">在后台登录过一次的设备可同步导航、阅读进度和私人笔记；可随时撤销。</p></div><button id="register-current-device" class="ryu-btn btn-sm" type="button">登记当前设备</button></div>
-            <div id="private-device-list" class="admin-personal-list mt-4"></div>
-          </section>
         </section>
       </section>
       <section id="series-panel" class="admin-panel hidden">
@@ -888,13 +884,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
       <section id="personal-panel" class="admin-panel hidden">
         <header class="admin-personal-hero">
-          <div><p>PERSONAL WORKSPACE</p><h2>个人博客长期中心</h2><span>统一整理灵感、待办、年度记录与主题外观。</span></div>
+          <div><p>PERSONAL WORKSPACE</p><h2>个人博客长期中心</h2><span>统一整理灵感、待办、年度记录、主题外观与私人设备。</span></div>
           <a class="ryu-btn" href="/memories" target="_blank">查看年度回顾 ↗</a>
         </header>
         <nav class="admin-personal-tabs">
           <button class="is-active" type="button" data-personal-tab="inbox">稍后处理</button>
           <button type="button" data-personal-tab="report">写作报告</button>
           <button type="button" data-personal-tab="theme">主题编辑器</button>
+          <button type="button" data-personal-tab="devices">设备同步</button>
         </nav>
 
         <div class="admin-personal-section" data-personal-section="inbox">
@@ -908,6 +905,15 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <section class="ryu-card p-5"><div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-xl font-black">年度写作报告</h3><p class="text-sm text-base-content/50">文章发布、字数、阅读与连续写作统计。</p></div><select id="personal-report-year" class="select select-bordered rounded-xl"></select></div><div id="personal-report-stats" class="admin-stats-grid mt-5"></div><div id="personal-report-heatmap" class="memory-heatmap mt-5"></div><div id="personal-report-months" class="admin-personal-months mt-5"></div></section>
         </div>
 
+        <div class="admin-personal-section hidden" data-personal-section="devices">
+          <section class="ryu-card p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div><h3 class="text-xl font-black">私人设备与同步</h3><p class="text-sm text-base-content/50">管理可同步导航、阅读进度、书签、高亮和私人笔记的设备。同一浏览器重复登记会更新原设备，不会新增重复项。</p></div>
+              <button id="register-current-device" class="ryu-btn btn-sm" type="button">重新登记当前设备</button>
+            </div>
+            <div id="private-device-list" class="admin-personal-list mt-4"></div>
+          </section>
+        </div>
         <div class="admin-personal-section hidden" data-personal-section="theme">
           <div class="admin-personal-columns">
             <form id="personal-theme-form" class="ryu-card grid gap-4 p-5">

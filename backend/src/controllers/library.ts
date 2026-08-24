@@ -36,15 +36,34 @@ function json(value: unknown, fallback: any = {}) {
 export function registerDevice(req: AuthRequest, res: Response) {
   const name = text(req.body?.name, 100) || '私人设备'
   const platform = text(req.body?.platform, 240)
+  const clientId = text(req.body?.client_id, 100)
+  if (!clientId) return error(res, '缺少设备标识，请刷新后台后重试', 'DEVICE_ID_REQUIRED', 400)
   const rawToken = crypto.randomBytes(32).toString('base64url')
+  const tokenHash = hashDeviceToken(rawToken)
+  const exact = db.prepare(
+    'SELECT id FROM private_devices WHERE user_id = ? AND client_id = ?'
+  ).get(req.userId!, clientId) as { id: number } | undefined
+  const legacy = exact ? undefined : db.prepare(
+    "SELECT id FROM private_devices WHERE user_id = ? AND client_id = '' AND name = ? AND platform = ? ORDER BY last_seen_at DESC, id DESC LIMIT 1"
+  ).get(req.userId!, name, platform) as { id: number } | undefined
+  const existing = exact || legacy
+  if (existing) {
+    db.prepare(
+      "UPDATE private_devices SET name = ?, platform = ?, client_id = ?, token_hash = ?, revoked_at = NULL, last_seen_at = datetime('now') WHERE id = ?"
+    ).run(name, platform, clientId, tokenHash, existing.id)
+    db.prepare(
+      "DELETE FROM private_devices WHERE user_id = ? AND client_id = '' AND name = ? AND platform = ?"
+    ).run(req.userId!, name, platform)
+    return success(res, { id: existing.id, name, platform, token: rawToken, reused: true }, '当前设备已更新，不会重复添加')
+  }
   const result = db.prepare(
-    "INSERT INTO private_devices (user_id, name, platform, token_hash) VALUES (?, ?, ?, ?)"
-  ).run(req.userId!, name, platform, hashDeviceToken(rawToken))
-  return success(res, { id: result.lastInsertRowid, name, platform, token: rawToken }, '此设备已设为私人设备')
+    'INSERT INTO private_devices (user_id, name, platform, client_id, token_hash) VALUES (?, ?, ?, ?, ?)'
+  ).run(req.userId!, name, platform, clientId, tokenHash)
+  return success(res, { id: result.lastInsertRowid, name, platform, token: rawToken, reused: false }, '此设备已设为私人设备')
 }
 export function devices(req: AuthRequest, res: Response) {
   const rows = db.prepare(
-    'SELECT id, name, platform, last_seen_at, created_at, revoked_at FROM private_devices WHERE user_id = ? ORDER BY revoked_at IS NULL DESC, last_seen_at DESC'
+    'SELECT id, name, platform, client_id, last_seen_at, created_at, revoked_at FROM private_devices WHERE user_id = ? ORDER BY revoked_at IS NULL DESC, last_seen_at DESC'
   ).all(req.userId!)
   return success(res, rows)
 }

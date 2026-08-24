@@ -24,7 +24,9 @@ async function main(){
   if(!login.data?.token)throw new Error('登录失败 '+JSON.stringify(login))
   const auth={Authorization:'Bearer '+login.data.token,'Content-Type':'application/json'}
   async function call(url,options={},allowError=false){const res=await fetch(origin+'/api'+url,{...options,headers:{...auth,...(options.headers||{})}}),body=await res.json();if(!allowError&&(!res.ok||body.success===false))throw new Error((options.method||'GET')+' '+url+' '+JSON.stringify(body));return {res,body}}
-  const device=(await call('/admin/devices/register',{method:'POST',body:JSON.stringify({name:'测试私人设备',platform:'node'})})).body.data
+  const firstDevice=(await call('/admin/devices/register',{method:'POST',body:JSON.stringify({name:'测试私人设备',platform:'node',client_id:'library-test-device'})})).body.data
+  const device=(await call('/admin/devices/register',{method:'POST',body:JSON.stringify({name:'测试私人设备（更新）',platform:'node-test',client_id:'library-test-device'})})).body.data
+  if(device.id!==firstDevice.id||device.reused!==true)throw new Error('同一设备重复登记未复用原记录')
   const privateHeaders={'Content-Type':'application/json','X-Device-Token':device.token}
   const nav0=await fetch(origin+'/api/private/navigation',{headers:privateHeaders}),nav0j=await nav0.json()
   const nav1=await fetch(origin+'/api/private/navigation',{method:'PUT',headers:privateHeaders,body:JSON.stringify({revision:nav0j.data.revision,state:{favorites:['1'],workspace:'study'}})}),nav1j=await nav1.json()
@@ -53,6 +55,7 @@ async function main(){
   await call('/admin/books/'+book.id+'/restore',{method:'PUT'})
   const devices=(await call('/admin/devices')).body.data
   if(!devices.some(item=>item.id===device.id&&!item.revoked_at))throw new Error('设备列表错误')
+  if(devices.filter(item=>item.client_id==='library-test-device').length!==1)throw new Error('同一设备产生了重复记录')
   const comments=(await fetch(origin+'/api/book-volumes/'+volume.id+'/comments')).json()
   const commentRows=await comments
   if(!commentRows.data?.length)throw new Error('分卷评论列表为空')
