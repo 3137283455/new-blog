@@ -77,7 +77,7 @@ const volumeGroups=Array.from(navigation.reduce((groups:Map<number,any>,item:any
       </form>
     </dialog>
     <dialog class="reader-note" data-reader-note><form method="dialog"><header><h2 data-note-title>本章笔记</h2><button value="cancel">×</button></header><textarea placeholder="记录这一章的想法…"></textarea><footer><button type="button" data-note-save>保存私人笔记</button></footer></form></dialog>
-    <dialog class="reader-note" data-reader-annotations><form method="dialog"><header><h2>书签、高亮与笔记</h2><button value="cancel">×</button></header><div data-annotation-list>正在加载…</div></form></dialog>
+    <dialog class="reader-note reader-annotations" data-reader-annotations><form method="dialog"><header><div><h2>书签、高亮与笔记</h2><small data-annotation-count>正在加载</small></div><button value="cancel" aria-label="关闭">×</button></header><div data-annotation-list>正在加载…</div></form></dialog>
     <div class="reader-toast" data-reader-toast hidden></div>
   </div>
 </BaseLayout>
@@ -198,6 +198,81 @@ const volumeGroups=Array.from(navigation.reduce((groups:Map<number,any>,item:any
   .reader-selection-menu button:last-child{border-right:0}
   .reader-toast{z-index:120;top:auto;bottom:6.8rem}
 }
+.reader-settings header h2,.reader-note header h2{margin:0;line-height:1.3}.reader-settings header>button,.reader-note header>button{display:grid;width:36px;height:36px;padding:0;border:0;border-radius:50%;background:color-mix(in srgb,currentColor 8%,transparent);color:inherit;font-size:1.15rem;place-items:center}
+.annotation-row{align-items:start}.annotation-copy{min-width:0}.annotation-copy small{display:flex;align-items:center;gap:.5rem}.annotation-copy small b{flex:0 0 auto}.annotation-copy small span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.annotation-copy p{overflow-wrap:anywhere}
+@media(max-width:700px){
+  .reader-content :global(figure){margin:1.6rem 0}
+  .reader-content :global(img){max-height:min(76dvh,720px);object-fit:contain;box-shadow:0 10px 28px rgba(24,31,25,.1)}
+  .reader-content :global(figcaption){margin-top:.6rem;color:color-mix(in srgb,var(--reader-text) 55%,transparent);font-size:.72rem;line-height:1.5;text-align:center}
+  .reader-content :global(blockquote){margin:1.5rem 0;padding:.2rem 0 .2rem 1rem;border-left:3px solid color-mix(in srgb,var(--brand) 55%,transparent);color:color-mix(in srgb,var(--reader-text) 78%,transparent)}
+  .reader-content :global(pre){max-width:100%;padding:1rem;overflow:auto;border-radius:12px;background:color-mix(in srgb,var(--reader-text) 8%,var(--reader-bg));font-size:.78em;line-height:1.65}
+  .reader-content :global(code){font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+  .reader-content :global(table){display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
+  .reader-content :global(td),.reader-content :global(th){padding:.55rem;border:1px solid color-mix(in srgb,var(--reader-text) 12%,transparent)}
+  .reader-mobile-topbar{padding-bottom:.55rem}
+  .reader-mobile-topbar>a,.reader-mobile-topbar>button{transition:background .15s ease,transform .15s ease}
+  .reader-mobile-topbar>a:active,.reader-mobile-topbar>button:active{background:color-mix(in srgb,var(--reader-text) 9%,transparent);transform:scale(.94)}
+  .reader-mobile-bottombar{padding-top:.6rem}
+  .reader-mobile-progress a,.reader-mobile-progress>span{min-width:2.5rem;text-align:center}
+  .reader-mobile-progress a{font-weight:700}
+  .reader-mobile-progress input{height:18px;background:transparent}
+  .reader-mobile-progress input::-webkit-slider-runnable-track{height:3px;border-radius:999px;background:color-mix(in srgb,var(--reader-text) 14%,transparent)}
+  .reader-mobile-progress input::-webkit-slider-thumb{width:15px;height:15px;margin-top:-6px;border:3px solid var(--reader-bg);border-radius:50%;background:var(--brand);box-shadow:0 2px 8px rgba(10,20,13,.2);-webkit-appearance:none}
+  .reader-mobile-bottombar nav{gap:.3rem}
+  .reader-mobile-bottombar nav button{border-radius:12px;transition:background .15s ease,transform .15s ease}
+  .reader-mobile-bottombar nav button:active{background:color-mix(in srgb,var(--reader-text) 8%,transparent);transform:scale(.96)}
+  .reader-mobile-bottombar nav button>span{display:grid;min-height:20px;place-items:center}
+  .reader-mobile-bottombar nav button:nth-child(4)>span{font-size:.82rem;font-weight:800}
+  .reader-toc-mobile-head input{outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+  .reader-toc-mobile-head input:focus{border-color:color-mix(in srgb,var(--brand) 65%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 12%,transparent)}
+  .reader-toc a.active{background:color-mix(in srgb,var(--brand) 14%,var(--reader-bg));box-shadow:inset 3px 0 var(--brand)}
+  .reader-settings,.reader-note{border:1px solid color-mix(in srgb,var(--reader-text) 10%,transparent);box-shadow:0 -24px 70px rgba(12,20,14,.22)}
+  .reader-settings::backdrop,.reader-note::backdrop{background:rgba(15,22,17,.46);backdrop-filter:blur(7px)}
+  .reader-settings form,.reader-note form{padding-top:.55rem}
+  .reader-settings form::before,.reader-note form::before{content:'';display:block;width:38px;height:4px;margin:0 auto .45rem;border-radius:999px;background:color-mix(in srgb,var(--reader-text) 18%,transparent)}
+  .reader-settings header,.reader-note header{top:0;margin:0 -1.15rem;padding:.7rem 1.15rem;background:color-mix(in srgb,var(--reader-bg) 96%,transparent)}
+  .reader-settings h2,.reader-note h2{font-size:1.08rem}
+  .reader-settings label{gap:.65rem;margin-top:1rem;color:color-mix(in srgb,var(--reader-text) 68%,transparent);font-size:.76rem;font-weight:700}
+  .reader-settings select,.reader-settings input[type=url]{width:100%;padding:.78rem .85rem;border:1px solid color-mix(in srgb,var(--reader-text) 13%,transparent);border-radius:12px;background:color-mix(in srgb,var(--reader-bg) 92%,white);color:var(--reader-text);font:inherit}
+  .reader-settings input[type=range]{width:100%;accent-color:var(--brand)}
+  .reader-settings input[type=color]{width:100%;height:42px;padding:.25rem;border:1px solid color-mix(in srgb,var(--reader-text) 13%,transparent);border-radius:12px;background:transparent}
+  .reader-settings .reader-toggle{margin-top:1rem;padding:.9rem 0;border-top:1px solid color-mix(in srgb,var(--reader-text) 10%,transparent);border-bottom:1px solid color-mix(in srgb,var(--reader-text) 10%,transparent)}
+  .reader-settings .reader-toggle input{width:2.6rem;height:1.4rem}
+  .theme-choices{gap:.5rem}
+  .theme-choices button{display:grid;gap:.4rem;padding:.55rem .3rem;border-color:transparent;background:transparent;font-size:.68rem;place-items:center}
+  .theme-choices button::before{content:'';display:block;width:34px;height:34px;border:2px solid transparent;border-radius:50%;background:#f7f6f1;box-shadow:inset 0 0 0 3px var(--reader-bg)}
+  .theme-choices button:nth-child(2)::before{background:#f1e5ca}.theme-choices button:nth-child(3)::before{background:#dfead8}.theme-choices button:nth-child(4)::before{background:#172019}
+  .theme-choices button.is-active{border-color:transparent;background:transparent;color:var(--reader-text)}
+  .theme-choices button.is-active::before{border-color:var(--brand)}
+  .reader-note textarea{min-height:180px;margin-top:.9rem;padding:.9rem;border:1px solid color-mix(in srgb,var(--reader-text) 13%,transparent);border-radius:14px;background:color-mix(in srgb,var(--reader-bg) 92%,white);color:var(--reader-text);font:inherit;line-height:1.7;outline:none}
+  .reader-note textarea:focus{border-color:color-mix(in srgb,var(--brand) 65%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 12%,transparent)}
+  .reader-note footer{padding-top:.75rem}
+  .reader-note [data-note-save]{min-height:42px;padding:.7rem 1.15rem;border:0;background:var(--brand);font-weight:700}
+  .reader-annotations{max-height:82dvh}
+  .reader-annotations header>div{min-width:0}
+  .reader-annotations header small{display:block;margin-top:.18rem;color:color-mix(in srgb,var(--reader-text) 52%,transparent);font-size:.64rem}
+  .reader-annotations [data-annotation-list]{display:grid;gap:.65rem;padding:.8rem 0 .3rem}
+  .annotation-row{display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem;padding:.9rem;border:1px solid color-mix(in srgb,var(--reader-text) 10%,transparent);border-radius:14px;background:color-mix(in srgb,var(--reader-bg) 91%,white);box-shadow:0 5px 18px rgba(20,30,23,.05)}
+  .annotation-copy small{gap:.45rem;opacity:1}
+  .annotation-copy small b{padding:.24rem .42rem;border-radius:999px;background:color-mix(in srgb,var(--brand) 13%,transparent);color:var(--brand);font-size:.6rem}
+  .annotation-copy small span{color:color-mix(in srgb,var(--reader-text) 52%,transparent);font-size:.62rem}
+  .annotation-copy p{margin:.55rem 0 0;color:var(--reader-text);font-size:.84rem;line-height:1.65;white-space:pre-wrap}
+  .annotation-type-highlight .annotation-copy p{padding:.55rem .65rem;border-left:3px solid #c7a630;background:color-mix(in srgb,#e8d56b 14%,transparent)}
+  .annotation-type-note .annotation-copy small b{background:color-mix(in srgb,#5790c9 13%,transparent);color:color-mix(in srgb,#3572ad 88%,var(--reader-text))}
+  .annotation-row footer{display:flex;justify-content:flex-end;gap:.4rem;padding-top:.65rem;border-top:1px solid color-mix(in srgb,var(--reader-text) 8%,transparent)}
+  .annotation-row footer a,.annotation-row footer button{min-width:54px;padding:.5rem .65rem;border:0;border-radius:9px;background:color-mix(in srgb,var(--reader-text) 7%,transparent);color:var(--reader-text);font-size:.68rem;font-weight:700;text-align:center}
+  .annotation-row footer [data-annotation-delete]{background:color-mix(in srgb,#c84b4b 9%,transparent);color:#b54040}
+  .annotation-empty{display:grid;min-height:210px;padding:2rem;text-align:center;place-content:center}
+  .annotation-empty b{font-size:.95rem}
+  .annotation-empty span{max-width:17rem;margin-top:.5rem;color:color-mix(in srgb,var(--reader-text) 52%,transparent);font-size:.72rem;line-height:1.65}
+  .reader-toast{padding:.68rem 1rem;border:1px solid #ffffff1a;background:rgba(23,32,25,.94);font-size:.75rem;box-shadow:0 12px 30px rgba(0,0,0,.2);backdrop-filter:blur(14px)}
+}
+@media(max-width:360px){
+  .annotation-row{padding:.8rem}
+  .annotation-copy small span{max-width:12rem}
+  .reader-settings form,.reader-note form{padding-right:1rem;padding-left:1rem}
+  .reader-mobile-bottombar{padding-right:.65rem;padding-left:.65rem}
+}
 </style>
 <script>
   // @ts-nocheck
@@ -226,7 +301,7 @@ const volumeGroups=Array.from(navigation.reduce((groups:Map<number,any>,item:any
     const markQuote=(quote)=>{if(!quote)return false;const nodes=[],walker=document.createTreeWalker(content,NodeFilter.SHOW_TEXT);let node;while(node=walker.nextNode())if(!node.parentElement?.closest('mark.reader-highlight'))nodes.push(node);const full=nodes.map((item)=>item.nodeValue||'').join(''),start=full.indexOf(quote);if(start<0)return false;const end=start+quote.length;let offset=0;for(const textNode of nodes){const length=(textNode.nodeValue||'').length,nodeStart=offset,nodeEnd=offset+length;offset=nodeEnd;if(end<=nodeStart||start>=nodeEnd)continue;const range=document.createRange();range.setStart(textNode,Math.max(0,start-nodeStart));range.setEnd(textNode,Math.min(length,end-nodeStart));const mark=document.createElement('mark');mark.className='reader-highlight';try{range.surroundContents(mark)}catch{}}return true};
     const syncBookmark=()=>{const buttons=root.querySelectorAll('[data-reader-action="bookmark"]');bookmark=annotations.find((item)=>item.type==='bookmark'&&item.chapter_id===chapterId&&item.status==='active')||null;buttons.forEach((button)=>{button.classList.toggle('is-active',Boolean(bookmark));button.textContent=bookmark?'★':'☆';button.title=bookmark?'取消本章书签':'添加本章书签';button.setAttribute('aria-pressed',String(Boolean(bookmark)))})};
     const annotationHref=(item)=>{if(!item.volume_slug||!item.chapter_slug)return '';const progress=Number(item.position?.progress),query=Number.isFinite(progress)?'?at='+Math.max(0,Math.min(1,progress)):'';return '/books/'+encodeURIComponent(bookSlug)+'/'+encodeURIComponent(item.volume_slug)+'/'+encodeURIComponent(item.chapter_slug)+query};
-    const renderAnnotations=()=>{const list=annotationDialog.querySelector('[data-annotation-list]');list.innerHTML=annotations.length?annotations.map((item)=>{const progress=Math.round(Math.max(0,Math.min(1,Number(item.position?.progress)||0))*100),current=item.chapter_id===chapterId,href=annotationHref(item),kind={bookmark:'书签',highlight:'高亮',note:'笔记'}[item.type]||item.type,copy=item.note||item.quote||'本章阅读位置',location=[item.volume_title,item.chapter_title].filter(Boolean).join(' · ');return '<article class="annotation-row"><div><small>'+esc(kind)+(location?' · '+esc(location):'')+(progress?' · '+progress+'%':'')+'</small><p>'+esc(copy)+'</p></div><footer>'+(current?'<button type="button" data-annotation-jump="'+item.id+'">定位</button>':href?'<a href="'+esc(href)+'">打开</a>':'')+(item.type==='note'?'<button type="button" data-annotation-edit="'+item.id+'">编辑</button>':'')+'<button type="button" data-annotation-delete="'+item.id+'">删除</button></footer></article>'}).join(''):'<p>还没有私人标注。</p>'};
+    const renderAnnotations=()=>{const list=annotationDialog.querySelector('[data-annotation-list]'),count=annotationDialog.querySelector('[data-annotation-count]');if(count)count.textContent=annotations.length+' 条私人记录';list.innerHTML=annotations.length?annotations.map((item)=>{const progress=Math.round(Math.max(0,Math.min(1,Number(item.position?.progress)||0))*100),current=item.chapter_id===chapterId,href=annotationHref(item),kind={bookmark:'书签',highlight:'高亮',note:'笔记'}[item.type]||item.type,copy=item.note||item.quote||'本章阅读位置',location=[item.volume_title,item.chapter_title].filter(Boolean).join(' · ');return '<article class="annotation-row annotation-type-'+esc(item.type)+'"><div class="annotation-copy"><small><b>'+esc(kind)+'</b><span>'+(location?esc(location):'当前章节')+(progress?' · '+progress+'%':'')+'</span></small><p>'+esc(copy)+'</p></div><footer>'+(current?'<button type="button" data-annotation-jump="'+item.id+'">定位</button>':href?'<a href="'+esc(href)+'">打开</a>':'')+(item.type==='note'?'<button type="button" data-annotation-edit="'+item.id+'">编辑</button>':'')+'<button type="button" data-annotation-delete="'+item.id+'">删除</button></footer></article>'}).join(''):'<div class="annotation-empty"><b>还没有私人记录</b><span>添加书签、选择文字高亮或写下笔记后，会集中显示在这里。</span></div>'};
     const loadAnnotations=async()=>{if(!token)return;try{annotations=await request('/private/books/'+bookId+'/annotations')||[];clearHighlights();annotations.filter((item)=>item.type==='highlight'&&item.chapter_id===chapterId&&item.status==='active').forEach((item)=>markQuote(item.quote));syncBookmark();renderAnnotations()}catch(error){say(error.message)}};
     const toggleBookmark=async()=>{if(!token)return say('请先在后台登录一次，将此设备设为私人设备');try{if(bookmark){await request('/private/books/'+bookId+'/annotations/'+bookmark.id,{method:'DELETE'});say('本章书签已取消')}else{await request('/private/books/'+bookId+'/annotations',{method:'POST',body:JSON.stringify({type:'bookmark',volume_id:volumeId,chapter_id:chapterId,position:{progress:position()}})});say('本章书签已保存')}await loadAnnotations()}catch(error){say(error.message)}};
     const hideSelectionMenu=()=>{selectionMenu.hidden=true};
