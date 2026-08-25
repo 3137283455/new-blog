@@ -114,6 +114,25 @@ function publicBook(slug: string) {
     "FROM books b WHERE b.slug = ? AND b.status = 'published' AND b.deleted_at IS NULL"
   ).get(slug) as any
 }
+export function privateLibrary(req: DeviceRequest, res: Response) {
+  const rows = db.prepare(
+    "SELECT b.id, b.slug, b.title, b.cover, s.volume_id, s.chapter_id, s.position chapter_progress, s.mode, s.updated_at progress_updated_at, " +
+    "v.slug volume_slug, v.title volume_title, c.slug chapter_slug, c.title chapter_title, " +
+    "(SELECT COUNT(*) FROM book_chapters tc JOIN book_volumes tv ON tv.id=tc.volume_id WHERE tv.book_id=b.id AND tv.deleted_at IS NULL) chapter_count, " +
+    "(SELECT COUNT(*) FROM book_chapters pc JOIN book_volumes pv ON pv.id=pc.volume_id WHERE pv.book_id=b.id AND pv.deleted_at IS NULL AND (pv.sort_order<v.sort_order OR (pv.id=v.id AND (pc.sort_order<c.sort_order OR (pc.sort_order=c.sort_order AND pc.id<c.id))))) chapters_before " +
+    "FROM reading_states s JOIN books b ON b.id=s.book_id LEFT JOIN book_volumes v ON v.id=s.volume_id LEFT JOIN book_chapters c ON c.id=s.chapter_id " +
+    "WHERE s.user_id=? AND b.status='published' AND b.deleted_at IS NULL ORDER BY s.updated_at DESC"
+  ).all(req.deviceUserId!) as any[]
+  rows.forEach((row) => {
+    const total = Math.max(1, Number(row.chapter_count) || 1)
+    const current = Math.max(0, Number(row.chapters_before) || 0)
+    row.chapter_progress = Math.max(0, Math.min(1, Number(row.chapter_progress) || 0))
+    row.overall_progress = Math.max(0, Math.min(1, (current + row.chapter_progress) / total))
+    row.chapter_number = current + 1
+    delete row.chapters_before
+  })
+  return success(res, rows)
+}
 export function books(_req: DeviceRequest, res: Response) {
   const rows = db.prepare(
     "SELECT b.*, (SELECT COUNT(*) FROM book_volumes v WHERE v.book_id=b.id AND v.deleted_at IS NULL) volume_count, " +

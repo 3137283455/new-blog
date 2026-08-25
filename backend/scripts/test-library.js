@@ -66,6 +66,9 @@ async function main(){
   if(!progress.ok||progressJson.data.revision!==1)throw new Error('进度同步失败')
   const sameDeviceUpdate=await fetch(origin+'/api/private/books/'+book.id+'/progress',{method:'PUT',headers:privateHeaders,body:JSON.stringify({volume_id:volume.id,chapter_id:chapter.id,position:.8,revision:0})}),sameDeviceJson=await sameDeviceUpdate.json()
   if(!sameDeviceUpdate.ok||sameDeviceJson.data.revision!==2)throw new Error('同设备翻章被误判为同步冲突')
+const privateLibrary=await (await fetch(origin+'/api/private/library',{headers:privateHeaders})).json()
+  const continueBook=privateLibrary.data?.find(item=>item.id===book.id)
+  if(!continueBook?.volume_slug||!continueBook?.chapter_slug||continueBook.overall_progress<=0)throw new Error('私人书库继续阅读信息错误 '+JSON.stringify(continueBook))
   const secondDevice=(await call('/admin/devices/register',{method:'POST',body:JSON.stringify({name:'另一台设备',platform:'node-second',client_id:'library-test-device-2'})})).body.data
   const secondHeaders={'Content-Type':'application/json','X-Device-Token':secondDevice.token}
   const progressConflict=await fetch(origin+'/api/private/books/'+book.id+'/progress',{method:'PUT',headers:secondHeaders,body:JSON.stringify({volume_id:volume.id,chapter_id:chapter.id,position:.2,revision:0})})
