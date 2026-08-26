@@ -15,7 +15,7 @@ const volumeGroups=Array.from(navigation.reduce((groups:Map<number,any>,item:any
 <BaseLayout title={chapter.title} subtitle={book.title} showSidebar={false} showBanner={false} hideFooter wide>
   <div class="reader-shell" data-reader data-book-id={book.id} data-book-slug={book.slug} data-volume-id={chapter.volume_id} data-chapter-id={chapter.id}>
     <aside class="reader-toc" data-reader-toc>
-      <header><a href={'/books/'+book.slug+'/'+chapter.volume_slug}>← {chapter.volume_title}</a><div><button type="button" data-toc-locate>定位本章</button><button type="button" data-toc-close aria-label="关闭目录">×</button></div></header>
+      <header class="reader-toc-toolbar"><a class="reader-toc-back" href={'/books/'+book.slug+'/'+chapter.volume_slug}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span><small>返回本卷</small><b>{chapter.volume_title}</b></span></a><div class="reader-toc-actions"><button type="button" data-toc-locate title="定位当前章节" aria-label="定位当前章节"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg><span>定位</span></button><button type="button" data-toc-close aria-label="关闭目录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div></header>
       <h2>{book.title}</h2><p>{book.volume_count || volumeGroups.length} 卷 · {book.chapter_count || navigation.length} 章</p>
       <div class="reader-toc-mobile-head">
         <label><span>搜索目录</span><input type="search" data-toc-search placeholder="搜索章节" /></label>
@@ -54,16 +54,15 @@ const volumeGroups=Array.from(navigation.reduce((groups:Map<number,any>,item:any
     </div>
     <button class="reader-control-trigger" type="button" data-reader-controls aria-label="展开阅读工具" aria-expanded="false"><span></span><span></span><span></span></button>
     <div class="reader-tools" aria-label="阅读工具">
-      <button type="button" data-reader-action="toc" title="目录">☰</button>
-      <button type="button" data-reader-action="bookmark" title="书签">☆</button>
-      <button type="button" data-reader-action="highlight" title="高亮选中文字">▤</button>
-      <button type="button" data-reader-action="note" title="笔记">✎</button>
-      <button type="button" data-reader-action="annotations" title="书签与笔记">◎</button>
-      <button type="button" data-reader-action="settings" title="阅读设置">Aa</button>
-      <button type="button" data-reader-action="immersive" title="沉浸阅读" aria-pressed="false">⛶</button>
-      <button type="button" data-reader-action="top" title="回到顶部">↑</button>
-    </div>
-    <button class="reader-scrim" type="button" data-reader-scrim aria-label="关闭目录" hidden></button>
+      <button type="button" data-reader-action="toc" title="目录" aria-label="打开目录"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h2m3 0h11M4 12h2m3 0h11M4 18h2m3 0h11"/></svg></button>
+      <button type="button" data-reader-action="bookmark" title="书签" aria-label="添加本章书签"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.8L6 21Z"/></svg></button>
+      <button type="button" data-reader-action="highlight" title="高亮选中文字" aria-label="高亮选中文字"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 4.5 5 5L9 20H4v-5Zm-8 13 5 2.5M13 6l5 5"/></svg></button>
+      <button type="button" data-reader-action="note" title="笔记" aria-label="添加笔记"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5Zm4 5h6m-6 4h6m-6 4h4"/></svg></button>
+      <button type="button" data-reader-action="annotations" title="书签与笔记" aria-label="查看书签与笔记"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16l-3.5-2-3.5 2-3.5-2L5 20Zm4 5h6m-6 4h6"/></svg></button>
+      <button type="button" data-reader-action="settings" title="阅读设置" aria-label="阅读设置"><span>Aa</span></button>
+      <button type="button" data-reader-action="immersive" title="沉浸阅读" aria-label="沉浸阅读" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"/></svg></button>
+      <button type="button" data-reader-action="top" title="回到顶部" aria-label="回到顶部"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6-6 6 6M12 4v16"/></svg></button>
+    </div>    <button class="reader-scrim" type="button" data-reader-scrim aria-label="关闭目录" hidden></button>
     <dialog class="reader-settings" data-reader-settings>
       <form method="dialog"><header><h2>阅读设置</h2><button value="cancel">×</button></header>
         <label>阅读方式<select data-setting="mode"><option value="scroll">滚动</option><option value="paged">分页</option></select></label>
@@ -350,6 +349,67 @@ const volumeGroups=Array.from(navigation.reduce((groups:Map<number,any>,item:any
   .reader-settings .reader-toggle input:checked{background:var(--brand)}
   .reader-settings .reader-toggle input:checked::after{transform:translateX(18px)}
   .reader-background-reset:active{background:color-mix(in srgb,var(--reader-text) 6%,transparent)}
+}
+/* TOC header and desktop reader completion */
+.reader-toc .reader-toc-toolbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.reader-toc-back{display:flex!important;min-width:0;align-items:center;gap:.55rem;padding:0!important;text-decoration:none;opacity:1!important}
+.reader-toc-back>svg{width:20px;height:20px;flex:0 0 20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.reader-toc-back>span{display:grid;min-width:0;gap:.12rem}
+.reader-toc-back small{color:color-mix(in srgb,var(--reader-text) 48%,transparent);font-size:.58rem;font-weight:650;letter-spacing:.04em}
+.reader-toc-back b{overflow:hidden;color:var(--reader-text);font-size:.68rem;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.reader-toc-actions{display:flex;flex:0 0 auto;align-items:center;gap:.35rem}
+.reader-toc .reader-toc-actions button{display:flex;height:34px;align-items:center;justify-content:center;gap:.3rem;padding:0 .55rem;border:1px solid color-mix(in srgb,var(--reader-text) 8%,transparent);border-radius:10px;background:color-mix(in srgb,var(--reader-text) 5%,transparent);color:var(--reader-text);font-size:.63rem;font-weight:700;white-space:nowrap}
+.reader-toc-actions button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.reader-tools svg{display:block;width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.reader-tools [data-reader-action="settings"] span{font:750 .76rem/1 ui-sans-serif,system-ui,sans-serif;letter-spacing:-.04em}
+.reader-tools [data-reader-action="bookmark"].is-active svg{fill:currentColor}
+@media(min-width:701px){
+  .reader-toc{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--reader-text) 16%,transparent) transparent}
+  .reader-toc .reader-toc-toolbar{position:sticky;z-index:3;top:-1.2rem;margin:-1.2rem -1.2rem 0;padding:1rem 1.2rem .8rem;background:color-mix(in srgb,var(--reader-bg) 94%,transparent);border-bottom:1px solid color-mix(in srgb,var(--reader-text) 8%,transparent);backdrop-filter:blur(16px)}
+  .reader-toc h2{margin:1.25rem 0 .2rem}
+  .reader-toc>p{margin:.2rem 0 1rem}
+  .reader-toc a:not(.reader-toc-back){transition:background .16s ease,color .16s ease,transform .16s ease}
+  .reader-toc a:not(.reader-toc-back):hover{background:color-mix(in srgb,var(--reader-text) 6%,transparent);transform:translateX(2px)}
+  .reader-toc a.active:hover{background:color-mix(in srgb,var(--brand) 16%,transparent)}
+  .reader-tools{padding:.42rem;border:1px solid color-mix(in srgb,var(--reader-text) 11%,transparent);border-radius:18px;background:color-mix(in srgb,var(--reader-bg) 88%,#172019);color:var(--reader-text);box-shadow:0 16px 44px rgba(17,27,20,.16);backdrop-filter:blur(18px)}
+  .reader-tools button{display:grid;width:40px;height:40px;color:var(--reader-text);place-items:center;transition:background .15s ease,color .15s ease,transform .15s ease}
+  .reader-tools button:hover{background:color-mix(in srgb,var(--reader-text) 9%,transparent);transform:scale(1.04)}
+  .reader-tools button.is-active{background:var(--brand);color:#fff}
+  .reader-tools button:nth-child(6),.reader-tools button:last-child{margin-top:.25rem;border-top:1px solid color-mix(in srgb,var(--reader-text) 10%,transparent)}
+  .reader-tools button::after{right:calc(100% + 12px);border:1px solid #ffffff14;background:rgba(20,28,22,.94);box-shadow:0 8px 24px rgba(0,0,0,.16);backdrop-filter:blur(12px)}
+  .chapter-nav a{display:flex;min-height:58px;max-width:48%;align-items:center;padding:.75rem 1rem;border:1px solid color-mix(in srgb,var(--reader-text) 9%,transparent);border-radius:12px;background:color-mix(in srgb,var(--reader-text) 3%,transparent);font-size:.82rem;line-height:1.5;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+  .chapter-nav a:last-child{margin-left:auto;text-align:right}
+  .chapter-nav a:hover{border-color:color-mix(in srgb,var(--brand) 30%,transparent);background:color-mix(in srgb,var(--brand) 6%,transparent);transform:translateY(-2px)}
+  .reader-settings{width:min(540px,calc(100vw - 2rem));max-height:min(82vh,760px);overflow:auto;background:var(--reader-bg);color:var(--reader-text)}
+  .reader-note{width:min(520px,calc(100vw - 2rem));max-height:min(80vh,720px);overflow:auto;background:var(--reader-bg);color:var(--reader-text)}
+  .reader-annotations{width:min(680px,calc(100vw - 2rem))}
+  .reader-settings form,.reader-note form{padding:1.45rem}
+  .reader-settings header,.reader-note header{position:sticky;z-index:2;top:-1.45rem;margin:-1.45rem -1.45rem .5rem;padding:1.2rem 1.45rem .8rem;background:color-mix(in srgb,var(--reader-bg) 94%,transparent);border-bottom:1px solid color-mix(in srgb,var(--reader-text) 8%,transparent);backdrop-filter:blur(16px)}
+  .reader-settings label{gap:.6rem;margin-top:1rem;color:color-mix(in srgb,var(--reader-text) 70%,transparent);font-size:.76rem;font-weight:700}
+  .reader-settings select,.reader-settings input[type=url]{width:100%;padding:.72rem .8rem;border:1px solid color-mix(in srgb,var(--reader-text) 12%,transparent);border-radius:11px;background:color-mix(in srgb,var(--reader-bg) 94%,white);color:var(--reader-text);font:inherit}
+  .reader-settings input[type=range]{width:100%;accent-color:var(--brand)}
+  .reader-settings input[type=color]{width:100%;height:40px;padding:.22rem;border:1px solid color-mix(in srgb,var(--reader-text) 12%,transparent);border-radius:11px;background:transparent}
+  .reader-settings .reader-toggle{margin-top:1rem;padding:.85rem 0;border-top:1px solid color-mix(in srgb,var(--reader-text) 9%,transparent);border-bottom:1px solid color-mix(in srgb,var(--reader-text) 9%,transparent)}
+  .reader-settings .reader-toggle input{width:20px;height:20px}
+  .theme-choices button{border-color:color-mix(in srgb,var(--reader-text) 10%,transparent);background:color-mix(in srgb,var(--reader-text) 3%,transparent);color:var(--reader-text)}
+  .annotation-filters{margin-bottom:.8rem}
+  .reader-annotations [data-annotation-list]{display:grid;gap:.65rem}
+  .annotation-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;padding:.9rem 1rem;border:1px solid color-mix(in srgb,var(--reader-text) 9%,transparent);border-radius:13px;background:color-mix(in srgb,var(--reader-bg) 92%,white);box-shadow:0 4px 16px rgba(20,30,23,.04)}
+  .annotation-copy p{margin:.5rem 0 0;font-size:.82rem;line-height:1.65;white-space:pre-wrap}
+  .annotation-row footer{align-self:center}
+  .annotation-row footer a,.annotation-row footer button{padding:.42rem .55rem;border-radius:8px;background:color-mix(in srgb,var(--reader-text) 6%,transparent);color:var(--reader-text);font-weight:700}
+  .annotation-row footer [data-annotation-delete]{color:#b54040}
+}
+@media(max-width:700px){
+  .reader-toc .reader-toc-toolbar{top:-1.15rem;min-height:58px;margin:-1.15rem -1rem 0;padding:.75rem 1rem;background:color-mix(in srgb,var(--reader-bg) 96%,transparent);border-bottom:1px solid color-mix(in srgb,var(--reader-text) 8%,transparent)}
+  .reader-toc-back{max-width:calc(100% - 88px)}
+  .reader-toc-back small{font-size:.68rem}
+  .reader-toc-back b{display:none}
+  .reader-toc .reader-toc-actions button{width:36px;height:36px;padding:0;border-radius:50%}
+  .reader-toc-actions [data-toc-locate] span{display:none}
+  .reader-toc h2{margin:1rem 0 .2rem;font-size:1.55rem}
+  .reader-toc>p{margin:.15rem 0 1rem}
+  .reader-toc-mobile-head{margin-top:.2rem}
 }</style>
 <script>
   // @ts-nocheck
