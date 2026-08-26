@@ -8,7 +8,7 @@ const index=navigation.findIndex((item:any)=>item.id===chapter.id)
 const previous=navigation[index-1],next=navigation[index+1]
 const contentsUrl='/books/'+book.slug+'#contents'
 ---
-<BaseLayout title={chapter.title} subtitle={book.title} showSidebar={false} showBanner={false} hideFooter hideNav hideMusic fullBleed wide>
+<BaseLayout title={chapter.title} subtitle={book.title} showSidebar={false} showBanner={false} hideFooter hideNav fullBleed wide>
   <div class="reader-shell" data-reader data-book-id={book.id} data-book-slug={book.slug} data-volume-id={chapter.volume_id} data-chapter-id={chapter.id} data-contents-url={contentsUrl}>
     <main class="reader-main">
       <header><button type="button" data-toc-open>目录</button><div><small>{chapter.volume_title}</small><h1>{chapter.title}</h1></div><span data-progress-label>0%</span></header>
