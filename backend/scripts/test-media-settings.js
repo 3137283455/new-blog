@@ -74,7 +74,7 @@ async function main() {
     const documents = (await documentsResponse.json()).data
     if (documents.length !== 1 || documents[0].original_name !== 'notes.txt') throw new Error('文档文件夹筛选错误')
 
-    await fetch(`${origin}/api/admin/settings`, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: { site_title: '持久化测试站点', enable_comments: false } }) })
+    await fetch(`${origin}/api/admin/settings`, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: { site_title: '持久化测试站点', enable_comments: false, bangumi_search_source: 'official' } }) })
     const settingsResponse = await fetch(`${origin}/api/admin/settings`, { headers: auth })
     const folderExplorerResponse = await fetch(`${origin}/api/admin/media/explorer?folderId=${createdFolder.id}&sort=name&order=asc`, { headers: auth })
     const folderExplorer = (await folderExplorerResponse.json()).data
@@ -108,7 +108,7 @@ async function main() {
 
     const settings = (await settingsResponse.json()).data
     const map = Object.fromEntries(settings.map((item) => [item.key, item]))
-    if (map.site_title?.value !== '持久化测试站点' || map.enable_comments?.value !== 'false') throw new Error('站点设置没有持久保存')
+    if (map.site_title?.value !== '持久化测试站点' || map.enable_comments?.value !== 'false' || map.bangumi_search_source?.value !== 'official') throw new Error('站点设置没有持久保存')
 
     console.log('媒体自动分类、文件夹筛选与站点设置持久化测试通过')
   } finally {

@@ -61,6 +61,10 @@ export function seed() {
     { id: 'google', name: 'Google', mark: 'G', url: 'https://www.google.com/search?q={query}' },
   ]))
 
+  db.prepare(`
+    INSERT OR IGNORE INTO settings (key, value, type, description)
+    VALUES ('bangumi_search_source', 'bangumi_lol', 'string', '番剧检索数据源')
+  `).run()
   // 主题与插件始终确保存在（INSERT OR IGNORE，支持增量补充）
   seedThemes()
   seedPlugins()

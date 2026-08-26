@@ -84,6 +84,7 @@ function normalizeSetting(key: string, value: unknown) {
     return value.slice(0, 80)
   }
   if (key === 'nav_search_engines') return normalizeSearchEngines(value)
+  if (key === 'bangumi_search_source') return value === 'official' ? 'official' : 'bangumi_lol'
   const limit = SETTING_LIMITS[key]
   if (limit) return String(value || '').trim().slice(0, limit)
   return value

@@ -13,26 +13,45 @@ import {
 } from '../services/bangumi-play-sources'
 
 // api.bangumi.lol currently rejects non-browser User-Agent values at its edge.
-// Keep the application identity in a separate header while using the visitor's
-// browser User-Agent (or a safe browser fallback) for mirror compatibility.
 const BANGUMI_APP_USER_AGENT = 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)'
 const BANGUMI_BROWSER_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-// bangumi.lol mirrors the website; api.bangumi.lol mirrors api.bgm.tv.
-// Rewrite the old, incorrect env value so existing deployments recover without
-// requiring an immediate manual .env edit.
-function resolveBangumiApiBase(value?: string) {
-  const base = (value || 'https://api.bangumi.lol').replace(/\/+$/, '')
-  try {
-    const url = new URL(base)
-    if (url.hostname === 'bangumi.lol') url.hostname = 'api.bangumi.lol'
-    return url.toString().replace(/\/+$/, '')
-  } catch {
-    return 'https://api.bangumi.lol'
-  }
+
+type BangumiSearchSourceKey = 'bangumi_lol' | 'official'
+type BangumiSearchProvider = {
+  key: BangumiSearchSourceKey
+  label: string
+  apiBase: string
+  pageBase: string
 }
 
-const BANGUMI_API_BASE = resolveBangumiApiBase(process.env.BANGUMI_API_BASE)
-const BANGUMI_PAGE_BASE = (process.env.BANGUMI_PAGE_BASE || 'https://bangumi.lol').replace(/\/+$/, '')
+const DEFAULT_BANGUMI_SEARCH_SOURCE: BangumiSearchSourceKey = 'bangumi_lol'
+const BANGUMI_SEARCH_PROVIDERS: Record<BangumiSearchSourceKey, BangumiSearchProvider> = {
+  bangumi_lol: {
+    key: 'bangumi_lol',
+    label: 'bangumi.lol',
+    apiBase: (process.env.BANGUMI_LOL_API_BASE || 'https://api.bangumi.lol').replace(/\/+$/, ''),
+    pageBase: (process.env.BANGUMI_LOL_PAGE_BASE || 'https://bangumi.lol').replace(/\/+$/, ''),
+  },
+  official: {
+    key: 'official',
+    label: 'Bangumi 官方',
+    apiBase: (process.env.BANGUMI_OFFICIAL_API_BASE || 'https://api.bgm.tv').replace(/\/+$/, ''),
+    pageBase: (process.env.BANGUMI_OFFICIAL_PAGE_BASE || 'https://bgm.tv').replace(/\/+$/, ''),
+  },
+}
+
+function cleanBangumiSearchSource(value: unknown): BangumiSearchSourceKey | null {
+  const key = cleanText(value, 30)
+  return key === 'bangumi_lol' || key === 'official' ? key : null
+}
+
+function getBangumiSearchProvider(requested?: unknown) {
+  const requestedKey = cleanBangumiSearchSource(requested)
+  if (requestedKey) return BANGUMI_SEARCH_PROVIDERS[requestedKey]
+  const stored = db.prepare("SELECT value FROM settings WHERE key = 'bangumi_search_source'").get() as any
+  const storedKey = cleanBangumiSearchSource(stored?.value) || DEFAULT_BANGUMI_SEARCH_SOURCE
+  return BANGUMI_SEARCH_PROVIDERS[storedKey]
+}
 
 const selectSql = `
   SELECT id, title, original_title, cover, url, external_id, source, type, total_episodes, play_links, status, progress, rating, season, summary,
@@ -102,16 +121,17 @@ export function list(_req: AuthRequest, res: Response) {
   return success(res, attachPlaySources(rows))
 }
 
-function normalizeBangumiSubject(item: any) {
+function normalizeBangumiSubject(item: any, provider: BangumiSearchProvider) {
   const image = item.images?.large || item.images?.common || item.images?.medium || item.images?.small || ''
   const rating = Number(item.rating?.score || 0)
   return {
     external_id: String(item.id || ''),
-    source: 'bangumi',
+    source: provider.key,
+    source_label: provider.label,
     title: item.name_cn || item.name || '',
     original_title: item.name || '',
     cover: image,
-    url: item.id ? `${BANGUMI_PAGE_BASE}/subject/${item.id}` : '',
+    url: item.id ? `${provider.pageBase}/subject/${item.id}` : '',
     type: item.type_name || String(item.type || ''),
     total_episodes: Number(item.eps || item.total_episodes || 0),
     rating: Number.isFinite(rating) ? rating : 0,
@@ -137,16 +157,17 @@ export async function searchSource(req: AuthRequest, res: Response) {
   const id = cleanText(req.query.id, 40)
   if (!query && !id) return error(res, '请输入番剧名称或 Bangumi ID')
 
+  const provider = getBangumiSearchProvider(req.query.source)
   const commonHeaders = bangumiHeaders(req)
 
   try {
     if (id) {
-      const subject = await fetchJson(`${BANGUMI_API_BASE}/v0/subjects/${encodeURIComponent(id)}`, { headers: commonHeaders })
-      return success(res, [normalizeBangumiSubject(subject)])
+      const subject = await fetchJson(`${provider.apiBase}/v0/subjects/${encodeURIComponent(id)}`, { headers: commonHeaders })
+      return success(res, [normalizeBangumiSubject(subject, provider)])
     }
 
     try {
-      const json = await fetchJson(`${BANGUMI_API_BASE}/v0/search/subjects?limit=12`, {
+      const json = await fetchJson(`${provider.apiBase}/v0/search/subjects?limit=12`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
@@ -154,12 +175,12 @@ export async function searchSource(req: AuthRequest, res: Response) {
         },
         body: JSON.stringify({ keyword: query, filter: { type: [2] } }),
       })
-      const items = (json.data || []).map(normalizeBangumiSubject)
+      const items = (json.data || []).map((item: any) => normalizeBangumiSubject(item, provider))
       if (items.length) return success(res, items)
-      return error(res, 'Bangumi 没有返回匹配结果', 'SOURCE_EMPTY', 404)
+      return error(res, provider.label + ' 没有返回匹配结果', 'SOURCE_EMPTY', 404)
     } catch (err) {
       console.error('Bangumi 搜索失败:', err)
-      return error(res, '无法连接 Bangumi 数据源', 'SOURCE_UNAVAILABLE', 502)
+      return error(res, '无法连接 ' + provider.label + ' 数据源', 'SOURCE_UNAVAILABLE', 502)
     }
   } catch (err) {
     console.error('数据源检索失败:', err)
@@ -170,14 +191,15 @@ export async function searchSource(req: AuthRequest, res: Response) {
 export async function sourceDetail(req: AuthRequest, res: Response) {
   const id = cleanText(req.params.id, 40)
   if (!id) return error(res, 'Bangumi ID 不能为空')
+  const provider = getBangumiSearchProvider(req.query.source)
   try {
-    const subject = await fetchJson(`${BANGUMI_API_BASE}/v0/subjects/${encodeURIComponent(id)}`, {
+    const subject = await fetchJson(`${provider.apiBase}/v0/subjects/${encodeURIComponent(id)}`, {
       headers: bangumiHeaders(req),
     })
-    return success(res, normalizeBangumiSubject(subject))
+    return success(res, normalizeBangumiSubject(subject, provider))
   } catch (err) {
     console.error('获取 Bangumi 详情失败:', err)
-    return error(res, '无法连接 Bangumi 数据源', 'SOURCE_UNAVAILABLE', 502)
+    return error(res, '无法连接 ' + provider.label + ' 数据源', 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
