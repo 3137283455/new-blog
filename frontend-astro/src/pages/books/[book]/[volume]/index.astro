@@ -8,7 +8,7 @@ const first=volume.chapters?.[0]
 ---
 <BaseLayout title={volume.title} subtitle={book.title} showSidebar={false} showBanner={false}>
   <section class="volume-page">
-    <nav><a href={'/books/'+book.slug}>← {book.title}</a><a href={'/books/'+book.slug+'/contents'}>全书目录</a></nav>
+    <nav><a href={'/books/'+book.slug}>← {book.title}</a><a href={'/books/'+book.slug+'#contents'}>全书目录</a></nav>
     <header><small>VOLUME</small><h1>{volume.title}</h1><p>{volume.description||'选择章节开始阅读。每一卷拥有独立评论。'}</p>{first&&<a class="start" href={'/books/'+book.slug+'/'+volume.slug+'/'+first.slug}>开始阅读 →</a>}</header>
     <ol>{volume.chapters?.map((chapter,index)=><li><a href={'/books/'+book.slug+'/'+volume.slug+'/'+chapter.slug}><span>{String(index+1).padStart(2,'0')}</span><b>{chapter.title}</b><i>阅读 →</i></a></li>)}</ol>
     <section class="volume-comments" data-volume-comments={volume.id}>

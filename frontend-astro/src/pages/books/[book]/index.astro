@@ -1,22 +1,87 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro'
-import { getBook } from '../../../lib/api'
+import { getBook, getBookVolume } from '../../../lib/api'
 import { resolveUploadUrl } from '../../../lib/media'
+
 const slug=Astro.params.book||''
 const book=await getBook(slug)
 if(!book) return Astro.redirect('/404')
+const volumes=(await Promise.all((book.volumes||[]).map(async(volume:any)=>{
+  const detail=await getBookVolume(book.slug,volume.slug)
+  return detail?.volume||volume
+}))).filter(Boolean)
+const chapterCount=volumes.reduce((sum:number,volume:any)=>sum+(volume.chapters?.length||0),0)
+const firstVolume=volumes.find((volume:any)=>volume.chapters?.length)
+const first=firstVolume?.chapters?.[0]
+const startUrl=first&&firstVolume?'/books/'+book.slug+'/'+firstVolume.slug+'/'+first.slug:'#contents'
 ---
+
 <BaseLayout title={book.title} subtitle={book.author||'个人书库'} showSidebar={false} showBanner={false} wide>
-  <article class="book-detail">
-    <header>
-      <div class="cover">{book.cover?<img src={resolveUploadUrl(book.cover)} alt="" />:<span>{book.title.slice(0,1)}</span>}</div>
-      <div><a href="/books">← 返回书库</a><small>BOOK</small><h1>{book.title}</h1><p class="author">{book.author||'作者未填写'}</p><p>{book.description||'这本书还没有简介。'}</p></div>
+  <article class="book-page" data-book-contents data-book-id={book.id} data-book-slug={book.slug}>
+    <nav class="book-breadcrumb" aria-label="当前位置"><a href="/books">书库</a><span>/</span><b>{book.title}</b></nav>
+
+    <header class="book-hero">
+      <div class="book-cover">{book.cover?<img src={resolveUploadUrl(book.cover)} alt={book.title+'封面'} />:<span>{book.title.slice(0,1)}</span>}</div>
+      <div class="book-summary">
+        <small>PERSONAL LIBRARY</small>
+        <h1>{book.title}</h1>
+        <p class="book-author">{book.author||'作者未填写'}</p>
+        <p class="book-description">{book.description||'这本书还没有简介。'}</p>
+        <dl>
+          <div><dt>{volumes.length}</dt><dd>分卷</dd></div>
+          <div><dt>{chapterCount||book.chapter_count||0}</dt><dd>章节</dd></div>
+          <div><dt data-reading-state>未开始</dt><dd>阅读状态</dd></div>
+        </dl>
+        <div class="book-actions">
+          <a class="book-primary" href={startUrl} data-continue-reading>{first?'开始阅读':'暂无章节'} <span>→</span></a>
+          <a class="book-secondary" href="#contents">查看目录</a>
+        </div>
+      </div>
     </header>
-    <section><div class="section-title"><h2>分卷目录</h2><div><span>{book.volumes?.length||0} 卷</span><a href={'/books/'+book.slug+'/contents'}>查看全书目录 →</a></div></div>
-      <div class="volumes">{book.volumes?.map((volume,index)=><a href={'/books/'+book.slug+'/'+volume.slug}><b>{String(index+1).padStart(2,'0')}</b><div><h3>{volume.title}</h3><p>{volume.chapter_count||0} 章</p></div><span>开始阅读 →</span></a>)}</div>
+
+    <section class="book-introduction">
+      <header><small>ABOUT THIS BOOK</small><h2>作品简介</h2></header>
+      <p>{book.description||'这本书还没有简介，可以在后台补充。'}</p>
+    </section>
+
+    <section class="book-contents" id="contents">
+      <header>
+        <div><small>ALL CHAPTERS</small><h2>目录</h2><p>{volumes.length} 卷 · {chapterCount||book.chapter_count||0} 章</p></div>
+        <label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input type="search" data-contents-search placeholder="搜索卷名或章节" /></label>
+      </header>
+      <div class="book-volumes">
+        {volumes.map((volume:any,volumeIndex:number)=><details class="book-volume" open={volumeIndex===0} data-volume>
+          <summary>
+            <span>{String(volumeIndex+1).padStart(2,'0')}</span>
+            <div><h3>{volume.title}</h3><p>{volume.chapters?.length||0} 章</p></div>
+            <i aria-hidden="true"></i>
+          </summary>
+          <ol>{volume.chapters?.map((chapter:any,chapterIndex:number)=><li data-chapter data-search-text={(volume.title+' '+chapter.title).toLowerCase()}>
+            <a href={'/books/'+book.slug+'/'+volume.slug+'/'+chapter.slug} data-chapter-id={chapter.id}>
+              <span>{String(chapterIndex+1).padStart(2,'0')}</span><b>{chapter.title}</b><small data-chapter-state>阅读 →</small>
+            </a>
+          </li>)}</ol>
+        </details>)}
+      </div>
+      <div class="contents-empty" data-contents-empty hidden><b>没有匹配的章节</b><span>换一个关键词试试。</span></div>
     </section>
   </article>
 </BaseLayout>
+
 <style>
-.book-detail{max-width:1050px;margin:0 auto;padding:2rem 1rem 5rem}.book-detail>header{display:grid;grid-template-columns:240px 1fr;gap:3rem;align-items:center;padding:2rem 0 4rem}.cover{aspect-ratio:2/3;border-radius:18px;overflow:hidden;background:color-mix(in srgb,var(--brand) 12%,white);display:grid;place-items:center;font:600 5rem var(--theme-title-font);box-shadow:0 24px 50px rgba(24,45,31,.18)}.cover img{width:100%;height:100%;object-fit:cover}.book-detail header a{font-size:.8rem;color:inherit;opacity:.6}.book-detail header small{display:block;margin-top:2rem;letter-spacing:.2em;color:var(--brand)}.book-detail h1{font:500 clamp(3rem,7vw,6rem)/1 var(--theme-title-font);margin:.5rem 0 1rem}.author{font-weight:700;margin-bottom:1.5rem}.book-detail header p:last-child{max-width:42rem;line-height:1.9;opacity:.68}.section-title{display:flex;justify-content:space-between;align-items:end;border-bottom:1px solid color-mix(in srgb,currentColor 15%,transparent);padding-bottom:1rem}.section-title h2{font:600 2rem var(--theme-title-font)}.section-title>div{display:flex;align-items:center;gap:1rem}.section-title a{padding:.5rem .7rem;border-radius:9px;background:color-mix(in srgb,var(--brand) 8%,transparent);color:var(--brand);font-size:.7rem;font-weight:700;text-decoration:none}.volumes a{display:grid;grid-template-columns:3rem 1fr auto;gap:1rem;align-items:center;padding:1.4rem 0;border-bottom:1px solid color-mix(in srgb,currentColor 10%,transparent);color:inherit;text-decoration:none}.volumes b{opacity:.35}.volumes h3{font-size:1.1rem}.volumes p,.volumes span{font-size:.8rem;opacity:.55}@media(max-width:650px){.book-detail>header{grid-template-columns:110px 1fr;gap:1.3rem;align-items:start}.book-detail h1{font-size:2.3rem}.book-detail header small{margin-top:1rem}.book-detail header p:last-child{grid-column:1/-1}.volumes a{grid-template-columns:2rem 1fr}.volumes a>span{display:none}}
+.book-page{width:min(1120px,100%);margin:0 auto;padding:1.2rem 1rem 6rem;color:var(--theme-text,#1d261f)}.book-breadcrumb{display:flex;gap:.55rem;align-items:center;margin:.2rem 0 1rem;font-size:.72rem;opacity:.55}.book-breadcrumb a{color:inherit;text-decoration:none}.book-breadcrumb b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.book-hero{display:grid;grid-template-columns:190px minmax(0,1fr);gap:2.4rem;align-items:center;padding:2rem 2.2rem;border:1px solid color-mix(in srgb,currentColor 10%,transparent);border-radius:24px;background:color-mix(in srgb,var(--theme-card-bg,#fff) 88%,transparent);box-shadow:0 18px 50px rgba(25,43,31,.09)}.book-cover{aspect-ratio:2/3;display:grid;place-items:center;overflow:hidden;border-radius:12px;background:color-mix(in srgb,var(--brand) 10%,white);box-shadow:0 16px 34px rgba(20,32,23,.18);font:600 4rem var(--theme-title-font)}.book-cover img{width:100%;height:100%;object-fit:cover}.book-summary{min-width:0}.book-summary>small,.book-introduction small,.book-contents>header small{color:var(--brand);font-size:.64rem;font-weight:800;letter-spacing:.16em}.book-summary h1{margin:.4rem 0 .35rem;font:600 clamp(2.5rem,5vw,4.8rem)/1.08 var(--theme-title-font)}.book-author{font-weight:700}.book-description{display:-webkit-box;max-width:46rem;margin-top:1.1rem;overflow:hidden;opacity:.66;line-height:1.8;-webkit-box-orient:vertical;-webkit-line-clamp:3}.book-summary dl{display:flex;gap:2rem;margin:1.4rem 0}.book-summary dl div{display:grid;gap:.18rem}.book-summary dt{font-size:1rem;font-weight:800}.book-summary dd{font-size:.66rem;opacity:.48}.book-actions{display:flex;gap:.7rem;align-items:center}.book-actions a{display:inline-flex;min-height:43px;align-items:center;justify-content:center;padding:.75rem 1rem;border-radius:11px;font-size:.76rem;font-weight:750;text-decoration:none}.book-primary{gap:.75rem;background:#172019;color:#fff}.book-primary span{color:#cfff4f}.book-secondary{border:1px solid color-mix(in srgb,currentColor 13%,transparent);color:inherit}.book-introduction,.book-contents{margin-top:1rem;padding:1.8rem 2.2rem;border:1px solid color-mix(in srgb,currentColor 9%,transparent);border-radius:22px;background:color-mix(in srgb,var(--theme-card-bg,#fff) 85%,transparent)}.book-introduction header{padding-bottom:1rem;border-bottom:1px solid color-mix(in srgb,currentColor 9%,transparent)}.book-introduction h2,.book-contents h2{margin:.2rem 0 0;font:600 1.8rem var(--theme-title-font)}.book-introduction>p{max-width:54rem;margin:1.25rem 0 0;white-space:pre-line;line-height:1.9;opacity:.72}.book-contents{scroll-margin-top:6rem}.book-contents>header{display:flex;align-items:end;justify-content:space-between;gap:2rem;padding-bottom:1.2rem;border-bottom:1px solid color-mix(in srgb,currentColor 10%,transparent)}.book-contents>header p{margin-top:.25rem;font-size:.68rem;opacity:.48}.book-contents>header label{display:flex;width:min(340px,42vw);align-items:center;gap:.55rem;padding:.72rem .85rem;border:1px solid color-mix(in srgb,currentColor 12%,transparent);border-radius:11px;background:color-mix(in srgb,currentColor 2%,transparent)}.book-contents>header svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;opacity:.48}.book-contents input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:inherit;font:inherit}.book-volumes{display:grid;gap:.7rem;margin-top:1rem}.book-volume{overflow:hidden;border:1px solid color-mix(in srgb,currentColor 8%,transparent);border-radius:14px;background:color-mix(in srgb,currentColor 2%,transparent)}.book-volume summary{display:grid;grid-template-columns:2.5rem minmax(0,1fr) 18px;gap:.8rem;align-items:center;padding:1rem 1.1rem;cursor:pointer;list-style:none}.book-volume summary::-webkit-details-marker{display:none}.book-volume summary>span{font:750 .65rem ui-monospace,monospace;opacity:.38}.book-volume h3{overflow:hidden;margin:0;font-size:.9rem;text-overflow:ellipsis;white-space:nowrap}.book-volume summary p{margin:.18rem 0 0;font-size:.64rem;opacity:.45}.book-volume summary i{position:relative;width:16px;height:16px}.book-volume summary i::before,.book-volume summary i::after{content:'';position:absolute;top:7px;left:2px;width:12px;height:1.5px;background:currentColor;transition:transform .18s}.book-volume summary i::after{transform:rotate(90deg)}.book-volume[open] summary i::after{transform:none}.book-volume ol{margin:0;padding:0 .9rem .9rem;list-style:none}.book-volume li a{display:grid;grid-template-columns:2.5rem minmax(0,1fr) auto;gap:.75rem;align-items:center;padding:.8rem .7rem;border-top:1px solid color-mix(in srgb,currentColor 7%,transparent);border-radius:8px;color:inherit;text-decoration:none;transition:background .15s ease,transform .15s ease}.book-volume li a:hover{background:color-mix(in srgb,var(--brand) 7%,transparent);transform:translateX(2px)}.book-volume li a>span{font:650 .64rem ui-monospace,monospace;opacity:.36}.book-volume li b{font-size:.82rem;line-height:1.45}.book-volume li small{color:var(--brand);font-size:.64rem;font-weight:750}.book-volume li a.is-last-read{background:color-mix(in srgb,var(--brand) 9%,transparent);box-shadow:inset 3px 0 var(--brand)}.contents-empty{min-height:180px;text-align:center;place-content:center}.contents-empty b,.contents-empty span{display:block}.contents-empty span{margin-top:.4rem;font-size:.75rem;opacity:.5}
+@media(max-width:700px){.book-page{padding:.65rem .65rem 4rem}.book-breadcrumb{padding:0 .2rem}.book-hero{grid-template-columns:92px minmax(0,1fr);gap:1rem;align-items:start;padding:1rem;border-radius:18px}.book-cover{border-radius:9px}.book-summary>small{font-size:.52rem}.book-summary h1{margin-top:.25rem;font-size:1.75rem}.book-author{font-size:.75rem}.book-description{grid-column:1/-1;margin-top:.7rem;font-size:.75rem;-webkit-line-clamp:2}.book-summary dl{grid-column:1/-1;gap:1.3rem;margin:.85rem 0}.book-summary dt{font-size:.86rem}.book-actions{grid-column:1/-1}.book-actions a{flex:1}.book-introduction,.book-contents{margin-top:.65rem;padding:1.1rem 1rem;border-radius:18px}.book-introduction h2,.book-contents h2{font-size:1.5rem}.book-introduction>p{font-size:.82rem;line-height:1.8}.book-contents{scroll-margin-top:1rem}.book-contents>header{display:grid;gap:1rem;align-items:stretch}.book-contents>header label{width:100%}.book-volume summary{grid-template-columns:2rem minmax(0,1fr) 16px;padding:.9rem .75rem}.book-volume ol{padding:0 .5rem .6rem}.book-volume li a{grid-template-columns:2rem minmax(0,1fr);padding:.75rem .5rem}.book-volume li small{grid-column:2}.book-volume h3{font-size:.8rem}}
 </style>
+
+<script>
+  // @ts-nocheck
+  import { ensurePrivateDeviceToken } from '../../../lib/private-device'
+  async function initBookPage(){
+    const root=document.querySelector('[data-book-contents]');if(!root||root.dataset.ready)return;root.dataset.ready='1';
+    const search=root.querySelector('[data-contents-search]'),empty=root.querySelector('[data-contents-empty]');
+    search?.addEventListener('input',()=>{const query=search.value.trim().toLowerCase();let visible=0;root.querySelectorAll('[data-volume]').forEach((volume)=>{let matches=0;volume.querySelectorAll('[data-chapter]').forEach((chapter)=>{const match=!query||chapter.dataset.searchText.includes(query);chapter.hidden=!match;if(match)matches++});volume.hidden=matches===0;if(query&&matches)volume.open=true;visible+=matches});empty.hidden=visible>0});
+    const token=await ensurePrivateDeviceToken(window.__PUBLIC_API_BASE__||'/api');if(!token)return;
+    try{const response=await fetch((window.__PUBLIC_API_BASE__||'/api')+'/private/books/'+root.dataset.bookId+'/progress',{headers:{'X-Device-Token':token}}),json=await response.json(),state=json.data;if(!response.ok||!state)return;const link=root.querySelector('[data-chapter-id="'+Number(state.chapter_id)+'"]');if(link){link.classList.add('is-last-read');const percent=Math.round(Math.max(0,Math.min(1,Number(state.position)||0))*100),label=link.querySelector('[data-chapter-state]');if(label)label.textContent='上次 '+percent+'%';link.closest('details').open=true;const action=root.querySelector('[data-continue-reading]');if(action){action.href=link.href+'?at='+Math.max(0,Math.min(1,Number(state.position)||0));action.innerHTML='继续阅读 <span>→</span>'}const readingState=root.querySelector('[data-reading-state]');if(readingState)readingState.textContent=percent>=100?'已读':'阅读中'}}catch{}
+  }
+  document.addEventListener('astro:page-load',initBookPage);initBookPage();
+</script>
