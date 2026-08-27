@@ -22,7 +22,9 @@ import * as personalCtrl from '../controllers/personal'
 import * as epubCtrl from '../controllers/epub'
 import * as libraryCtrl from '../controllers/library'
 import * as bookImportCtrl from '../controllers/book-import'
-import { upload, backupUpload, epubUpload } from '../middleware/upload'
+import * as bookFormatsCtrl from '../controllers/book-formats'
+import * as mangaCtrl from '../controllers/manga'
+import { upload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
 
 const router = Router()
 
@@ -61,6 +63,8 @@ router.get('/pages', pageCtrl.publicList)
 router.get('/pages/:slug', pageCtrl.getBySlug)
 router.get('/navigation', navigationCtrl.publicList)
 router.get('/bangumi', bangumiCtrl.publicList)
+router.get('/manga', mangaCtrl.publicList)
+router.get('/manga/:slug', mangaCtrl.publicDetail)
 router.get('/albums', albumCtrl.publicList)
 router.get('/albums/:id', albumCtrl.publicDetail)
 router.get('/music', musicCtrl.publicList)
@@ -85,6 +89,9 @@ router.post('/admin/articles', auth, articleCtrl.create)
 router.post('/admin/articles/epub/import', auth, epubUpload.single('file'), epubCtrl.importEpub)
 router.post('/admin/books/epub/preview', auth, epubUpload.array('files', 20), bookImportCtrl.previewEpub)
 router.post('/admin/books/epub/commit', auth, bookImportCtrl.commitEpub)
+router.post('/admin/books/text/preview', auth, textBookUpload.array('files', 10), bookFormatsCtrl.previewTextBooks)
+router.post('/admin/books/text/commit', auth, bookFormatsCtrl.commitTextBooks)
+router.post('/admin/books/pdf/import', auth, upload.single('file'), bookFormatsCtrl.importPdf)
 router.post('/admin/devices/register', auth, libraryCtrl.registerDevice)
 router.get('/admin/devices', auth, libraryCtrl.devices)
 router.delete('/admin/devices/:id', auth, libraryCtrl.revokeDevice)
@@ -166,6 +173,12 @@ router.post('/admin/bangumi/:id/play-sources', auth, bangumiCtrl.createPlaySourc
 router.put('/admin/bangumi/:id/play-sources/:sourceId', auth, bangumiCtrl.editPlaySource)
 router.delete('/admin/bangumi/:id/play-sources/:sourceId', auth, bangumiCtrl.removePlaySource)
 router.delete('/admin/bangumi/:id', auth, bangumiCtrl.remove)
+
+router.get('/admin/manga', auth, mangaCtrl.list)
+router.get('/admin/manga/search', auth, mangaCtrl.searchSource)
+router.post('/admin/manga', auth, mangaCtrl.create)
+router.put('/admin/manga/:id', auth, mangaCtrl.update)
+router.delete('/admin/manga/:id', auth, mangaCtrl.remove)
 
 router.get('/admin/albums', auth, albumCtrl.list)
 router.post('/admin/albums', auth, albumCtrl.create)

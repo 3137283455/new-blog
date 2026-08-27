@@ -51,13 +51,14 @@ function notify(message, error = false) {
 }
 window.notifyAdmin = notify;
 
-const contentPanels = ['articles', 'series', 'books', 'navigation', 'bangumi', 'albums', 'music'];
+const contentPanels = ['articles', 'series', 'books', 'navigation', 'bangumi', 'manga', 'albums', 'music'];
 const settingsPanels = ['settings', 'taxonomy', 'comments', 'plugins'];
 const navPanelMap = {
   series: 'articles',
   books: 'articles',
   navigation: 'articles',
   bangumi: 'articles',
+  manga: 'articles',
   albums: 'articles',
   music: 'articles',
   taxonomy: 'settings',
@@ -70,6 +71,7 @@ const contentLabels = {
   books: '书库',
   navigation: '导航',
   bangumi: '追番',
+  manga: '漫画',
   albums: '相册',
   music: '音乐',
 };

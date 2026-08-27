@@ -98,3 +98,15 @@ export const epubUpload = multer({
     cb(new Error('仅支持 .epub 文件'))
   },
 })
+
+export const textBookUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024, files: 10 },
+  fileFilter(_req, file, cb) {
+    if (/\.(?:txt|md|markdown)$/i.test(file.originalname) || ['text/plain', 'text/markdown'].includes(file.mimetype)) {
+      cb(null, true)
+      return
+    }
+    cb(new Error('仅支持 TXT 或 Markdown 文本书籍'))
+  },
+})

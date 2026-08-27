@@ -191,6 +191,34 @@ export interface BangumiPlaySource {
   sort_order?: number
 }
 
+export interface MangaReadSource {
+  id?: number
+  manga_id?: number
+  name: string
+  url: string
+  remark?: string
+  is_default?: number | boolean
+  sort_order?: number
+}
+export interface MangaItem {
+  id: number
+  title: string
+  slug: string
+  original_title?: string
+  author?: string
+  cover?: string
+  description?: string
+  external_id?: string
+  source?: string
+  source_url?: string
+  status?: string
+  progress?: string
+  rating?: number
+  publication?: string
+  sort_order?: number
+  is_active?: number | boolean
+  read_sources?: MangaReadSource[]
+}
 export interface AlbumPhoto {
   id: number
   album_id: number
@@ -418,6 +446,9 @@ export interface BookSummary {
   description?: string
   cover?: string
   reading_status?: string
+  reading_mode?: 'chapters' | 'document' | 'external'
+  reading_url?: string
+  source_format?: string
   volume_count?: number
   chapter_count?: number
   updated_at?: string
@@ -431,6 +462,12 @@ export interface BookVolume {
   cover?: string
   chapter_count?: number
   chapters?: Array<{ id:number; title:string; slug:string; sort_order:number }>
+}
+export async function getMangaItems(): Promise<MangaItem[]> {
+  try { const res=await apiFetch(API_BASE+'/manga'); if(!res.ok) return []; return (await res.json()).data||[] } catch { return [] }
+}
+export async function getManga(slug:string): Promise<MangaItem|null> {
+  try { const res=await apiFetch(API_BASE+'/manga/'+encodeURIComponent(slug)); if(!res.ok) return null; return (await res.json()).data||null } catch { return null }
 }
 export async function getBooks(): Promise<BookSummary[]> {
   try { const res=await apiFetch(API_BASE+'/books'); if(!res.ok) return []; return (await res.json()).data||[] } catch { return [] }

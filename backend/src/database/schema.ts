@@ -226,6 +226,38 @@ export function migrate() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- 漫画收藏：元数据与可切换阅读源
+    CREATE TABLE IF NOT EXISTS manga_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      original_title TEXT DEFAULT '',
+      author TEXT DEFAULT '',
+      cover TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      external_id TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      source_url TEXT DEFAULT '',
+      status TEXT DEFAULT 'reading',
+      progress TEXT DEFAULT '',
+      rating REAL DEFAULT 0,
+      publication TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS manga_read_sources (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      manga_id INTEGER NOT NULL REFERENCES manga_items(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      url TEXT NOT NULL,
+      remark TEXT DEFAULT '',
+      is_default INTEGER DEFAULT 0,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
     -- 相册
     CREATE TABLE IF NOT EXISTS albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -465,6 +497,10 @@ export function migrate() {
       ON bangumi_items(is_active, status, sort_order);
     CREATE INDEX IF NOT EXISTS idx_bangumi_play_sources_item
       ON bangumi_play_sources(bangumi_id, is_default DESC, sort_order, id);
+    CREATE INDEX IF NOT EXISTS idx_manga_public
+      ON manga_items(is_active, status, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_manga_read_sources_item
+      ON manga_read_sources(manga_id, is_default DESC, sort_order, id);
     CREATE INDEX IF NOT EXISTS idx_albums_public
       ON albums(is_active, sort_order);
     CREATE INDEX IF NOT EXISTS idx_album_photos_album
@@ -603,6 +639,9 @@ export function migrate() {
   addColumn('article_series', 'book_id', 'INTEGER REFERENCES books(id) ON DELETE SET NULL')
   addColumn('comments', 'book_volume_id', 'INTEGER REFERENCES book_volumes(id) ON DELETE CASCADE')
   addColumn('private_devices', 'client_id', "TEXT DEFAULT ''")
+  addColumn('books', 'reading_mode', "TEXT DEFAULT 'chapters'")
+  addColumn('books', 'reading_url', "TEXT DEFAULT ''")
+  addColumn('books', 'source_format', "TEXT DEFAULT 'epub'")
 
   try {
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_private_devices_user_client ON private_devices(user_id, client_id) WHERE client_id != ''")

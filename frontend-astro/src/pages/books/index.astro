@@ -17,12 +17,12 @@ const statusLabel = (status?: string) => ({ reading: '阅读中', finished: '已
       <div class="shelf-meta"><span data-library-count>{books.length} 本书</span><small>选择封面查看详情，或从进度处继续阅读</small></div>
       <div class="book-shelf" data-book-shelf>
         {books.map((book,index)=><article class="shelf-book" data-book-card data-id={book.id} data-index={index} data-title={book.title.toLocaleLowerCase()} data-author={(book.author||'').toLocaleLowerCase()} data-description={(book.description||'').toLocaleLowerCase()} data-status={book.reading_status||'reading'} data-updated={book.updated_at||''} data-chapters={book.chapter_count||0} data-progress="0">
-          <a class="shelf-cover" href={`/books/${book.slug}`}>{book.cover?<img src={resolveUploadUrl(book.cover)} alt={`${book.title}封面`} loading="lazy" decoding="async" />:<span>{book.title.slice(0,1)}</span>}<b>{statusLabel(book.reading_status)}</b></a>
-          <div class="shelf-copy"><small>{book.author||'作者未填写'}</small><h2><a href={`/books/${book.slug}`}>{book.title}</a></h2><p>{book.description||`${book.volume_count||0} 卷、${book.chapter_count||0} 章，等待从第一页开始。`}</p><div class="book-progress" data-book-progress hidden><i></i><span></span></div><footer><span>{book.volume_count||0} 卷 · {book.chapter_count||0} 章</span><a data-book-action href={`/books/${book.slug}`}>查看书籍 →</a></footer></div>
+          <a class="shelf-cover" href={`/books/${book.slug}`}>{book.cover?<img src={resolveUploadUrl(book.cover)} alt={`${book.title}封面`} loading="lazy" decoding="async" />:<span>{book.title.slice(0,1)}</span>}<b>{book.reading_mode==='external'?'外部阅读':book.reading_mode==='document'?(book.source_format||'文档').toUpperCase():statusLabel(book.reading_status)}</b></a>
+          <div class="shelf-copy"><small>{book.author||'作者未填写'}</small><h2><a href={`/books/${book.slug}`}>{book.title}</a></h2><p>{book.description||`${book.volume_count||0} 卷、${book.chapter_count||0} 章，等待从第一页开始。`}</p><div class="book-progress" data-book-progress hidden><i></i><span></span></div><footer><span>{book.reading_mode==='external'?'外部书站':book.reading_mode==='document'?`${(book.source_format||'文档').toUpperCase()} 文档`:`${book.volume_count||0} 卷 · ${book.chapter_count||0} 章`}</span><a data-book-action href={book.reading_mode==='chapters'||!book.reading_mode?`/books/${book.slug}`:(book.reading_url||`/books/${book.slug}`)} target={book.reading_mode==='chapters'||!book.reading_mode?undefined:'_blank'} rel={book.reading_mode==='chapters'||!book.reading_mode?undefined:'noopener noreferrer'}>{book.reading_mode==='external'?'前往阅读 ↗':book.reading_mode==='document'?'打开文档 ↗':'查看书籍 →'}</a></footer></div>
         </article>)}
       </div>
       <div class="library-empty" data-library-empty hidden><strong>没有找到这本书</strong><span>换个关键词或查看其他阅读状态。</span></div>
-      {!books.length&&<div class="library-empty"><strong>书架还是空的</strong><span>从后台内容中心导入第一本 EPUB。</span><a href="/admin">前往内容中心 →</a></div>}
+      {!books.length&&<div class="library-empty"><strong>书架还是空的</strong><span>从后台导入 EPUB、TXT、Markdown、PDF，或添加外部阅读链接。</span><a href="/admin">前往内容中心 →</a></div>}
     </section>
   </section>
 </BaseLayout>

@@ -12,6 +12,16 @@ function integer(value: unknown, fallback = 0) {
   const number = Number(value)
   return Number.isFinite(number) ? Math.trunc(number) : fallback
 }
+function readingMode(value: unknown) {
+  const mode = text(value, 20)
+  return mode === 'external' || mode === 'document' ? mode : 'chapters'
+}
+function safeReadingUrl(value: unknown) {
+  const url = text(value, 1000)
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url) || /^\/uploads\//i.test(url)) return url
+  return ''
+}
 function slugify(value: unknown, fallback = 'item') {
   const raw = text(value, 180).toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
@@ -193,11 +203,14 @@ export function createBook(req: AuthRequest, res: Response) {
   const title = text(req.body?.title, 200)
   if (!title) return error(res, '请输入书名', 'VALIDATION_ERROR')
   const slug = uniqueSlug('books', req.body?.slug || title)
+  const mode = readingMode(req.body?.reading_mode)
+  const readingUrl = safeReadingUrl(req.body?.reading_url)
+  if ((mode === 'external' || mode === 'document') && !readingUrl) return error(res, '请输入有效的阅读地址', 'VALIDATION_ERROR')
   const result = db.prepare(
-    'INSERT INTO books (title,slug,author,description,cover,status,reading_status,sort_order,is_featured) VALUES (?,?,?,?,?,?,?,?,?)'
+    'INSERT INTO books (title,slug,author,description,cover,status,reading_status,sort_order,is_featured,reading_mode,reading_url,source_format) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
   ).run(title, slug, text(req.body?.author, 160), text(req.body?.description, 4000), text(req.body?.cover, 500),
     req.body?.status === 'draft' ? 'draft' : 'published', text(req.body?.reading_status, 30) || 'reading',
-    integer(req.body?.sort_order), req.body?.is_featured ? 1 : 0)
+    integer(req.body?.sort_order), req.body?.is_featured ? 1 : 0, mode, readingUrl, text(req.body?.source_format, 30) || (mode === 'external' ? 'web' : 'epub'))
   return success(res, db.prepare('SELECT * FROM books WHERE id=?').get(result.lastInsertRowid), '书籍已创建')
 }
 export function updateBook(req: AuthRequest, res: Response) {
@@ -206,12 +219,16 @@ export function updateBook(req: AuthRequest, res: Response) {
   if (!row) return error(res, '书籍不存在', 'NOT_FOUND', 404)
   let slug = slugify(req.body?.slug ?? row.slug)
   if (db.prepare('SELECT 1 FROM books WHERE slug=? AND id!=?').get(slug,id)) slug = uniqueSlug('books', slug)
+  const mode = readingMode(req.body?.reading_mode ?? row.reading_mode)
+  const readingUrl = safeReadingUrl(req.body?.reading_url ?? row.reading_url)
+  if ((mode === 'external' || mode === 'document') && !readingUrl) return error(res, '请输入有效的阅读地址', 'VALIDATION_ERROR')
   db.prepare(
-    "UPDATE books SET title=?,slug=?,author=?,description=?,cover=?,status=?,reading_status=?,sort_order=?,is_featured=?,updated_at=datetime('now') WHERE id=?"
+    "UPDATE books SET title=?,slug=?,author=?,description=?,cover=?,status=?,reading_status=?,sort_order=?,is_featured=?,reading_mode=?,reading_url=?,source_format=?,updated_at=datetime('now') WHERE id=?"
   ).run(text(req.body?.title ?? row.title,200),slug,text(req.body?.author ?? row.author,160),text(req.body?.description ?? row.description,4000),
     text(req.body?.cover ?? row.cover,500), req.body?.status === 'draft' ? 'draft' : 'published',
     text(req.body?.reading_status ?? row.reading_status,30), integer(req.body?.sort_order,row.sort_order),
-    req.body?.is_featured === undefined ? row.is_featured : (req.body.is_featured ? 1 : 0),id)
+    req.body?.is_featured === undefined ? row.is_featured : (req.body.is_featured ? 1 : 0),mode,readingUrl,
+    text(req.body?.source_format ?? row.source_format,30) || (mode === 'external' ? 'web' : 'epub'),id)
   return success(res, db.prepare('SELECT * FROM books WHERE id=?').get(id), '书籍已保存')
 }
 export function removeBook(req: AuthRequest, res: Response) {

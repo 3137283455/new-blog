@@ -35,6 +35,8 @@ const APP_TABLES = [
   'navigation_links',
   'bangumi_items',
   'bangumi_play_sources',
+  'manga_items',
+  'manga_read_sources',
   'albums',
   'album_photos',
   'music_playlists',

@@ -13,7 +13,10 @@ const volumes=(await Promise.all((book.volumes||[]).map(async(volume:any)=>{
 const chapterCount=volumes.reduce((sum:number,volume:any)=>sum+(volume.chapters?.length||0),0)
 const firstVolume=volumes.find((volume:any)=>volume.chapters?.length)
 const first=firstVolume?.chapters?.[0]
-const startUrl=first&&firstVolume?'/books/'+book.slug+'/'+firstVolume.slug+'/'+first.slug:'#contents'
+const readingMode=book.reading_mode||'chapters'
+const isChapters=readingMode==='chapters'
+const startUrl=isChapters?(first&&firstVolume?'/books/'+book.slug+'/'+firstVolume.slug+'/'+first.slug:'#contents'):(book.reading_url||'#')
+const startLabel=readingMode==='external'?'前往外部阅读':readingMode==='document'?'打开 '+(book.source_format||'文档').toUpperCase():(first?'开始阅读':'暂无章节')
 ---
 
 <BaseLayout title={book.title} subtitle={book.author||'个人书库'} showSidebar={false} showBanner={false} wide>
@@ -28,13 +31,13 @@ const startUrl=first&&firstVolume?'/books/'+book.slug+'/'+firstVolume.slug+'/'+f
         <p class="book-author">{book.author||'作者未填写'}</p>
         <p class="book-description">{book.description||'这本书还没有简介。'}</p>
         <dl>
-          <div><dt>{volumes.length}</dt><dd>分卷</dd></div>
-          <div><dt>{chapterCount||book.chapter_count||0}</dt><dd>章节</dd></div>
-          <div><dt data-reading-state>未开始</dt><dd>阅读状态</dd></div>
+          <div><dt>{isChapters?volumes.length:(readingMode==='external'?'站外':'文档')}</dt><dd>{isChapters?'分卷':'阅读方式'}</dd></div>
+          <div><dt>{isChapters?(chapterCount||book.chapter_count||0):(readingMode==='external'?'外部':(book.source_format||'文档').toUpperCase())}</dt><dd>{isChapters?'章节':'来源'}</dd></div>
+          <div><dt data-reading-state>{isChapters?'未开始':'可直接打开'}</dt><dd>阅读状态</dd></div>
         </dl>
         <div class="book-actions">
-          <a class="book-primary" href={startUrl} data-continue-reading>{first?'开始阅读':'暂无章节'} <span>→</span></a>
-          <a class="book-secondary" href="#contents">查看目录</a>
+          <a class="book-primary" href={startUrl} data-continue-reading target={isChapters?undefined:'_blank'} rel={isChapters?undefined:'noopener noreferrer'}>{startLabel} <span>{isChapters?'→':'↗'}</span></a>
+          {isChapters&&<a class="book-secondary" href="#contents">查看目录</a>}
         </div>
       </div>
     </header>
@@ -44,7 +47,7 @@ const startUrl=first&&firstVolume?'/books/'+book.slug+'/'+firstVolume.slug+'/'+f
       <p>{book.description||'这本书还没有简介，可以在后台补充。'}</p>
     </section>
 
-    <section class="book-contents" id="contents">
+    <section class="book-contents" id="contents" hidden={!isChapters}>
       <header>
         <div><small>ALL CHAPTERS</small><h2>目录</h2><p>{volumes.length} 卷 · {chapterCount||book.chapter_count||0} 章</p></div>
         <label><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg><input type="search" data-contents-search placeholder="搜索卷名或章节" /></label>
@@ -80,7 +83,7 @@ const startUrl=first&&firstVolume?'/books/'+book.slug+'/'+firstVolume.slug+'/'+f
     const root=document.querySelector('[data-book-contents]');if(!root||root.dataset.ready)return;root.dataset.ready='1';
     const search=root.querySelector('[data-contents-search]'),empty=root.querySelector('[data-contents-empty]');
     search?.addEventListener('input',()=>{const query=search.value.trim().toLowerCase();let visible=0;root.querySelectorAll('[data-volume]').forEach((volume)=>{let matches=0;volume.querySelectorAll('[data-chapter]').forEach((chapter)=>{const match=!query||chapter.dataset.searchText.includes(query);chapter.hidden=!match;if(match)matches++});volume.hidden=matches===0;if(query&&matches)volume.open=true;visible+=matches});empty.hidden=visible>0});
-    const token=await ensurePrivateDeviceToken(window.__PUBLIC_API_BASE__||'/api');if(!token)return;
+    if(root.querySelector('.book-contents')?.hidden)return;const token=await ensurePrivateDeviceToken(window.__PUBLIC_API_BASE__||'/api');if(!token)return;
     try{const response=await fetch((window.__PUBLIC_API_BASE__||'/api')+'/private/books/'+root.dataset.bookId+'/progress',{headers:{'X-Device-Token':token}}),json=await response.json(),state=json.data;if(!response.ok||!state)return;const link=root.querySelector('[data-chapter-id="'+Number(state.chapter_id)+'"]');if(link){link.classList.add('is-last-read');const percent=Math.round(Math.max(0,Math.min(1,Number(state.position)||0))*100),label=link.querySelector('[data-chapter-state]');if(label)label.textContent='上次 '+percent+'%';link.closest('details').open=true;const action=root.querySelector('[data-continue-reading]');if(action){action.href=link.href+'?at='+Math.max(0,Math.min(1,Number(state.position)||0));action.innerHTML='继续阅读 <span>→</span>'}const readingState=root.querySelector('[data-reading-state]');if(readingState)readingState.textContent=percent>=100?'已读':'阅读中'}}catch{}
   }
   document.addEventListener('astro:page-load',initBookPage);initBookPage();
