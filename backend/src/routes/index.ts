@@ -24,6 +24,7 @@ import * as libraryCtrl from '../controllers/library'
 import * as bookImportCtrl from '../controllers/book-import'
 import * as bookFormatsCtrl from '../controllers/book-formats'
 import * as mangaCtrl from '../controllers/manga'
+import * as searchSourceCtrl from '../controllers/search-sources'
 import { upload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
 
 const router = Router()
@@ -162,6 +163,11 @@ router.put('/admin/navigation/reorder', auth, navigationCtrl.reorder)
 router.post('/admin/navigation', auth, navigationCtrl.create)
 router.put('/admin/navigation/:id', auth, navigationCtrl.update)
 router.delete('/admin/navigation/:id', auth, navigationCtrl.remove)
+
+router.get('/admin/search-sources', auth, searchSourceCtrl.getConfig)
+router.put('/admin/search-sources', auth, searchSourceCtrl.saveConfig)
+router.post('/admin/search-sources/import', auth, searchSourceCtrl.importSource)
+router.delete('/admin/search-sources/:id', auth, searchSourceCtrl.removeSource)
 
 router.get('/admin/bangumi', auth, bangumiCtrl.list)
 router.get('/admin/bangumi/search', auth, bangumiCtrl.searchSource)

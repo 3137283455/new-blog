@@ -1,24 +1,14 @@
 import { Response } from 'express'
 import db from '../config/database'
 import { AuthRequest } from '../middleware/auth'
+import { detailContentSource, NormalizedContentSubject, searchContentSource } from '../services/content-search-sources'
 import { success, error } from '../utils/response'
 
-type ProviderKey = 'bangumi_lol' | 'official'
-const providers = {
-  bangumi_lol: { key: 'bangumi_lol' as const, label: 'bangumi.lol', api: (process.env.BANGUMI_LOL_API_BASE || 'https://api.bangumi.lol').replace(/\/+$/, ''), page: (process.env.BANGUMI_LOL_PAGE_BASE || 'https://bangumi.lol').replace(/\/+$/, '') },
-  official: { key: 'official' as const, label: 'Bangumi 官方', api: (process.env.BANGUMI_OFFICIAL_API_BASE || 'https://api.bgm.tv').replace(/\/+$/, ''), page: (process.env.BANGUMI_OFFICIAL_PAGE_BASE || 'https://bgm.tv').replace(/\/+$/, '') },
-}
 const browserUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 function clean(value: unknown, max = 500) { return String(value ?? '').trim().slice(0, max) }
 function number(value: unknown, fallback = 0) { const result = Number(value); return Number.isFinite(result) ? result : fallback }
 function slugify(value: unknown) { return clean(value, 180).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '') || 'manga' }
 function uniqueSlug(value: unknown, exclude = 0) { const base = slugify(value); let slug = base, index = 2; while (db.prepare('SELECT 1 FROM manga_items WHERE slug=? AND id!=?').get(slug, exclude)) slug = `${base}-${index++}`; return slug }
-function sourceKey(value: unknown): ProviderKey { return clean(value, 30) === 'official' ? 'official' : 'bangumi_lol' }
-function getProvider(requested?: unknown) {
-  if (requested) return providers[sourceKey(requested)]
-  const row = db.prepare("SELECT value FROM settings WHERE key='manga_search_source'").get() as any
-  return providers[sourceKey(row?.value)]
-}
 function validUrl(value: unknown) { const url = clean(value, 1000); return /^https?:\/\//i.test(url) ? url : '' }
 function normalizeSources(input: unknown) {
   const list = Array.isArray(input) ? input : []
@@ -33,22 +23,20 @@ export function publicList(_req: AuthRequest, res: Response) { return success(re
 export function publicDetail(req: AuthRequest, res: Response) { const row = db.prepare(select("WHERE slug=? AND is_active=1")).get(clean(req.params.slug, 180)); return row ? success(res, attach(row)) : error(res, '漫画不存在', 'NOT_FOUND', 404) }
 export function list(_req: AuthRequest, res: Response) { return success(res, (db.prepare(select('ORDER BY sort_order,id DESC')).all() as any[]).map(attach)) }
 
-function normalizedSubject(item: any, provider: typeof providers[ProviderKey]) {
-  return { external_id: String(item.id || ''), source: provider.key, source_label: provider.label, title: item.name_cn || item.name || '', original_title: item.name || '', author: '', cover: item.images?.large || item.images?.common || item.images?.medium || '', source_url: item.id ? `${provider.page}/subject/${item.id}` : '', rating: number(item.rating?.score), publication: item.date || '', description: item.summary || '' }
+function normalizedSubject(item: NormalizedContentSubject) {
+  return { external_id: item.external_id, source: item.source, source_label: item.source_label, title: item.title, original_title: item.original_title, author: '', cover: item.cover, source_url: item.source_url, rating: item.rating, publication: item.publication, description: item.description }
 }
-async function sourceJson(url: string, options: RequestInit = {}) { const response = await fetch(url, { ...options, signal: AbortSignal.timeout(10000) }); if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json() }
+function searchHeaders(req: AuthRequest) { const incoming = clean(req.get('user-agent'), 500); return { 'User-Agent': /^Mozilla\/5\.0/i.test(incoming) ? incoming : browserUA, 'X-Application-User-Agent': 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)' } }
 export async function searchSource(req: AuthRequest, res: Response) {
-  const query = clean(req.query.q, 100), id = clean(req.query.id, 40), provider = getProvider(req.query.source)
-  if (!query && !id) return error(res, '请输入漫画名称或 Bangumi ID')
-  const headers = { 'User-Agent': browserUA, Accept: 'application/json', 'X-Application-User-Agent': 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)' }
+  const query = clean(req.query.q, 100), id = clean(req.query.id, 80)
+  if (!query && !id) return error(res, '请输入漫画名称或数据源 ID')
   try {
-    if (id) return success(res, [normalizedSubject(await sourceJson(`${provider.api}/v0/subjects/${encodeURIComponent(id)}`, { headers }), provider)])
-    const result = await sourceJson(`${provider.api}/v0/search/subjects?limit=20`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json; charset=utf-8' }, body: JSON.stringify({ keyword: query, filter: { type: [1] } }) })
-    const items = (result.data || []).map((item: any) => normalizedSubject(item, provider))
-    return items.length ? success(res, items) : error(res, `${provider.label} 没有返回匹配漫画`, 'SOURCE_EMPTY', 404)
-  } catch (cause) { console.error('漫画源检索失败:', cause); return error(res, `无法连接 ${provider.label} 漫画数据源`, 'SOURCE_UNAVAILABLE', 502) }
-}
-function replaceSources(id: number, input: unknown) { const list = normalizeSources(input); db.prepare('DELETE FROM manga_read_sources WHERE manga_id=?').run(id); const insert = db.prepare('INSERT INTO manga_read_sources (manga_id,name,url,remark,is_default,sort_order) VALUES (?,?,?,?,?,?)'); list.forEach((source) => insert.run(id, source.name, source.url, source.remark, source.is_default ? 1 : 0, source.sort_order)) }
+    if (id) { const result = await detailContentSource('manga', id, undefined, searchHeaders(req)); return success(res, [normalizedSubject(result.item)]) }
+    const result = await searchContentSource('manga', query, undefined, searchHeaders(req), 20)
+    const items = result.items.map(normalizedSubject)
+    return items.length ? success(res, items) : error(res, `${result.rule.label} 没有返回匹配漫画`, 'SOURCE_EMPTY', 404)
+  } catch (cause) { console.error('漫画源检索失败:', cause); return error(res, cause instanceof Error ? cause.message : '无法连接漫画数据源', 'SOURCE_UNAVAILABLE', 502) }
+}function replaceSources(id: number, input: unknown) { const list = normalizeSources(input); db.prepare('DELETE FROM manga_read_sources WHERE manga_id=?').run(id); const insert = db.prepare('INSERT INTO manga_read_sources (manga_id,name,url,remark,is_default,sort_order) VALUES (?,?,?,?,?,?)'); list.forEach((source) => insert.run(id, source.name, source.url, source.remark, source.is_default ? 1 : 0, source.sort_order)) }
 function status(value: unknown) { const item = clean(value, 30); return ['reading','finished','planned','paused'].includes(item) ? item : 'reading' }
 export function create(req: AuthRequest, res: Response) {
   const title = clean(req.body?.title, 160); if (!title) return error(res, '漫画标题不能为空')

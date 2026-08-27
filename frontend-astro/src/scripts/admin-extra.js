@@ -97,43 +97,27 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks, validateBookmarkItem
     renderSearchEngines();
   }
 
-  const BANGUMI_SEARCH_SOURCE_LABELS = {
-    bangumi_lol: 'bangumi.lol',
-    official: 'Bangumi 官方',
-  };
+  const BANGUMI_SEARCH_SOURCE_LABELS = { bangumi_lol: 'bangumi.lol', official: 'Bangumi 官方' };
 
-  function renderBangumiSearchSource(message = '') {
-    const select = $('#bangumi-search-source');
-    const status = $('#bangumi-search-source-status');
-    if (select) select.value = state.bangumiSearchSource;
-    if (status) status.textContent = message || `当前使用 ${BANGUMI_SEARCH_SOURCE_LABELS[state.bangumiSearchSource] || 'bangumi.lol'}`;
-  }
-
-  async function loadBangumiSearchSource() {
-    const json = await api('/admin/settings');
-    const row = (json.data || []).find((item) => item.key === 'bangumi_search_source');
-    const value = String(row?.value || 'bangumi_lol');
-    state.bangumiSearchSource = value === 'official' ? 'official' : 'bangumi_lol';
+  function applyBangumiSearchConfig(config) {
+    if (!config) return;
+    state.bangumiSearchSource = config.defaults?.bangumi || '';
+    (config.sources || []).forEach((source) => { BANGUMI_SEARCH_SOURCE_LABELS[source.id] = source.label; });
     renderBangumiSearchSource();
   }
 
-  async function saveBangumiSearchSource() {
-    const select = $('#bangumi-search-source');
-    const value = select?.value === 'official' ? 'official' : 'bangumi_lol';
+  function renderBangumiSearchSource(message = '') {
     const status = $('#bangumi-search-source-status');
-    if (status) status.textContent = '正在保存检索源...';
-    try {
-      await api('/admin/settings', {
-        method: 'PUT',
-        body: JSON.stringify({ settings: { bangumi_search_source: value } }),
-      });
-      state.bangumiSearchSource = value;
-      renderBangumiSearchSource(`已固定为 ${BANGUMI_SEARCH_SOURCE_LABELS[value]}`);
-    } catch (error) {
-      if (select) select.value = state.bangumiSearchSource;
-      renderBangumiSearchSource(error.message || '检索源保存失败');
-    }
+    if (status) status.textContent = message || `当前使用设置中的默认源：${BANGUMI_SEARCH_SOURCE_LABELS[state.bangumiSearchSource] || state.bangumiSearchSource || '未配置'}`;
   }
+
+  async function loadBangumiSearchSource() {
+    const json = await api('/admin/search-sources');
+    applyBangumiSearchConfig(json.data);
+  }
+
+  window.addEventListener('content-search-sources-updated', (event) => applyBangumiSearchConfig(event.detail));
+
   function mediaUrl(file) {
     return file.url || `/uploads/${file.path || ''}`;
   }
@@ -834,7 +818,7 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks, validateBookmarkItem
     }
     if (results) results.innerHTML = '<p class="text-sm text-base-content/50">正在检索数据源...</p>';
     try {
-      const param = new URLSearchParams({ source: state.bangumiSearchSource });
+      const param = new URLSearchParams();
       param.set(/^\d+$/.test(keyword) ? 'id' : 'q', keyword);
       const json = await api(`/admin/bangumi/search?${param.toString()}`);
       state.bangumiSourceItems = json.data || [];
@@ -1292,7 +1276,6 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks, validateBookmarkItem
     }
     window.setTimeout(() => $('#bangumi-source-query')?.focus(), 0);
   });
-  $('#bangumi-search-source')?.addEventListener('change', saveBangumiSearchSource);
   $('#bangumi-source-close')?.addEventListener('click', () => $('#bangumi-source-dialog')?.close());
   $('#bangumi-source-search')?.addEventListener('click', searchBangumiSource);
   $('#bangumi-source-query')?.addEventListener('keydown', (event) => {

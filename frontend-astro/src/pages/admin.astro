@@ -703,6 +703,26 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <button class="ryu-btn-primary" type="submit">保存站点设置</button>
             <p id="settings-message" class="min-h-6 text-sm"></p>
           </form>
+          <section class="ryu-card grid gap-5 p-5 lg:col-span-2" aria-labelledby="content-search-sources-title">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div><h2 id="content-search-sources-title" class="text-2xl font-black">内容检索源</h2><p class="text-sm text-base-content/50">每个站点使用一个独立 JSON 规则文件，可分别定义 GET/POST、API 路径、请求体、响应路径和字段映射。</p></div>
+              <div class="flex flex-wrap gap-2"><button id="search-source-new" class="ryu-btn" type="button">新建源</button><label class="ryu-btn cursor-pointer">导入源文件<input id="search-source-import" class="hidden" type="file" accept="application/json,.json" multiple /></label><button id="search-source-export-all" class="ryu-btn" type="button">备份全部</button></div>
+            </div>
+            <div class="grid gap-4 xl:grid-cols-[minmax(16rem,.72fr)_minmax(0,1.28fr)]">
+              <div class="grid content-start gap-4">
+                <div class="grid gap-3 rounded-2xl bg-base-200/55 p-4 sm:grid-cols-2 xl:grid-cols-1">
+                  <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">追番默认源</span><select id="search-source-default-bangumi" class="select select-bordered rounded-xl"></select></label>
+                  <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">漫画默认源</span><select id="search-source-default-manga" class="select select-bordered rounded-xl"></select></label>
+                </div>
+                <div id="content-search-source-list" class="grid gap-2"></div>
+              </div>
+              <div class="grid min-w-0 gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-lg font-black">单源 JSON 编辑器</h3><p class="text-xs text-base-content/45">保存只更新当前文件中的一个源，不会覆盖其他源。</p></div><div class="flex flex-wrap gap-2"><button id="search-source-export" class="ryu-btn btn-sm" type="button">导出当前源</button><button id="search-source-save" class="ryu-btn-primary btn-sm" type="button">校验并保存</button></div></div>
+                <textarea id="content-search-source-editor" class="textarea textarea-bordered min-h-[32rem] w-full rounded-2xl font-mono text-xs leading-5" spellcheck="false" aria-label="单个检索源 JSON 规则"></textarea>
+              </div>
+            </div>
+            <p id="content-search-source-message" class="min-h-6 text-sm" aria-live="polite"></p>
+          </section>
         </div>
       </section>
       <section id="navigation-panel" class="admin-panel hidden">
@@ -827,7 +847,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <form id="manga-form" class="ryu-card grid gap-4 p-5">
             <input name="id" type="hidden" />
             <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-2xl font-black">漫画管理</h2><p class="text-sm text-base-content/50">从元数据源检索漫画，再添加实际使用的外部阅读站点。</p></div><button id="manga-reset" class="ryu-btn" type="button">新建</button></div>
-            <section class="grid gap-3 rounded-2xl bg-base-200/55 p-3"><div class="grid gap-2 sm:grid-cols-[10rem_1fr_auto]"><select id="manga-search-source" class="select select-bordered rounded-xl"><option value="bangumi_lol">bangumi.lol</option><option value="official">Bangumi 官方</option></select><input id="manga-search-query" class="input input-bordered rounded-xl" type="search" placeholder="漫画名称或 Bangumi ID" /><button id="manga-search" class="ryu-btn-primary" type="button">检索</button></div><p id="manga-search-status" class="text-xs text-base-content/50">检索源独立保存，不影响追番。</p><div id="manga-search-results" class="grid max-h-72 gap-2 overflow-auto"></div></section>
+            <section class="grid gap-3 rounded-2xl bg-base-200/55 p-3"><div class="grid gap-2 sm:grid-cols-[1fr_auto]"><input id="manga-search-query" class="input input-bordered rounded-xl" type="search" placeholder="漫画名称或数据源 ID" /><button id="manga-search" class="ryu-btn-primary" type="button">检索</button></div><div class="flex flex-wrap items-center justify-between gap-2"><p id="manga-search-status" class="text-xs text-base-content/50">正在读取默认检索源...</p><button class="btn btn-ghost btn-xs rounded-lg" type="button" data-panel-tab="settings">管理检索源</button></div><div id="manga-search-results" class="grid max-h-72 gap-2 overflow-auto"></div></section>
             <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="title" placeholder="漫画标题" required /><input class="input input-bordered rounded-xl" name="original_title" placeholder="原名 / 别名" /></div>
             <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="author" placeholder="作者" /><input class="input input-bordered rounded-xl" name="publication" placeholder="连载年份 / 出版信息" /></div>
             <div class="join w-full"><input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="封面地址" /><button class="btn join-item rounded-r-xl" type="button" data-pick-media data-target-form="manga-form" data-target-field="cover" data-media-type="image">选择</button></div>
@@ -965,15 +985,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           </div>
           <button id="bangumi-source-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button>
         </div>
-        <div class="mt-4 grid gap-3 rounded-2xl bg-base-200/55 p-3 sm:grid-cols-[minmax(12rem,0.7fr)_1fr] sm:items-end">
-          <label class="grid gap-1.5">
-            <span class="text-xs font-black text-base-content/60">番剧检索源</span>
-            <select id="bangumi-search-source" class="select select-bordered rounded-xl">
-              <option value="bangumi_lol">bangumi.lol（默认）</option>
-              <option value="official">Bangumi 官方</option>
-            </select>
-          </label>
-          <p id="bangumi-search-source-status" class="min-h-6 text-sm text-base-content/55">当前使用 bangumi.lol</p>
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-base-200/55 p-3">
+          <p id="bangumi-search-source-status" class="min-h-6 text-sm text-base-content/55">正在读取默认检索源...</p>
+          <button class="btn btn-sm rounded-xl" type="button" data-panel-tab="settings">管理检索源</button>
         </div>
         <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <input id="bangumi-source-query" class="input input-bordered rounded-xl" type="search" placeholder="输入番剧名称或 Bangumi ID" />
@@ -1253,6 +1267,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       import '../scripts/admin-personal.js';
       import '../scripts/admin-books.js';
       import '../scripts/admin-manga.js';
+      import '../scripts/admin-search-sources.js';
     </script>
   </body>
 </html>
