@@ -100,7 +100,16 @@ export const epubUpload = multer({
 })
 
 export const mangaArchiveUpload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination(_req, _file, cb) {
+      const directory = path.join(config.uploadDir, '.manga-imports')
+      fs.mkdirSync(directory, { recursive: true })
+      cb(null, directory)
+    },
+    filename(_req, file, cb) {
+      cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`)
+    },
+  }),
   limits: { fileSize: 300 * 1024 * 1024, files: 1 },
   fileFilter(_req, file, cb) {
     if (/\.(?:cbz|zip)$/i.test(file.originalname) || ['application/zip','application/x-zip-compressed'].includes(file.mimetype)) {
