@@ -697,7 +697,7 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks, validateBookmarkItem
     results.innerHTML = pageItems.map((item) => `
       <button class="bangumi-source-result" type="button" data-import-bangumi-source="${html(encodeURIComponent(JSON.stringify(item)))}">
         <span class="bangumi-source-cover">
-          ${item.cover ? `<img src="${html(item.cover)}" alt="" loading="lazy" decoding="async" />` : '<span>暂无封面</span>'}
+          ${item.cover ? `<img src="${html(item.cover)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />` : '<span>暂无封面</span>'}
         </span>
         <span class="min-w-0">
           <strong>${html(item.title || '未命名作品')}</strong>
@@ -843,7 +843,7 @@ import { createNetscapeBookmarkFile, parseBrowserBookmarks, validateBookmarkItem
         <div class="rounded-2xl bg-base-100/65 p-4">
           <div class="flex flex-wrap items-center gap-3">
             <input class="checkbox checkbox-sm" type="checkbox" value="${item.id}" data-extra-select="bangumi" />
-            <div class="h-20 w-14 overflow-hidden rounded-xl bg-base-200">${item.cover ? `<img class="h-full w-full object-cover" src="${html(item.cover)}" alt="" />` : ''}</div>
+            <div class="h-20 w-14 overflow-hidden rounded-xl bg-base-200">${item.cover ? `<img class="h-full w-full object-cover" src="${html(item.cover)}" alt="" referrerpolicy="no-referrer" />` : ''}</div>
             <div class="min-w-0 flex-1">
               <p class="font-black">${html(item.title)} ${item.is_active ? '' : '<span class="badge badge-ghost">隐藏</span>'}</p>
               <p class="text-xs text-base-content/45">${html(item.status || 'watching')} · ${html(item.progress || '未填进度')} · 评分 ${Number(item.rating || 0).toFixed(1)} · 排序 ${Number(item.sort_order || 0)}</p>

@@ -168,9 +168,16 @@ function formBody(value: unknown) {
   }
   return params.toString()
 }
+function normalizeCoverUrl(value: unknown, rule: ContentSearchRule) {
+  const cover = clean(value, 1000)
+  if (!cover) return ''
+  if (cover.startsWith('//')) return `https:${cover}`
+  if (cover.startsWith('/')) return `${rule.api_base}${cover}`
+  return cover.replace(/^http:\/\//i, 'https://')
+}
 function normalizeSubject(item: any, rule: ContentSearchRule): NormalizedContentSubject {
   const id = clean(mapped(item, rule, 'id'), 80), rating = Number(mapped(item, rule, 'rating') || 0), total = Number(mapped(item, rule, 'total') || 0)
-  return { external_id: id, source: rule.id, source_label: rule.label, title: clean(mapped(item, rule, 'title'), 200), original_title: clean(mapped(item, rule, 'original_title'), 200), cover: clean(mapped(item, rule, 'cover'), 1000), source_url: id ? rule.page_base + expand(rule.page_path, { id }) : rule.page_base, rating: Number.isFinite(rating) ? rating : 0, publication: clean(mapped(item, rule, 'publication'), 100), description: clean(mapped(item, rule, 'description'), 5000), type: clean(mapped(item, rule, 'type'), 100), total: Number.isFinite(total) ? total : 0 }
+  return { external_id: id, source: rule.id, source_label: rule.label, title: clean(mapped(item, rule, 'title'), 200), original_title: clean(mapped(item, rule, 'original_title'), 200), cover: normalizeCoverUrl(mapped(item, rule, 'cover'), rule), source_url: id ? rule.page_base + expand(rule.page_path, { id }) : rule.page_base, rating: Number.isFinite(rating) ? rating : 0, publication: clean(mapped(item, rule, 'publication'), 100), description: clean(mapped(item, rule, 'description'), 5000), type: clean(mapped(item, rule, 'type'), 100), total: Number.isFinite(total) ? total : 0 }
 }
 function selectedRule(kind: ContentSearchKind, requested?: unknown) { const config = getContentSearchConfig(), id = clean(requested, 40) || config.defaults[kind], rule = config.sources.find((item) => item.id === id && item.enabled && item.kinds.includes(kind)); if (!rule) throw new Error(`检索源 ${id || '(未设置)'} 不可用于${kind === 'bangumi' ? '追番' : '漫画'}`); return rule }
 async function requestRule(rule: ContentSearchRule, request: ContentSearchRule['search'] | ContentSearchRule['detail'], variables: Record<string, unknown>, baseHeaders: Record<string, string>) {

@@ -36,10 +36,13 @@ const state = {
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
-$('#api-base-label').textContent = API_BASE;
+const apiLabel = $('#api-base-label');
+if (apiLabel) apiLabel.textContent = API_BASE;
 
 function setStatus(text) {
-  $('#admin-status').textContent = text;
+  const status = $('#admin-status');
+  if (status) status.textContent = text;
+  if (root) root.dataset.status = text || '';
 }
 
 function notify(message, error = false) {
@@ -93,6 +96,8 @@ const settingsLabels = {
   plugins: '插件',
 };
 
+const panelTitles = { dashboard: '概览', articles: '文章管理', series: '专题管理', books: '书库管理', navigation: '导航管理', bangumi: '追番管理', manga: '漫画管理', albums: '相册管理', music: '音乐管理', media: '媒体资源', fonts: '字体库', settings: '系统设置', personal: '个人与同步', appearance: '主题外观', 'search-sources': '检索源', taxonomy: '分类标签', comments: '评论管理', backup: '备份与恢复', plugins: '插件管理', login: '后台登录' };
+
 function ensurePanelTabs() {
   [
     { panels: contentPanels, labels: contentLabels, className: 'content-tabs' },
@@ -128,6 +133,8 @@ function switchPanel(panel) {
   const activeNav = navPanelMap[panel] || panel;
   $$('.admin-nav').forEach((el) => el.classList.toggle('is-active', el.dataset.panel === activeNav));
   syncPanelTabs(panel);
+  const pageTitle = $('#admin-page-title');
+  if (pageTitle) pageTitle.textContent = panelTitles[panel] || '后台管理';
 }
 
 async function request(path, options = {}) {
@@ -842,7 +849,11 @@ function renderAccount() {
   form.elements.namedItem('nickname').value = state.user.nickname || state.user.username || '';
   form.elements.namedItem('avatar').value = state.user.avatar || '';
   form.elements.namedItem('password').value = '';
-  window.updateAdminFieldPreview?.('account-form', 'avatar');
+window.updateAdminFieldPreview?.('account-form', 'avatar');
+  const accountName = $('#admin-account-name');
+  const accountAvatar = $('#admin-account-avatar');
+  if (accountName) accountName.textContent = state.user.nickname || state.user.username || '管理员';
+  if (accountAvatar) accountAvatar.src = state.user.avatar || '/profile.webp';
 }
 
 function renderSettings() {
@@ -2303,6 +2314,27 @@ $('#profile-form').addEventListener('submit', saveProfile);
 $('#site-settings-form').addEventListener('submit', saveSiteSettings);
 $('#site-settings-form').addEventListener('input', renderSettingsPreview);
 $('#site-settings-form').addEventListener('change', renderSettingsPreview);
+function openAdminSettingsSearch() {
+  switchPanel('settings');
+  document.querySelector('.admin-topbar')?.classList.add('is-searching');
+  window.setTimeout(() => $('#admin-global-settings-search')?.focus(), 0);
+}
+function syncGlobalSettingsSearch(value) {
+  const settingsSearch = $('#settings-search');
+  if (!settingsSearch) return;
+  settingsSearch.value = value;
+  settingsSearch.dispatchEvent(new Event('input', { bubbles: true }));
+}
+$('#admin-sidebar-toggle')?.addEventListener('click', (event) => {
+  const collapsed = root?.classList.toggle('is-sidebar-collapsed') || false;
+  event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+  event.currentTarget.setAttribute('aria-label', collapsed ? '展开侧栏' : '收起侧栏');
+});
+$('#admin-search-toggle')?.addEventListener('click', openAdminSettingsSearch);
+$('#admin-global-settings-search')?.addEventListener('input', (event) => { switchPanel('settings'); syncGlobalSettingsSearch(event.currentTarget.value || ''); });
+$('#admin-global-settings-search')?.addEventListener('keydown', (event) => { if (event.key === 'Escape') { document.querySelector('.admin-topbar')?.classList.remove('is-searching'); event.currentTarget.blur(); } });
+$('#admin-notification-toggle')?.addEventListener('click', () => { const notice = $('#admin-notice'); if (notice?.textContent) notice.classList.toggle('is-visible'); $('#admin-notification-dot')?.classList.add('hidden'); });
+document.addEventListener('keydown', (event) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); openAdminSettingsSearch(); } });
 $('#settings-search')?.addEventListener('input', (event) => {
   const term = String(event.currentTarget.value || '').trim().toLocaleLowerCase();
   const sections = Array.from(document.querySelectorAll('#settings-panel .admin-settings-section'));
