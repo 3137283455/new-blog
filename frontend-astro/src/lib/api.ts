@@ -229,6 +229,13 @@ export interface MangaItem {
   sort_order?: number
   is_active?: number | boolean
   read_sources?: MangaReadSource[]
+  library_type?: 'local' | 'network'
+  volume_count?: number
+  chapter_count?: number
+  volumes?: Array<{
+    id:number; manga_id:number; title:string; slug:string; sort_order:number; chapter_count?:number
+    chapters?: Array<{id:number; volume_id:number; title:string; slug:string; sort_order:number; page_count?:number}>
+  }>
 }
 export interface AlbumPhoto {
   id: number
@@ -479,6 +486,9 @@ export async function getMangaItems(): Promise<MangaItem[]> {
 }
 export async function getManga(slug:string): Promise<MangaItem|null> {
   try { const res=await apiFetch(API_BASE+'/manga/'+encodeURIComponent(slug)); if(!res.ok) return null; return (await res.json()).data||null } catch { return null }
+}
+export async function getMangaChapter(manga:string,volume:string,chapter:string): Promise<any|null> {
+  try { const res=await apiFetch(API_BASE+'/manga/'+encodeURIComponent(manga)+'/'+encodeURIComponent(volume)+'/'+encodeURIComponent(chapter)); if(!res.ok) return null; return (await res.json()).data||null } catch { return null }
 }
 export async function getBooks(): Promise<BookSummary[]> {
   try { const res=await apiFetch(API_BASE+'/books'); if(!res.ok) return []; return (await res.json()).data||[] } catch { return [] }

@@ -25,7 +25,7 @@ import * as bookImportCtrl from '../controllers/book-import'
 import * as bookFormatsCtrl from '../controllers/book-formats'
 import * as mangaCtrl from '../controllers/manga'
 import * as searchSourceCtrl from '../controllers/search-sources'
-import { upload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
+import { upload, backupUpload, epubUpload, textBookUpload, mangaArchiveUpload } from '../middleware/upload'
 
 const router = Router()
 
@@ -66,6 +66,10 @@ router.get('/navigation', navigationCtrl.publicList)
 router.get('/bangumi', bangumiCtrl.publicList)
 router.get('/manga', mangaCtrl.publicList)
 router.get('/manga/:slug', mangaCtrl.publicDetail)
+router.get('/manga/:slug/:volume/:chapter', mangaCtrl.publicChapter)
+router.get('/private/manga', deviceAuth, mangaCtrl.privateLibrary)
+router.get('/private/manga/:mangaId/progress', deviceAuth, mangaCtrl.getReadingState)
+router.put('/private/manga/:mangaId/progress', deviceAuth, mangaCtrl.putReadingState)
 router.get('/albums', albumCtrl.publicList)
 router.get('/albums/:id', albumCtrl.publicDetail)
 router.get('/music', musicCtrl.publicList)
@@ -184,6 +188,7 @@ router.delete('/admin/bangumi/:id', auth, bangumiCtrl.remove)
 router.get('/admin/manga', auth, mangaCtrl.list)
 router.get('/admin/manga/search', auth, mangaCtrl.searchSource)
 router.post('/admin/manga', auth, mangaCtrl.create)
+router.post('/admin/manga/import', auth, mangaArchiveUpload.single('file'), mangaCtrl.importLocal)
 router.put('/admin/manga/:id', auth, mangaCtrl.update)
 router.delete('/admin/manga/:id', auth, mangaCtrl.remove)
 

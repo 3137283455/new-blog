@@ -99,6 +99,17 @@ export const epubUpload = multer({
   },
 })
 
+export const mangaArchiveUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 300 * 1024 * 1024, files: 1 },
+  fileFilter(_req, file, cb) {
+    if (/\.(?:cbz|zip)$/i.test(file.originalname) || ['application/zip','application/x-zip-compressed'].includes(file.mimetype)) {
+      cb(null, true)
+      return
+    }
+    cb(new Error('仅支持 CBZ 或 ZIP 漫画包'))
+  },
+})
 export const textBookUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024, files: 10 },

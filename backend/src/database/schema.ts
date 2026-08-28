@@ -258,6 +258,47 @@ export function migrate() {
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS manga_volumes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      manga_id INTEGER NOT NULL REFERENCES manga_items(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(manga_id, slug)
+    );
+    CREATE TABLE IF NOT EXISTS manga_chapters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      volume_id INTEGER NOT NULL REFERENCES manga_volumes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      source_filename TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(volume_id, slug)
+    );
+    CREATE TABLE IF NOT EXISTS manga_pages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chapter_id INTEGER NOT NULL REFERENCES manga_chapters(id) ON DELETE CASCADE,
+      image_url TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS manga_reading_states (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      manga_id INTEGER NOT NULL REFERENCES manga_items(id) ON DELETE CASCADE,
+      volume_id INTEGER REFERENCES manga_volumes(id) ON DELETE SET NULL,
+      chapter_id INTEGER REFERENCES manga_chapters(id) ON DELETE SET NULL,
+      page_index INTEGER DEFAULT 0,
+      mode TEXT DEFAULT 'scroll',
+      settings TEXT DEFAULT '{}',
+      revision INTEGER DEFAULT 0,
+      device_id INTEGER REFERENCES private_devices(id) ON DELETE SET NULL,
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY(user_id, manga_id)
+    );
     -- 相册
     CREATE TABLE IF NOT EXISTS albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -501,6 +542,9 @@ export function migrate() {
       ON manga_items(is_active, status, sort_order);
     CREATE INDEX IF NOT EXISTS idx_manga_read_sources_item
       ON manga_read_sources(manga_id, is_default DESC, sort_order, id);
+    CREATE INDEX IF NOT EXISTS idx_manga_volumes_item ON manga_volumes(manga_id, sort_order, id);
+    CREATE INDEX IF NOT EXISTS idx_manga_chapters_volume ON manga_chapters(volume_id, sort_order, id);
+    CREATE INDEX IF NOT EXISTS idx_manga_pages_chapter ON manga_pages(chapter_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS idx_albums_public
       ON albums(is_active, sort_order);
     CREATE INDEX IF NOT EXISTS idx_album_photos_album
@@ -642,6 +686,7 @@ export function migrate() {
   addColumn('books', 'reading_mode', "TEXT DEFAULT 'chapters'")
   addColumn('books', 'reading_url', "TEXT DEFAULT ''")
   addColumn('books', 'source_format', "TEXT DEFAULT 'epub'")
+  addColumn('manga_items', 'library_type', "TEXT DEFAULT 'network'")
 
   try {
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_private_devices_user_client ON private_devices(user_id, client_id) WHERE client_id != ''")
