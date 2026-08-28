@@ -866,6 +866,44 @@ function renderSettings() {
   fields.namedItem('show_visitor_stats').checked = state.settings.show_visitor_stats !== false;
   fields.namedItem('enable_comments').checked = state.settings.enable_comments !== false;
   fields.namedItem('comment_moderation').checked = !!state.settings.comment_moderation;
+  renderSettingsPreview();
+}
+
+function renderSettingsPreview() {
+  const form = $('#site-settings-form');
+  if (!form) return;
+  const fields = form.elements;
+  const banners = String(fields.namedItem('banner_images')?.value || '')
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const languageLabels = {
+    'zh-CN': '简体中文',
+    'zh-TW': '繁体中文',
+    'ja-JP': '日本語',
+    'en-US': 'English',
+  };
+  const title = String(fields.namedItem('site_title')?.value || '').trim() || 'My Blog';
+  const description = String(fields.namedItem('site_description')?.value || '').trim() || '记录技术、生活和灵感。';
+  const rssEnabled = !!fields.namedItem('enable_rss')?.checked;
+  const jsonEnabled = !!fields.namedItem('enable_json_feed')?.checked;
+  const feedLabels = [rssEnabled ? 'RSS' : '', jsonEnabled ? 'JSON' : ''].filter(Boolean);
+
+  const previewImage = $('#settings-preview-image');
+  if (previewImage) {
+    previewImage.onerror = () => {
+      previewImage.onerror = null;
+      previewImage.src = '/home.webp';
+    };
+    previewImage.src = banners[0] || '/home.webp';
+  }
+  if ($('#settings-preview-title')) $('#settings-preview-title').textContent = title;
+  if ($('#settings-preview-description')) $('#settings-preview-description').textContent = description;
+  if ($('#settings-preview-language')) $('#settings-preview-language').textContent = languageLabels[fields.namedItem('site_language')?.value] || fields.namedItem('site_language')?.value || '简体中文';
+  if ($('#settings-preview-banner-count')) $('#settings-preview-banner-count').textContent = banners.length ? `${banners.length} 张` : '默认';
+  if ($('#settings-preview-comments')) $('#settings-preview-comments').textContent = fields.namedItem('enable_comments')?.checked ? '已启用' : '已关闭';
+  if ($('#settings-preview-feeds')) $('#settings-preview-feeds').textContent = feedLabels.length ? feedLabels.join(' · ') : '已关闭';
+  if ($('#settings-preview-indexing')) $('#settings-preview-indexing').textContent = fields.namedItem('allow_search_indexing')?.checked ? '允许' : '禁止';
 }
 function fontKey(font) {
   if (!font?.family || !font?.url) return '';
@@ -2263,6 +2301,8 @@ $('#plugin-form').addEventListener('submit', installPlugin);
 $('#account-form').addEventListener('submit', saveAccount);
 $('#profile-form').addEventListener('submit', saveProfile);
 $('#site-settings-form').addEventListener('submit', saveSiteSettings);
+$('#site-settings-form').addEventListener('input', renderSettingsPreview);
+$('#site-settings-form').addEventListener('change', renderSettingsPreview);
 $('#settings-search')?.addEventListener('input', (event) => {
   const term = String(event.currentTarget.value || '').trim().toLocaleLowerCase();
   const sections = Array.from(document.querySelectorAll('#settings-panel .admin-settings-section'));
