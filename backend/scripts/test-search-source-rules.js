@@ -56,8 +56,17 @@ async function main() {
     }
     const getRule = { schema: 'boke-content-search-source', version: 1, source: { id: 'get-anime', label: 'GET 动画源', enabled: true, kinds: ['bangumi'], api_base: sourceOrigin, page_base: 'https://get.example', page_path: '/work/{id}', headers: { 'X-Rule-Token': 'get-secret' }, search: { method: 'GET', path: '/alpha/find?term={query}&kind={type}&take={limit}', result_path: 'payload.results', body_type: 'json' }, detail: { method: 'GET', path: '/alpha/item/{id}', result_path: 'payload.entry', body_type: 'json' }, mapping: { id: 'uid', title: 'names.cn', original_title: 'names.original', cover: 'poster.large', rating: 'metrics.score', publication: 'aired', description: 'intro', type: 'media.label', total: 'episodes' }, type_values: { bangumi: 'anime' } } }
     const formRule = { schema: 'boke-content-search-source', version: 1, source: { id: 'form-manga', label: '表单漫画源', enabled: true, kinds: ['manga'], api_base: sourceOrigin, page_base: 'https://form.example', page_path: '/comic/{id}', headers: { 'X-Rule-Token': 'form-secret' }, search: { method: 'POST', path: '/beta/search', result_path: 'response.list', body_type: 'form', body: { word: '{query}', category: '{type}', take: '{limit}' } }, detail: { method: 'POST', path: '/beta/detail', result_path: 'response.entry', body_type: 'form', body: { subject_id: '{id}' } }, mapping: { id: 'key', title: 'display', original_title: 'raw_title', cover: 'art', rating: 'stars', publication: 'published', description: 'about' }, type_values: { manga: 'comic' } } }
+    const getPreview = await call('/admin/search-sources/test', { method: 'POST', body: JSON.stringify({ file: getRule, kind: 'bangumi', query: 'test' }) })
+    const formPreview = await call('/admin/search-sources/test', { method: 'POST', body: JSON.stringify({ file: formRule, kind: 'manga', query: 'test' }) })
+    if (getPreview.items[0]?.title !== '独立 GET 番剧' || formPreview.items[0]?.title !== '独立表单漫画') throw new Error('unsaved rule preview failed')
     await call('/admin/search-sources/import', { method: 'POST', body: JSON.stringify(getRule) })
     await call('/admin/search-sources/import', { method: 'POST', body: JSON.stringify(formRule) })
+    let conflictRejected = false
+    try { await call('/admin/search-sources/import', { method: 'POST', body: JSON.stringify(getRule) }) } catch (error) { conflictRejected = error.status === 409 }
+    if (!conflictRejected) throw new Error('duplicate source did not require a choice')
+    await call('/admin/search-sources/import', { method: 'POST', body: JSON.stringify({ file: getRule, mode: 'replace' }) })
+    const renamed = await call('/admin/search-sources/import', { method: 'POST', body: JSON.stringify({ file: getRule, mode: 'rename', new_id: 'get-anime-copy' }) })
+    if (!renamed.sources.some((item) => item.id === 'get-anime-copy')) throw new Error('rename conflict mode failed')
     const config = await call('/admin/search-sources')
     config.defaults = { bangumi: 'get-anime', manga: 'form-manga' }
     await call('/admin/search-sources', { method: 'PUT', body: JSON.stringify(config) })
@@ -67,7 +76,7 @@ async function main() {
     if (anime[0]?.title !== '独立 GET 番剧' || anime[0]?.total_episodes !== 13 || anime[0]?.url !== 'https://get.example/work/get-1') throw new Error('GET rule mapping/default isolation failed')
     if (manga[0]?.title !== '独立表单漫画' || manga[0]?.source_url !== 'https://form.example/comic/form-1' || detail[0]?.external_id !== 'form-1') throw new Error('form rule mapping/default isolation failed')
     const getRequest = requests.find((item) => item.url.startsWith('/alpha/find'))
-    const formSearch = requests.find((item) => item.url === '/beta/search')
+    const formSearch = requests.find((item) => item.url === '/beta/search' && item.body.includes('take=20'))
     const formDetail = requests.find((item) => item.url === '/beta/detail')
     if (!getRequest?.url.includes('kind=anime') || getRequest.token !== 'get-secret') throw new Error('GET request rule failed')
     if (formSearch?.body !== 'word=test&category=comic&take=20' || formSearch.token !== 'form-secret') throw new Error('form search rule failed')

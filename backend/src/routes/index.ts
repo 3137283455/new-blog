@@ -167,6 +167,7 @@ router.delete('/admin/navigation/:id', auth, navigationCtrl.remove)
 router.get('/admin/search-sources', auth, searchSourceCtrl.getConfig)
 router.put('/admin/search-sources', auth, searchSourceCtrl.saveConfig)
 router.post('/admin/search-sources/import', auth, searchSourceCtrl.importSource)
+router.post('/admin/search-sources/test', auth, searchSourceCtrl.testSource)
 router.delete('/admin/search-sources/:id', auth, searchSourceCtrl.removeSource)
 
 router.get('/admin/bangumi', auth, bangumiCtrl.list)

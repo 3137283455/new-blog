@@ -703,28 +703,35 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <button class="ryu-btn-primary" type="submit">保存站点设置</button>
             <p id="settings-message" class="min-h-6 text-sm"></p>
           </form>
-          <section class="ryu-card grid gap-5 p-5 lg:col-span-2" aria-labelledby="content-search-sources-title">
+
+        </div>
+      </section>
+          <section id="search-sources-panel" class="admin-panel hidden space-y-5" aria-labelledby="content-search-sources-title">
             <div class="flex flex-wrap items-start justify-between gap-3">
               <div><h2 id="content-search-sources-title" class="text-2xl font-black">内容检索源</h2><p class="text-sm text-base-content/50">每个站点使用一个独立 JSON 规则文件，可分别定义 GET/POST、API 路径、请求体、响应路径和字段映射。</p></div>
               <div class="flex flex-wrap gap-2"><button id="search-source-new" class="ryu-btn" type="button">新建源</button><label class="ryu-btn cursor-pointer">导入源文件<input id="search-source-import" class="hidden" type="file" accept="application/json,.json" multiple /></label><button id="search-source-export-all" class="ryu-btn" type="button">备份全部</button></div>
             </div>
-            <div class="grid gap-4 xl:grid-cols-[minmax(16rem,.72fr)_minmax(0,1.28fr)]">
-              <div class="grid content-start gap-4">
-                <div class="grid gap-3 rounded-2xl bg-base-200/55 p-4 sm:grid-cols-2 xl:grid-cols-1">
+            <div class="grid overflow-hidden border-y border-base-content/10 xl:grid-cols-[minmax(18rem,.68fr)_minmax(0,1.32fr)]">
+              <div class="grid content-start gap-4 py-4 xl:border-r xl:border-base-content/10 xl:pr-5">
+                <div class="grid gap-3 border-b border-base-content/10 pb-4 sm:grid-cols-2 xl:grid-cols-1">
                   <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">追番默认源</span><select id="search-source-default-bangumi" class="select select-bordered rounded-xl"></select></label>
                   <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">漫画默认源</span><select id="search-source-default-manga" class="select select-bordered rounded-xl"></select></label>
                 </div>
-                <div id="content-search-source-list" class="grid gap-2"></div>
+                <div id="content-search-source-list" class="grid border-t border-base-content/10 xl:max-h-[calc(100vh-16rem)] xl:overflow-y-auto"></div>
               </div>
-              <div class="grid min-w-0 gap-3">
-                <div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-lg font-black">单源 JSON 编辑器</h3><p class="text-xs text-base-content/45">保存只更新当前文件中的一个源，不会覆盖其他源。</p></div><div class="flex flex-wrap gap-2"><button id="search-source-export" class="ryu-btn btn-sm" type="button">导出当前源</button><button id="search-source-save" class="ryu-btn-primary btn-sm" type="button">校验并保存</button></div></div>
-                <textarea id="content-search-source-editor" class="textarea textarea-bordered min-h-[32rem] w-full rounded-2xl font-mono text-xs leading-5" spellcheck="false" aria-label="单个检索源 JSON 规则"></textarea>
+              <div class="grid min-w-0 gap-3 py-4 xl:pl-5">
+                <div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-lg font-black">单源 JSON 编辑器</h3><p class="text-xs text-base-content/45">保存只更新当前文件中的一个源，不会覆盖其他源。</p></div><div class="flex flex-wrap gap-2"><button id="search-source-format" class="ryu-btn btn-sm" type="button">格式化</button><button id="search-source-export" class="ryu-btn btn-sm" type="button">导出当前源</button><button id="search-source-save" class="ryu-btn-primary btn-sm" type="button">校验并保存</button></div></div>
+                <textarea id="content-search-source-editor" class="textarea textarea-bordered min-h-[24rem] w-full rounded-2xl font-mono text-xs leading-5 lg:min-h-[32rem]" spellcheck="false" aria-label="单个检索源 JSON 规则"></textarea>
+                <section class="grid gap-3 border-t border-base-content/10 pt-4">
+                  <div class="flex flex-wrap items-start justify-between gap-2"><div><h4 class="font-black">保存前试跑</h4><p class="text-xs text-base-content/45">直接测试编辑器里的未保存规则；填写详情 ID 时优先测试详情接口。</p></div><span id="search-source-test-badge" class="badge badge-ghost">未测试</span></div>
+                  <div class="grid gap-2 sm:grid-cols-[8rem_1fr_1fr_auto]"><select id="search-source-test-kind" class="select select-bordered select-sm rounded-xl"><option value="bangumi">追番</option><option value="manga">漫画</option></select><input id="search-source-test-query" class="input input-bordered input-sm rounded-xl" placeholder="搜索关键词" /><input id="search-source-test-id" class="input input-bordered input-sm rounded-xl" placeholder="详情 ID（可选）" /><button id="search-source-test" class="ryu-btn-primary btn-sm" type="button">试跑规则</button></div>
+                  <div id="search-source-test-results" class="grid gap-2"></div>
+                </section>
               </div>
             </div>
-            <p id="content-search-source-message" class="min-h-6 text-sm" aria-live="polite"></p>
+            <p id="content-search-source-message" class="min-h-6 whitespace-pre-line text-sm" aria-live="polite"></p>
           </section>
-        </div>
-      </section>
+
       <section id="navigation-panel" class="admin-panel hidden">
         <section class="ryu-card mb-4 p-5">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -847,7 +854,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
           <form id="manga-form" class="ryu-card grid gap-4 p-5">
             <input name="id" type="hidden" />
             <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-2xl font-black">漫画管理</h2><p class="text-sm text-base-content/50">从元数据源检索漫画，再添加实际使用的外部阅读站点。</p></div><button id="manga-reset" class="ryu-btn" type="button">新建</button></div>
-            <section class="grid gap-3 rounded-2xl bg-base-200/55 p-3"><div class="grid gap-2 sm:grid-cols-[1fr_auto]"><input id="manga-search-query" class="input input-bordered rounded-xl" type="search" placeholder="漫画名称或数据源 ID" /><button id="manga-search" class="ryu-btn-primary" type="button">检索</button></div><div class="flex flex-wrap items-center justify-between gap-2"><p id="manga-search-status" class="text-xs text-base-content/50">正在读取默认检索源...</p><button class="btn btn-ghost btn-xs rounded-lg" type="button" data-panel-tab="settings">管理检索源</button></div><div id="manga-search-results" class="grid max-h-72 gap-2 overflow-auto"></div></section>
+            <section class="grid gap-3 rounded-2xl bg-base-200/55 p-3"><div class="grid gap-2 sm:grid-cols-[1fr_auto]"><input id="manga-search-query" class="input input-bordered rounded-xl" type="search" placeholder="漫画名称或数据源 ID" /><button id="manga-search" class="ryu-btn-primary" type="button">检索</button></div><div class="flex flex-wrap items-center justify-between gap-2"><p id="manga-search-status" class="text-xs text-base-content/50">正在读取默认检索源...</p><button class="btn btn-ghost btn-xs rounded-lg" type="button" data-panel-tab="search-sources">管理检索源</button></div><div id="manga-search-results" class="grid max-h-72 gap-2 overflow-auto"></div></section>
             <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="title" placeholder="漫画标题" required /><input class="input input-bordered rounded-xl" name="original_title" placeholder="原名 / 别名" /></div>
             <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="author" placeholder="作者" /><input class="input input-bordered rounded-xl" name="publication" placeholder="连载年份 / 出版信息" /></div>
             <div class="join w-full"><input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="封面地址" /><button class="btn join-item rounded-r-xl" type="button" data-pick-media data-target-form="manga-form" data-target-field="cover" data-media-type="image">选择</button></div>
@@ -976,6 +983,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     </main>
     </section>
 
+    <dialog id="search-source-conflict-dialog" class="admin-media-picker">
+      <div class="admin-media-picker-panel max-w-lg">
+        <div class="flex items-center justify-between gap-3"><div><h3 class="text-xl font-black">检索源已存在</h3><p id="search-source-conflict-text" class="mt-1 text-sm text-base-content/55"></p></div><button id="search-source-conflict-cancel" class="admin-dialog-close" type="button" aria-label="关闭">&times;</button></div>
+        <label class="mt-4 grid gap-1.5"><span class="text-xs font-black text-base-content/60">另存为新的源 ID</span><input id="search-source-conflict-new-id" class="input input-bordered rounded-xl" maxlength="40" placeholder="例如 my-source-2" /></label>
+        <div class="mt-5 grid gap-2 sm:grid-cols-3"><button id="search-source-conflict-skip" class="ryu-btn" type="button">跳过</button><button id="search-source-conflict-replace" class="btn btn-warning rounded-xl" type="button">覆盖原源</button><button id="search-source-conflict-rename" class="ryu-btn-primary" type="button">另存为</button></div>
+      </div>
+    </dialog>
     <dialog id="bangumi-source-dialog" class="admin-media-picker bangumi-source-dialog">
       <div class="admin-media-picker-panel bangumi-source-dialog-panel">
         <div class="flex items-center justify-between gap-3">
@@ -987,7 +1001,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         </div>
         <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-base-200/55 p-3">
           <p id="bangumi-search-source-status" class="min-h-6 text-sm text-base-content/55">正在读取默认检索源...</p>
-          <button class="btn btn-sm rounded-xl" type="button" data-panel-tab="settings">管理检索源</button>
+          <button class="btn btn-sm rounded-xl" type="button" data-panel-tab="search-sources">管理检索源</button>
         </div>
         <div class="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
           <input id="bangumi-source-query" class="input input-bordered rounded-xl" type="search" placeholder="输入番剧名称或 Bangumi ID" />

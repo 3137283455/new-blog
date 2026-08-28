@@ -52,7 +52,7 @@ function notify(message, error = false) {
 window.notifyAdmin = notify;
 
 const contentPanels = ['articles', 'series', 'books', 'navigation', 'bangumi', 'manga', 'albums', 'music'];
-const settingsPanels = ['settings', 'taxonomy', 'comments', 'plugins'];
+const settingsPanels = ['settings', 'search-sources', 'taxonomy', 'comments', 'plugins'];
 const navPanelMap = {
   series: 'articles',
   books: 'articles',
@@ -61,6 +61,7 @@ const navPanelMap = {
   manga: 'articles',
   albums: 'articles',
   music: 'articles',
+  'search-sources': 'settings',
   taxonomy: 'settings',
   comments: 'settings',
   plugins: 'settings',
@@ -77,6 +78,7 @@ const contentLabels = {
 };
 const settingsLabels = {
   settings: '站点设置',
+  'search-sources': '检索源',
   taxonomy: '分类标签',
   comments: '评论',
   plugins: '插件',
