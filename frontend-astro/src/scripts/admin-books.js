@@ -83,7 +83,4 @@
   $('#book-editor-close')?.addEventListener('click',()=>$('#book-editor-card').classList.add('hidden'))
   $('#book-form')?.addEventListener('submit',async(event)=>{event.preventDefault();const form=event.currentTarget,payload=Object.fromEntries(new FormData(form));const id=payload.id;delete payload.id;try{const book=await api(id?'/admin/books/'+id:'/admin/books',{method:id?'PUT':'POST',body:JSON.stringify(payload)});await loadBooks();await editBook(book.id);notify('书籍已保存')}catch(error){notify(error.message,true)}})
   $('#register-current-device')?.addEventListener('click',()=>registerDevice().catch((error)=>notify(error.message,true)))
-  const modeKey='boke-admin-mode',modeButton=$('#admin-mode-toggle')
-  const applyMode=()=>{const simple=localStorage.getItem(modeKey)!=='full';document.body.dataset.adminMode=simple?'simple':'full';if(modeButton)modeButton.textContent=simple?'切换完整模式':'切换简洁模式'}
-  modeButton?.addEventListener('click',()=>{localStorage.setItem(modeKey,document.body.dataset.adminMode==='simple'?'full':'simple');applyMode()});applyMode()
 })()

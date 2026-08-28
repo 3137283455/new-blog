@@ -38,6 +38,9 @@ function getMusicTracks() {
 const SETTING_LIMITS: Record<string, number> = {
   site_title: 80,
   site_description: 300,
+  site_author: 80,
+  site_keywords: 300,
+  footer_text: 160,
   profile_name: 60,
   profile_avatar: 500,
   profile_bio: 200,
@@ -72,9 +75,19 @@ function normalizeSetting(key: string, value: unknown) {
     const parsed = Number(value || 10)
     return Math.max(1, Math.min(50, Number.isFinite(parsed) ? Math.trunc(parsed) : 10))
   }
-  if (key === 'enable_comments' || key === 'comment_moderation') {
+  if (key === 'banner_interval') {
+    const parsed = Number(value || 6)
+    return Math.max(3, Math.min(30, Number.isFinite(parsed) ? Math.trunc(parsed) : 6))
+  }
+  if (key === 'copyright_year') {
+    const parsed = Number(value || new Date().getFullYear())
+    return Math.max(2000, Math.min(2100, Number.isFinite(parsed) ? Math.trunc(parsed) : new Date().getFullYear()))
+  }
+  if (['enable_comments', 'comment_moderation', 'allow_search_indexing', 'enable_rss', 'enable_json_feed', 'show_visitor_stats'].includes(key)) {
     return Boolean(value)
   }
+  if (key === 'site_language') return ['zh-CN', 'zh-TW', 'ja-JP', 'en-US'].includes(String(value)) ? String(value) : 'zh-CN'
+  if (key === 'site_start_date') return /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? String(value) : '2026-01-01'
   if (key === 'banner_images') {
     if (!Array.isArray(value)) return []
     return value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 12)
@@ -96,6 +109,17 @@ export function publicSettings(_req: AuthRequest, res: Response) {
   const publicKeys = [
     'site_title',
     'site_description',
+    'site_author',
+    'site_keywords',
+    'site_language',
+    'footer_text',
+    'site_start_date',
+    'copyright_year',
+    'banner_interval',
+    'allow_search_indexing',
+    'enable_rss',
+    'enable_json_feed',
+    'show_visitor_stats',
     'posts_per_page',
     'enable_comments',
     'active_theme',

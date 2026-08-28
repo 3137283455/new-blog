@@ -52,7 +52,8 @@ function notify(message, error = false) {
 window.notifyAdmin = notify;
 
 const contentPanels = ['articles', 'series', 'books', 'navigation', 'bangumi', 'manga', 'albums', 'music'];
-const settingsPanels = ['settings', 'search-sources', 'taxonomy', 'comments', 'plugins'];
+const mediaPanels = ['media', 'fonts'];
+const settingsPanels = ['settings', 'personal', 'appearance', 'search-sources', 'taxonomy', 'comments', 'backup', 'plugins'];
 const navPanelMap = {
   series: 'articles',
   books: 'articles',
@@ -61,6 +62,10 @@ const navPanelMap = {
   manga: 'articles',
   albums: 'articles',
   music: 'articles',
+  fonts: 'media',
+  personal: 'settings',
+  appearance: 'settings',
+  backup: 'settings',
   'search-sources': 'settings',
   taxonomy: 'settings',
   comments: 'settings',
@@ -76,22 +81,30 @@ const contentLabels = {
   albums: '相册',
   music: '音乐',
 };
+const mediaLabels = { media: '文件资源', fonts: '字体库' };
 const settingsLabels = {
-  settings: '站点设置',
+  settings: '站点与账号',
+  personal: '个人与同步',
+  appearance: '主题外观',
   'search-sources': '检索源',
   taxonomy: '分类标签',
   comments: '评论',
+  backup: '备份与恢复',
   plugins: '插件',
 };
 
 function ensurePanelTabs() {
   [
     { panels: contentPanels, labels: contentLabels, className: 'content-tabs' },
+    { panels: mediaPanels, labels: mediaLabels, className: 'media-tabs' },
     { panels: settingsPanels, labels: settingsLabels, className: 'settings-tabs' },
   ].forEach((group) => {
     group.panels.forEach((panel) => {
       const target = $(`#${panel}-panel`);
-      if (!target || target.querySelector(`.${group.className}`)) return;
+      if (!target) return;
+      if (group.className === 'settings-tabs') target.classList.add('admin-settings-workspace');
+      if (group.className === 'media-tabs') target.classList.add('admin-media-workspace');
+      if (target.querySelector(`.${group.className}`)) return;
       const tabs = document.createElement('div');
       tabs.className = `admin-subnav ${group.className}`;
       tabs.innerHTML = group.panels.map((item) => (
@@ -838,14 +851,22 @@ function renderSettings() {
   const fields = form.elements;
   fields.namedItem('site_title').value = state.settings.site_title || '';
   fields.namedItem('site_description').value = state.settings.site_description || '';
-  fields.namedItem('banner_images').value = Array.isArray(state.settings.banner_images)
-    ? state.settings.banner_images.join('\n')
-    : String(state.settings.banner_images || '');
+  fields.namedItem('site_author').value = state.settings.site_author || state.settings.profile_name || '';
+  fields.namedItem('site_keywords').value = state.settings.site_keywords || '';
+  fields.namedItem('site_language').value = state.settings.site_language || 'zh-CN';
+  fields.namedItem('footer_text').value = state.settings.footer_text || '记录所想，分享所见。';
+  fields.namedItem('site_start_date').value = String(state.settings.site_start_date || '2026-01-01').slice(0, 10);
+  fields.namedItem('copyright_year').value = Number(state.settings.copyright_year || new Date().getFullYear());
+  fields.namedItem('banner_images').value = Array.isArray(state.settings.banner_images) ? state.settings.banner_images.join('\n') : String(state.settings.banner_images || '');
+  fields.namedItem('banner_interval').value = Number(state.settings.banner_interval || 6);
   fields.namedItem('posts_per_page').value = state.settings.posts_per_page || 10;
+  fields.namedItem('allow_search_indexing').checked = state.settings.allow_search_indexing !== false;
+  fields.namedItem('enable_rss').checked = state.settings.enable_rss !== false;
+  fields.namedItem('enable_json_feed').checked = state.settings.enable_json_feed !== false;
+  fields.namedItem('show_visitor_stats').checked = state.settings.show_visitor_stats !== false;
   fields.namedItem('enable_comments').checked = state.settings.enable_comments !== false;
   fields.namedItem('comment_moderation').checked = !!state.settings.comment_moderation;
 }
-
 function fontKey(font) {
   if (!font?.family || !font?.url) return '';
   return `${font.family}|||${font.url}`;
@@ -2043,22 +2064,25 @@ async function saveSiteSettings(event) {
   const fields = event.currentTarget.elements;
   $('#settings-message').textContent = '正在保存站点设置...';
   try {
-    await request('/admin/settings', {
-      method: 'PUT',
-      body: JSON.stringify({
-        settings: {
-          site_title: fields.namedItem('site_title').value.trim(),
-          site_description: fields.namedItem('site_description').value.trim(),
-          banner_images: fields.namedItem('banner_images').value
-            .split(/\r?\n/)
-            .map((item) => item.trim())
-            .filter(Boolean),
-          posts_per_page: Number(fields.namedItem('posts_per_page').value || 10),
-          enable_comments: fields.namedItem('enable_comments').checked,
-          comment_moderation: fields.namedItem('comment_moderation').checked,
-        },
-      }),
-    });
+    await request('/admin/settings', { method: 'PUT', body: JSON.stringify({ settings: {
+      site_title: fields.namedItem('site_title').value.trim(),
+      site_description: fields.namedItem('site_description').value.trim(),
+      site_author: fields.namedItem('site_author').value.trim(),
+      site_keywords: fields.namedItem('site_keywords').value.trim(),
+      site_language: fields.namedItem('site_language').value,
+      footer_text: fields.namedItem('footer_text').value.trim(),
+      site_start_date: fields.namedItem('site_start_date').value,
+      copyright_year: Number(fields.namedItem('copyright_year').value || new Date().getFullYear()),
+      banner_images: fields.namedItem('banner_images').value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+      banner_interval: Number(fields.namedItem('banner_interval').value || 6),
+      posts_per_page: Number(fields.namedItem('posts_per_page').value || 10),
+      allow_search_indexing: fields.namedItem('allow_search_indexing').checked,
+      enable_rss: fields.namedItem('enable_rss').checked,
+      enable_json_feed: fields.namedItem('enable_json_feed').checked,
+      show_visitor_stats: fields.namedItem('show_visitor_stats').checked,
+      enable_comments: fields.namedItem('enable_comments').checked,
+      comment_moderation: fields.namedItem('comment_moderation').checked,
+    } }) });
     $('#settings-message').textContent = '站点设置已保存';
     await loadSettings();
     notify('站点设置已保存');
@@ -2067,7 +2091,6 @@ async function saveSiteSettings(event) {
     notify(error.message || '站点设置保存失败', true);
   }
 }
-
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;',
@@ -2093,15 +2116,15 @@ function formatSize(size) {
 function parseSetting(row) {
   if (!row) return null;
   if (row.type === 'json') {
-    try {
-      return JSON.parse(row.value || 'null');
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(row.value || 'null'); } catch { return null; }
+  }
+  if (row.type === 'boolean') return row.value === true || row.value === 'true' || row.value === '1';
+  if (row.type === 'number') {
+    const value = Number(row.value);
+    return Number.isFinite(value) ? value : 0;
   }
   return row.value;
 }
-
 $$('.admin-nav').forEach((button) => {
   button.addEventListener('click', () => { notify(''); switchPanel(button.dataset.panel); });
 });
@@ -2240,6 +2263,27 @@ $('#plugin-form').addEventListener('submit', installPlugin);
 $('#account-form').addEventListener('submit', saveAccount);
 $('#profile-form').addEventListener('submit', saveProfile);
 $('#site-settings-form').addEventListener('submit', saveSiteSettings);
+$('#settings-search')?.addEventListener('input', (event) => {
+  const term = String(event.currentTarget.value || '').trim().toLocaleLowerCase();
+  const sections = Array.from(document.querySelectorAll('#settings-panel .admin-settings-section'));
+  let visible = 0;
+  sections.forEach((section) => {
+    const headerText = section.querySelector(':scope > header')?.textContent || '';
+    const sectionMatch = !term || `${section.dataset.settingsSearch || ''} ${headerText}`.toLocaleLowerCase().includes(term);
+    const rows = Array.from(section.querySelectorAll('.admin-setting-row'));
+    let rowMatches = 0;
+    rows.forEach((row) => {
+      const match = sectionMatch || row.textContent.toLocaleLowerCase().includes(term);
+      row.classList.toggle('hidden', !match);
+      if (match) rowMatches += 1;
+    });
+    section.querySelectorAll('.admin-settings-group').forEach((heading) => heading.classList.toggle('hidden', Boolean(term) && !sectionMatch));
+    const show = !term || sectionMatch || rowMatches > 0;
+    section.classList.toggle('hidden', !show);
+    if (show) visible += 1;
+  });
+  $('#settings-search-empty')?.classList.toggle('hidden', visible > 0);
+});
 $('#avatar-upload').addEventListener('change', (event) => {
   const file = event.currentTarget.files?.[0];
   if (file) uploadAvatar(file);

@@ -74,8 +74,9 @@ async function main() {
     const documents = (await documentsResponse.json()).data
     if (documents.length !== 1 || documents[0].original_name !== 'notes.txt') throw new Error('文档文件夹筛选错误')
 
-    await fetch(`${origin}/api/admin/settings`, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: { site_title: '持久化测试站点', enable_comments: false, bangumi_search_source: 'official' } }) })
+    await fetch(`${origin}/api/admin/settings`, { method: 'PUT', headers: { ...auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ settings: { site_title: '持久化测试站点', site_author: '测试作者', site_language: 'ja-JP', footer_text: '测试页脚', banner_interval: 1, enable_rss: false, show_visitor_stats: false, allow_search_indexing: false, enable_comments: false, bangumi_search_source: 'official' } }) })
     const settingsResponse = await fetch(`${origin}/api/admin/settings`, { headers: auth })
+    const publicSettingsResponse = await fetch(`${origin}/api/settings/public`)
     const folderExplorerResponse = await fetch(`${origin}/api/admin/media/explorer?folderId=${createdFolder.id}&sort=name&order=asc`, { headers: auth })
     const folderExplorer = (await folderExplorerResponse.json()).data
     if (folderExplorer.files.length !== 1 || folderExplorer.files[0].original_name !== 'notes.txt') throw new Error('Folder explorer did not return the uploaded file')
@@ -108,7 +109,9 @@ async function main() {
 
     const settings = (await settingsResponse.json()).data
     const map = Object.fromEntries(settings.map((item) => [item.key, item]))
-    if (map.site_title?.value !== '持久化测试站点' || map.enable_comments?.value !== 'false' || map.bangumi_search_source?.value !== 'official') throw new Error('站点设置没有持久保存')
+    const publicSettings = (await publicSettingsResponse.json()).data
+    if (map.site_title?.value !== '持久化测试站点' || map.site_author?.value !== '测试作者' || map.site_language?.value !== 'ja-JP' || map.banner_interval?.value !== '3' || map.enable_comments?.value !== 'false' || map.bangumi_search_source?.value !== 'official') throw new Error('站点设置没有持久保存或规范化')
+    if (publicSettings.site_author !== '测试作者' || publicSettings.banner_interval !== 3 || publicSettings.enable_rss !== false || publicSettings.show_visitor_stats !== false || publicSettings.allow_search_indexing !== false) throw new Error('新增公开站点设置解析错误')
 
     console.log('媒体自动分类、文件夹筛选与站点设置持久化测试通过')
   } finally {

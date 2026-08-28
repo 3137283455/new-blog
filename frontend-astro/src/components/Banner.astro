@@ -5,9 +5,10 @@ interface Props {
   title: string
   subtitle?: string
   images?: string[]
+  interval?: number
 }
 
-const { title, subtitle = '', images = [] } = Astro.props
+const { title, subtitle = '', images = [], interval = 6 } = Astro.props
 const normalizedImages = images
   .flatMap((item) => String(item).split(/\r?\n|,/))
   .map((item) => item.trim())
@@ -22,7 +23,7 @@ const titleWeight = Array.from(title).reduce((sum, character) => {
 const titleSize = titleWeight > 12 ? 'is-very-long' : titleWeight > 5 ? 'is-long' : 'is-short'
 ---
 
-<section class="editorial-hero" data-banner-images={payload}>
+<section class="editorial-hero" data-banner-images={payload} data-banner-interval={Math.max(3, Math.min(30, Number(interval) || 6))}>
   <div class="banner-slides" aria-hidden="true">
     {bannerImages.map((src, index) => (
       <img
@@ -73,7 +74,7 @@ const titleSize = titleWeight > 12 ? 'is-very-long' : titleWeight > 5 ? 'is-long
           delete nextSlide.dataset.src
         }
         nextSlide?.classList.add('is-active')
-      }, 6400)
+      }, Math.max(3000, Math.min(30000, Number(banner.dataset.bannerInterval || 6) * 1000)))
     })
   }
 

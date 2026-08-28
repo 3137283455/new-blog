@@ -31,12 +31,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         <button class="admin-nav is-active" data-panel="dashboard">概览</button>
         <button class="admin-nav" data-panel="articles">内容中心</button>
         <button class="admin-nav" data-panel="media">媒体库</button>
-        <button class="admin-nav" data-panel="fonts">字体库</button>
-        <button class="admin-nav" data-panel="appearance">主题外观</button>
-        <button class="admin-nav" data-panel="personal">个人中心</button>
-        <button class="admin-nav" data-panel="backup">备份导出</button>
         <button class="admin-nav" data-panel="settings">设置</button>
-        <button id="admin-mode-toggle" class="admin-mode-toggle" type="button">切换简洁模式</button>
       </nav>
       <div class="mt-auto rounded-2xl bg-base-100/65 p-4 text-sm text-base-content/60">
         <p class="font-bold text-base-content">接口地址</p>
@@ -645,66 +640,55 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       </section>
 
       <section id="settings-panel" class="admin-panel hidden">
-        <div class="grid gap-4 lg:grid-cols-2">
-          <form id="account-form" class="ryu-card grid gap-4 p-5">
-            <div>
-              <h2 class="text-2xl font-black">后台账号</h2>
-              <p class="text-sm text-base-content/50">修改后台登录账号的昵称、头像和密码。</p>
-            </div>
-            <input class="input input-bordered rounded-xl" name="nickname" maxlength="60" placeholder="后台昵称" />
-            <div class="join w-full">
-              <input class="input join-item input-bordered w-full rounded-l-xl" name="avatar" maxlength="500" placeholder="后台头像地址 /uploads/..." />
-              <button class="btn join-item" type="button" data-pick-media data-target-form="account-form" data-target-field="avatar" data-media-type="image">选择</button>
-            </div>
-            <input class="input input-bordered rounded-xl" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="新密码，留空不修改" />
-            <button class="ryu-btn-primary" type="submit">保存后台账号</button>
-            <p id="account-message" class="min-h-6 text-sm"></p>
-          </form>
-          <form id="profile-form" class="ryu-card grid gap-4 p-5">
-            <div>
-              <h2 class="text-2xl font-black">前台资料卡</h2>
-              <p class="text-sm text-base-content/50">修改首页左侧资料卡的头像、标题和简介。</p>
-            </div>
-            <input class="input input-bordered rounded-xl" name="profile_name" placeholder="资料卡标题，例如：个人博客" />
-            <div class="join w-full">
-              <input class="input join-item input-bordered w-full rounded-l-xl" name="profile_avatar" placeholder="头像地址 /uploads/..." />
-              <button class="btn join-item" type="button" data-pick-media data-target-form="profile-form" data-target-field="profile_avatar" data-media-type="image">选择</button>
-              <label class="btn join-item rounded-r-xl">
-                上传
-                <input id="avatar-upload" class="hidden" type="file" accept="image/*" />
-              </label>
-            </div>
-            <textarea class="textarea textarea-bordered rounded-xl" name="profile_bio" placeholder="资料卡简介"></textarea>
-            <button class="ryu-btn-primary" type="submit">保存资料卡</button>
-            <p id="profile-message" class="min-h-6 text-sm"></p>
-          </form>
-          <form id="site-settings-form" class="ryu-card grid gap-4 p-5 lg:col-span-2">
-            <div>
-              <h2 class="text-2xl font-black">站点设置</h2>
-              <p class="text-sm text-base-content/50">站点标题、描述、评论、字体和基础行为。</p>
-            </div>
-            <input class="input input-bordered rounded-xl" name="site_title" placeholder="站点标题" />
-            <textarea class="textarea textarea-bordered rounded-xl" name="site_description" placeholder="站点描述"></textarea>
-            <label class="form-control">
-              <span class="label-text">首页 Banner 轮播图</span>
-              <textarea class="textarea textarea-bordered min-h-32 rounded-xl" name="banner_images" placeholder="一行一个图片地址，例如 /home.webp 或 /uploads/..."></textarea>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <button class="ryu-btn btn-sm" type="button" data-pick-media data-target-form="site-settings-form" data-target-field="banner_images" data-media-type="image" data-append-media="true">选择已有图</button>
-                <label class="ryu-btn btn-sm">
-                  上传并追加
-                  <input id="banner-upload" class="hidden" type="file" accept="image/*" multiple />
-                </label>
-                <span class="text-xs text-base-content/45">留空时默认使用 /home.webp</span>
-              </div>
-            </label>
-            <input class="input input-bordered rounded-xl" name="posts_per_page" type="number" min="1" placeholder="每页文章数" />
-            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="enable_comments" type="checkbox" />启用评论</label>
-            <label class="label cursor-pointer justify-start gap-3"><input class="checkbox" name="comment_moderation" type="checkbox" />评论需要审核</label>
-            <button class="ryu-btn-primary" type="submit">保存站点设置</button>
-            <p id="settings-message" class="min-h-6 text-sm"></p>
-          </form>
+        <header class="admin-settings-heading">
+          <div><p>SETTINGS</p><h2>站点与账号</h2><span>管理站点身份、前台资料、首页行为、评论与公开信息。</span></div>
+          <label class="admin-settings-search"><span>⌕</span><input id="settings-search" type="search" placeholder="搜索设置" autocomplete="off" /></label>
+        </header>
 
-        </div>
+        <form id="account-form" class="admin-settings-section" data-settings-search="账号 登录 昵称 头像 密码">
+          <header><div><h3>后台账号</h3><p>用于管理后台登录和身份识别。</p></div></header>
+          <label class="admin-setting-row"><span><b>后台昵称</b><small>显示在后台状态栏中。</small></span><input class="input input-bordered" name="nickname" maxlength="60" placeholder="后台昵称" /></label>
+          <div class="admin-setting-row"><span><b>后台头像</b><small>建议使用正方形图片。</small></span><div class="join w-full"><input class="input join-item input-bordered w-full" name="avatar" maxlength="500" placeholder="/uploads/..." /><button class="btn join-item" type="button" data-pick-media data-target-form="account-form" data-target-field="avatar" data-media-type="image">选择</button></div></div>
+          <label class="admin-setting-row"><span><b>修改密码</b><small>至少 8 位；留空时保持现有密码。</small></span><input class="input input-bordered" name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="输入新密码" /></label>
+          <footer class="admin-settings-actions"><p id="account-message" class="min-h-6 text-sm"></p><button class="ryu-btn-primary" type="submit">保存账号</button></footer>
+        </form>
+
+        <form id="profile-form" class="admin-settings-section" data-settings-search="前台 资料卡 博主 头像 简介">
+          <header><div><h3>前台资料卡</h3><p>用于首页侧栏、导航品牌和文章作者信息。</p></div></header>
+          <label class="admin-setting-row"><span><b>显示名称</b><small>未填写时使用站点标题。</small></span><input class="input input-bordered" name="profile_name" maxlength="60" placeholder="个人博客" /></label>
+          <div class="admin-setting-row"><span><b>资料头像</b><small>首页、导航和音乐页共用。</small></span><div class="join w-full"><input class="input join-item input-bordered w-full" name="profile_avatar" maxlength="500" placeholder="/uploads/..." /><button class="btn join-item" type="button" data-pick-media data-target-form="profile-form" data-target-field="profile_avatar" data-media-type="image">选择</button><label class="btn join-item">上传<input id="avatar-upload" class="hidden" type="file" accept="image/*" /></label></div></div>
+          <label class="admin-setting-row"><span><b>个人简介</b><small>一句话介绍自己或这个博客。</small></span><textarea class="textarea textarea-bordered" name="profile_bio" maxlength="200" placeholder="记录技术、生活和灵感"></textarea></label>
+          <footer class="admin-settings-actions"><p id="profile-message" class="min-h-6 text-sm"></p><button class="ryu-btn-primary" type="submit">保存资料</button></footer>
+        </form>
+
+        <form id="site-settings-form" class="admin-settings-section" data-settings-search="站点 标题 描述 作者 关键词 SEO 语言 页脚 版权 建站 日期 RSS Feed 访客 Banner 轮播 分页 评论 审核">
+          <header><div><h3>站点基础信息</h3><p>这些内容会用于页面标题、搜索摘要、分享卡片与页脚。</p></div></header>
+          <label class="admin-setting-row"><span><b>站点标题</b><small>浏览器标题和站点品牌名称。</small></span><input class="input input-bordered" name="site_title" maxlength="80" placeholder="My Blog" /></label>
+          <label class="admin-setting-row"><span><b>站点描述</b><small>用于首页介绍和页面 description。</small></span><textarea class="textarea textarea-bordered" name="site_description" maxlength="300" placeholder="个人博客简介"></textarea></label>
+          <label class="admin-setting-row"><span><b>站点作者</b><small>写入页面 author 元数据。</small></span><input class="input input-bordered" name="site_author" maxlength="80" placeholder="作者名称" /></label>
+          <label class="admin-setting-row"><span><b>搜索关键词</b><small>用逗号分隔，写入页面 keywords 元数据。</small></span><input class="input input-bordered" name="site_keywords" maxlength="300" placeholder="博客, 技术, 生活" /></label>
+          <label class="admin-setting-row"><span><b>站点语言</b><small>设置 HTML 文档语言。</small></span><select class="select select-bordered" name="site_language"><option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option><option value="ja-JP">日本語</option><option value="en-US">English</option></select></label>
+          <label class="admin-setting-row"><span><b>允许搜索引擎收录</b><small>关闭后页面会输出 noindex、nofollow。</small></span><input class="toggle" name="allow_search_indexing" type="checkbox" /></label>
+
+          <header class="admin-settings-group"><div><h3>首页与内容</h3><p>控制首页轮播和文章列表基础行为。</p></div></header>
+          <div class="admin-setting-row admin-setting-row-stack"><span><b>首页 Banner 轮播图</b><small>一行一个图片地址，最多 12 张；留空使用默认封面。</small></span><div class="w-full"><textarea class="textarea textarea-bordered min-h-28 w-full" name="banner_images" placeholder="/home.webp&#10;/uploads/..."></textarea><div class="mt-2 flex flex-wrap gap-2"><button class="ryu-btn btn-sm" type="button" data-pick-media data-target-form="site-settings-form" data-target-field="banner_images" data-media-type="image" data-append-media="true">选择已有图</button><label class="ryu-btn btn-sm">上传并追加<input id="banner-upload" class="hidden" type="file" accept="image/*" multiple /></label></div></div></div>
+          <label class="admin-setting-row"><span><b>轮播间隔</b><small>3–30 秒。</small></span><div class="admin-setting-unit"><input class="input input-bordered" name="banner_interval" type="number" min="3" max="30" step="1" /><span>秒</span></div></label>
+          <label class="admin-setting-row"><span><b>每页文章数</b><small>文章归档和列表默认分页数量。</small></span><input class="input input-bordered" name="posts_per_page" type="number" min="1" max="50" /></label>
+
+          <header class="admin-settings-group"><div><h3>页脚与订阅</h3><p>管理页脚文字、运行时间和订阅入口。</p></div></header>
+          <label class="admin-setting-row"><span><b>页脚文字</b><small>显示在站点名称下方。</small></span><input class="input input-bordered" name="footer_text" maxlength="160" placeholder="记录所想，分享所见。" /></label>
+          <label class="admin-setting-row"><span><b>建站日期</b><small>用于计算站点运行时间。</small></span><input class="input input-bordered" name="site_start_date" type="date" /></label>
+          <label class="admin-setting-row"><span><b>版权年份</b><small>显示在页脚版权信息中。</small></span><input class="input input-bordered" name="copyright_year" type="number" min="2000" max="2100" /></label>
+          <label class="admin-setting-row"><span><b>显示 RSS 入口</b><small>保留 RSS 订阅链接与 head 声明。</small></span><input class="toggle" name="enable_rss" type="checkbox" /></label>
+          <label class="admin-setting-row"><span><b>显示 JSON Feed</b><small>保留 JSON Feed 订阅链接与 head 声明。</small></span><input class="toggle" name="enable_json_feed" type="checkbox" /></label>
+          <label class="admin-setting-row"><span><b>显示访客统计</b><small>在页脚显示今日与累计访问量。</small></span><input class="toggle" name="show_visitor_stats" type="checkbox" /></label>
+
+          <header class="admin-settings-group"><div><h3>评论</h3><p>控制全站文章评论与审核流程。</p></div></header>
+          <label class="admin-setting-row"><span><b>启用评论</b><small>关闭后文章页不显示评论入口。</small></span><input class="toggle" name="enable_comments" type="checkbox" /></label>
+          <label class="admin-setting-row"><span><b>评论需要审核</b><small>新评论通过审核后才会公开。</small></span><input class="toggle" name="comment_moderation" type="checkbox" /></label>
+          <footer class="admin-settings-actions"><p id="settings-message" class="min-h-6 text-sm"></p><button class="ryu-btn-primary" type="submit">保存站点设置</button></footer>
+        </form>
+        <p id="settings-search-empty" class="admin-settings-empty hidden">没有匹配的设置项。</p>
       </section>
           <section id="search-sources-panel" class="admin-panel hidden space-y-5" aria-labelledby="content-search-sources-title">
             <div class="flex flex-wrap items-start justify-between gap-3">

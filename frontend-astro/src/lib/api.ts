@@ -108,6 +108,17 @@ export interface ArticleSeries {
 export interface PublicSettings {
   site_title?: string
   site_description?: string
+  site_author?: string
+  site_keywords?: string
+  site_language?: string
+  footer_text?: string
+  site_start_date?: string
+  copyright_year?: number
+  banner_interval?: number
+  allow_search_indexing?: boolean
+  enable_rss?: boolean
+  enable_json_feed?: boolean
+  show_visitor_stats?: boolean
   profile_name?: string
   profile_avatar?: string
   profile_bio?: string

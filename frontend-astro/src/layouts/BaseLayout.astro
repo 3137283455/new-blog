@@ -52,6 +52,16 @@ const bannerImages = Array.isArray(publicSettings.banner_images)
     : []
 
 const siteTitle = publicSettings.site_title || '个人博客'
+const siteLanguage = publicSettings.site_language || 'zh-CN'
+const siteAuthor = publicSettings.site_author || publicSettings.profile_name || siteTitle
+const siteKeywords = publicSettings.site_keywords || ''
+const footerText = publicSettings.footer_text || '记录所想，分享所见。'
+const siteStartDate = publicSettings.site_start_date || '2026-01-01'
+const copyrightYear = Number(publicSettings.copyright_year || new Date().getFullYear())
+const enableRss = publicSettings.enable_rss !== false
+const enableJsonFeed = publicSettings.enable_json_feed !== false
+const showVisitorStats = publicSettings.show_visitor_stats !== false
+const allowSearchIndexing = publicSettings.allow_search_indexing !== false
 const pageDescription = subtitle || publicSettings.site_description || siteTitle
 const canonicalUrl = new URL(Astro.url.pathname, Astro.url.origin).href
 const fallbackImage = bannerImages[0] || publicSettings.profile_avatar || '/home.webp'
@@ -66,16 +76,19 @@ const mergedSidebarProps = {
 ---
 
 <!doctype html>
-<html lang="zh-CN" data-theme="boke-green" data-theme-type="light" data-personal-season={themeConfig.season || 'custom'}>
+<html lang={siteLanguage} data-theme="boke-green" data-theme-type="light" data-personal-season={themeConfig.season || 'custom'}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4f2ea" />
     <meta name="description" content={pageDescription} />
+    <meta name="author" content={siteAuthor} />
+    {siteKeywords && <meta name="keywords" content={siteKeywords} />}
+    {!allowSearchIndexing && <meta name="robots" content="noindex, nofollow" />}
     <link rel="canonical" href={canonicalUrl} />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="alternate" type="application/rss+xml" title={`${siteTitle} RSS`} href="/rss.xml" />
-    <link rel="alternate" type="application/feed+json" title={`${siteTitle} JSON Feed`} href="/feed.json" />
+    {enableRss && <link rel="alternate" type="application/rss+xml" title={`${siteTitle} RSS`} href="/rss.xml" />}
+    {enableJsonFeed && <link rel="alternate" type="application/feed+json" title={`${siteTitle} JSON Feed`} href="/feed.json" />}
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:type" content={pageType} />
     <meta property="og:site_name" content={siteTitle} />
@@ -99,10 +112,10 @@ const mergedSidebarProps = {
       window.__PUBLIC_API_BASE__ = apiBase;
     </script>
   </head>
-  <body class:list={['flex min-h-screen flex-col bg-[var(--banner-wave-bg)]', fullBleed && 'layout-full-bleed']}>
+  <body class:list={['flex min-h-screen flex-col bg-[var(--banner-wave-bg)]', fullBleed && 'layout-full-bleed']} data-site-start-date={siteStartDate}>
     <div class="site-bg-grid"></div>
     {!hideNav && <Navbar immersive={showBanner} />}
-    {showBanner && <Banner title={title} subtitle={subtitle} images={bannerImages} />}
+    {showBanner && <Banner title={title} subtitle={subtitle} images={bannerImages} interval={publicSettings.banner_interval || 6} />}
 
     <div class:list={['page-content-animate mx-auto w-full flex-grow', pageType === 'article' && 'article-page-content', fullBleed ? 'max-w-none mt-0' : wide ? 'max-w-wide' : 'max-w-blog', !fullBleed && (showBanner ? 'mt-7' : 'mt-24')]}>
       <div class:list={['grid grid-cols-1', fullBleed ? 'gap-0 px-0 pb-0' : 'gap-4 px-4 pb-4', showSidebar && 'lg:grid-cols-4']}>
@@ -121,20 +134,21 @@ const mergedSidebarProps = {
       <footer class="site-footer mx-auto w-full max-w-blog px-4 pb-10 pt-8">
         <div>
           <a href="/" class="site-footer-brand">{siteTitle}</a>
-          <p>记录所想，分享所见。</p>
+          <p>{footerText}</p>
         </div>
         <div class="site-footer-meta">
-          <a href="/rss.xml">RSS</a>
-          <a href="/feed.json">JSON Feed</a>
-          <span>© 2026</span>
+          {enableRss && <a href="/rss.xml">RSS</a>}
+          {enableJsonFeed && <a href="/feed.json">JSON Feed</a>}
+          <span>© {copyrightYear}</span>
           <span>已运行 <strong id="site-uptime">--</strong></span>
-          <span>今日 <strong id="visitor-today">--</strong> · 累计 <strong id="visitor-total">--</strong></span>
+          {showVisitorStats && <span>今日 <strong id="visitor-today">--</strong> · 累计 <strong id="visitor-total">--</strong></span>}
         </div>
       </footer>
     )}
     {!hideMusic && <MusicPlayer tracks={musicPlaylist} />}
     <script is:inline>
-      const siteStart = new Date('2026-01-01T00:00:00+08:00').getTime();
+      const siteStartDate = document.body.dataset.siteStartDate || '2026-01-01';
+      const siteStart = new Date(siteStartDate + 'T00:00:00+08:00').getTime();
       const uptimeEl = document.getElementById('site-uptime');
       function updateUptime() {
         if (!uptimeEl) return;
