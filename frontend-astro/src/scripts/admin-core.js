@@ -54,10 +54,11 @@ function notify(message, error = false) {
 }
 window.notifyAdmin = notify;
 
-const contentPanels = ['articles', 'series', 'books', 'navigation', 'bangumi', 'manga', 'albums', 'music'];
+const contentPanels = ['content-center', 'articles', 'series', 'books', 'navigation', 'bangumi', 'manga', 'albums', 'music'];
 const mediaPanels = ['media', 'fonts'];
 const settingsPanels = ['settings', 'personal', 'appearance', 'search-sources', 'taxonomy', 'comments', 'backup', 'plugins'];
 const navPanelMap = {
+  'content-center': 'articles',
   series: 'articles',
   books: 'articles',
   navigation: 'articles',
@@ -75,6 +76,7 @@ const navPanelMap = {
   plugins: 'settings',
 };
 const contentLabels = {
+  'content-center': '导入与关联',
   articles: '文章',
   series: '专题',
   books: '书库',
@@ -96,7 +98,7 @@ const settingsLabels = {
   plugins: '插件',
 };
 
-const panelTitles = { dashboard: '概览', articles: '文章管理', series: '专题管理', books: '书库管理', navigation: '导航管理', bangumi: '追番管理', manga: '漫画管理', albums: '相册管理', music: '音乐管理', media: '媒体资源', fonts: '字体库', settings: '系统设置', personal: '个人与同步', appearance: '主题外观', 'search-sources': '检索源', taxonomy: '分类标签', comments: '评论管理', backup: '备份与恢复', plugins: '插件管理', login: '后台登录' };
+const panelTitles = { dashboard: '概览', 'content-center': '个人内容中枢', articles: '文章管理', series: '专题管理', books: '书库管理', navigation: '导航管理', bangumi: '追番管理', manga: '漫画管理', albums: '相册管理', music: '音乐管理', media: '媒体资源', fonts: '字体库', settings: '系统设置', personal: '个人与同步', appearance: '主题外观', 'search-sources': '检索源', taxonomy: '分类标签', comments: '评论管理', backup: '备份与恢复', plugins: '插件管理', login: '后台登录' };
 
 function ensurePanelTabs() {
   [

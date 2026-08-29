@@ -83,12 +83,32 @@ function archiveGroups(file: Express.Multer.File, fallbackVolume: string) {
 }
 export function importLocal(req: AuthRequest, res: Response) {
   if(!req.file) return error(res,'请选择 CBZ 或 ZIP 漫画包','VALIDATION_ERROR')
-  const title=clean(req.body?.title||path.parse(req.file.originalname).name,160),author=clean(req.body?.author,160),fallbackVolume=clean(req.body?.volume_title,160)||'正文'
-  let groups:ReturnType<typeof archiveGroups>; try{groups=archiveGroups(req.file,fallbackVolume)}catch(cause){fs.rmSync(req.file.path,{force:true});return error(res,cause instanceof Error?cause.message:'漫画包解析失败','IMPORT_FAILED')}
-  const slug=uniqueSlug(req.body?.slug||title), relativeRoot=`manga/${slug}-${Date.now()}`, absoluteRoot=path.join(config.uploadDir,...relativeRoot.split('/'))
+  const requestedId=integer(req.body?.manga_id),existing=requestedId?db.prepare("SELECT * FROM manga_items WHERE id=? AND library_type='local'").get(requestedId) as any:null
+  if(requestedId&&!existing){fs.rmSync(req.file.path,{force:true});return error(res,'要追加的本地漫画不存在','NOT_FOUND',404)}
+  const title=clean(req.body?.title||existing?.title||path.parse(req.file.originalname).name,160),author=clean(req.body?.author||existing?.author,160),fallbackVolume=clean(req.body?.volume_title,160)||'正文'
+  let groups:ReturnType<typeof archiveGroups>;try{groups=archiveGroups(req.file,fallbackVolume)}catch(cause){fs.rmSync(req.file.path,{force:true});return error(res,cause instanceof Error?cause.message:'漫画包解析失败','IMPORT_FAILED')}
+  const slug=existing?.slug||uniqueSlug(req.body?.slug||title),relativeRoot=`manga/${slug}-${Date.now()}`,absoluteRoot=path.join(config.uploadDir,...relativeRoot.split('/'))
   try{
-    fs.mkdirSync(absoluteRoot,{recursive:true}); let firstCover='';
-    const mangaId=db.transaction(()=>{const inserted=db.prepare("INSERT INTO manga_items (title,slug,author,description,status,is_active,library_type,source) VALUES (?,?,?,?,?,1,'local','local-import')").run(title,slug,author,clean(req.body?.description,4000),status(req.body?.status)); const mangaId=Number(inserted.lastInsertRowid); let volumeOrder=-1,lastVolume='',volumeId=0,chapterOrder=0; for(const group of groups){if(group.volume!==lastVolume){lastVolume=group.volume;volumeOrder++;chapterOrder=0;const vr=db.prepare('INSERT INTO manga_volumes (manga_id,title,slug,sort_order) VALUES (?,?,?,?)').run(mangaId,group.volume,childSlug('manga_volumes',group.volume,'manga_id',mangaId),volumeOrder);volumeId=Number(vr.lastInsertRowid)} const cr=db.prepare('INSERT INTO manga_chapters (volume_id,title,slug,sort_order,source_filename) VALUES (?,?,?,?,?)').run(volumeId,group.chapter,childSlug('manga_chapters',group.chapter,'volume_id',volumeId),chapterOrder++,req.file!.originalname);const chapterId=Number(cr.lastInsertRowid),chapterDir=path.join(absoluteRoot,String(volumeOrder+1),String(chapterOrder));fs.mkdirSync(chapterDir,{recursive:true});group.items.forEach((item,index)=>{const ext=path.extname(item.path[item.path.length-1]).toLowerCase()||'.jpg',filename=String(index+1).padStart(5,'0')+ext,target=path.join(chapterDir,filename);fs.writeFileSync(target,item.entry.getData());const imageUrl=`/uploads/${relativeRoot}/${volumeOrder+1}/${chapterOrder}/${filename}`;if(!firstCover)firstCover=imageUrl;db.prepare('INSERT INTO manga_pages (chapter_id,image_url,sort_order) VALUES (?,?,?)').run(chapterId,imageUrl,index)})} db.prepare("UPDATE manga_items SET cover=?,updated_at=datetime('now') WHERE id=?").run(firstCover,mangaId);return mangaId})(); return success(res,attach(db.prepare('SELECT * FROM manga_items WHERE id=?').get(mangaId),true),`已导入 ${groups.length} 章漫画`)
+    fs.mkdirSync(absoluteRoot,{recursive:true});let firstCover=''
+    const mangaId=db.transaction(()=>{
+      let mangaId=requestedId
+      if(!mangaId){const inserted=db.prepare("INSERT INTO manga_items (title,slug,author,description,status,is_active,library_type,source) VALUES (?,?,?,?,?,1,'local','local-import')").run(title,slug,author,clean(req.body?.description,4000),status(req.body?.status));mangaId=Number(inserted.lastInsertRowid)}
+      let volumeOrder=integer((db.prepare('SELECT MAX(sort_order) value FROM manga_volumes WHERE manga_id=?').get(mangaId) as any)?.value,-1)
+      const chapterOrders=new Map<number,number>()
+      for(const group of groups){
+        let volume=db.prepare('SELECT * FROM manga_volumes WHERE manga_id=? AND title=?').get(mangaId,group.volume) as any
+        if(!volume){volumeOrder++;const vr=db.prepare('INSERT INTO manga_volumes (manga_id,title,slug,sort_order) VALUES (?,?,?,?)').run(mangaId,group.volume,childSlug('manga_volumes',group.volume,'manga_id',mangaId),volumeOrder);volume={id:Number(vr.lastInsertRowid),sort_order:volumeOrder}}
+        let chapterOrder=chapterOrders.get(volume.id)
+        if(chapterOrder===undefined)chapterOrder=integer((db.prepare('SELECT MAX(sort_order) value FROM manga_chapters WHERE volume_id=?').get(volume.id) as any)?.value,-1)+1
+        const chapterTitle=db.prepare('SELECT 1 FROM manga_chapters WHERE volume_id=? AND title=?').get(volume.id,group.chapter)?`${group.chapter}（${new Date().toLocaleDateString('zh-CN')}）`:group.chapter
+        const cr=db.prepare('INSERT INTO manga_chapters (volume_id,title,slug,sort_order,source_filename) VALUES (?,?,?,?,?)').run(volume.id,chapterTitle,childSlug('manga_chapters',chapterTitle,'volume_id',volume.id),chapterOrder,req.file!.originalname)
+        const chapterId=Number(cr.lastInsertRowid),chapterDir=path.join(absoluteRoot,String(volume.sort_order+1),String(chapterOrder+1));chapterOrders.set(volume.id,chapterOrder+1);fs.mkdirSync(chapterDir,{recursive:true})
+        group.items.forEach((item,index)=>{const ext=path.extname(item.path[item.path.length-1]).toLowerCase()||'.jpg',filename=String(index+1).padStart(5,'0')+ext,target=path.join(chapterDir,filename);fs.writeFileSync(target,item.entry.getData());const imageUrl=`/uploads/${relativeRoot}/${volume.sort_order+1}/${chapterOrder!+1}/${filename}`;if(!firstCover)firstCover=imageUrl;db.prepare('INSERT INTO manga_pages (chapter_id,image_url,sort_order) VALUES (?,?,?)').run(chapterId,imageUrl,index)})
+      }
+      db.prepare("UPDATE manga_items SET cover=CASE WHEN cover='' THEN ? ELSE cover END,updated_at=datetime('now') WHERE id=?").run(firstCover,mangaId)
+      return mangaId
+    })()
+    return success(res,attach(db.prepare('SELECT * FROM manga_items WHERE id=?').get(mangaId),true),existing?`已追加 ${groups.length} 章漫画`:`已导入 ${groups.length} 章漫画`)
   }catch(cause){fs.rmSync(absoluteRoot,{recursive:true,force:true});console.error('本地漫画导入失败:',cause);return error(res,cause instanceof Error?cause.message:'本地漫画导入失败','IMPORT_FAILED',500)}finally{fs.rmSync(req.file.path,{force:true})}
 }
 export function getReadingState(req: DeviceRequest,res: Response){const row=db.prepare('SELECT * FROM manga_reading_states WHERE user_id=? AND manga_id=?').get(req.deviceUserId!,integer(req.params.mangaId)) as any;if(row)row.settings=json(row.settings);return success(res,row||null)}

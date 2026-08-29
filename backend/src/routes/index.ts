@@ -25,6 +25,7 @@ import * as bookImportCtrl from '../controllers/book-import'
 import * as bookFormatsCtrl from '../controllers/book-formats'
 import * as mangaCtrl from '../controllers/manga'
 import * as searchSourceCtrl from '../controllers/search-sources'
+import * as contentCenterCtrl from '../controllers/content-center'
 import { upload, backupUpload, epubUpload, textBookUpload, mangaArchiveUpload } from '../middleware/upload'
 
 const router = Router()
@@ -49,6 +50,7 @@ router.get('/books', libraryCtrl.books)
 router.get('/books/:book', libraryCtrl.bookDetail)
 router.get('/books/:book/:volume', libraryCtrl.volumeDetail)
 router.get('/books/:book/:volume/:chapter', libraryCtrl.chapterDetail)
+router.get('/private/reading-center', deviceAuth, contentCenterCtrl.readingCenter)
 router.get('/private/library', deviceAuth, libraryCtrl.privateLibrary)
 router.get('/private/navigation', deviceAuth, libraryCtrl.getNavigationState)
 router.put('/private/navigation', deviceAuth, libraryCtrl.putNavigationState)
@@ -121,6 +123,16 @@ router.put('/admin/articles/:id/restore', auth, articleCtrl.restore)
 router.delete('/admin/articles/:id/force', auth, articleCtrl.forceDelete)
 router.post('/admin/markdown/preview', auth, markdownCtrl.preview)
 
+router.get('/admin/import-jobs', auth, contentCenterCtrl.importJobs)
+router.post('/admin/import-jobs', auth, contentCenterCtrl.createImportJob)
+router.put('/admin/import-jobs/:id', auth, contentCenterCtrl.updateImportJob)
+router.get('/admin/subscriptions', auth, contentCenterCtrl.subscriptions)
+router.post('/admin/subscriptions', auth, contentCenterCtrl.createSubscription)
+router.put('/admin/subscriptions/:id', auth, contentCenterCtrl.updateSubscription)
+router.delete('/admin/subscriptions/:id', auth, contentCenterCtrl.removeSubscription)
+router.get('/admin/content-relations', auth, contentCenterCtrl.relations)
+router.post('/admin/content-relations', auth, contentCenterCtrl.createRelation)
+router.delete('/admin/content-relations/:id', auth, contentCenterCtrl.removeRelation)
 // 个人中心、收集箱与专题
 router.get('/admin/personal/inbox', auth, personalCtrl.inboxList)
 router.put('/admin/personal/inbox/:id', auth, personalCtrl.updateInbox)

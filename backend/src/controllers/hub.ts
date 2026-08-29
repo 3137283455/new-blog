@@ -5,7 +5,7 @@ import { error, success } from '../utils/response'
 
 type HubResult = {
   id: string
-  kind: 'article' | 'page' | 'navigation' | 'bangumi' | 'album' | 'music'
+  kind: 'article' | 'page' | 'navigation' | 'bangumi' | 'album' | 'music' | 'book' | 'manga' | 'series'
   kind_label: string
   title: string
   subtitle: string
@@ -39,8 +39,8 @@ export function searchAll(req: AuthRequest, res: Response) {
     SELECT id, title, slug, excerpt, cover_image, category_id, published_at, created_at
     FROM articles
     WHERE status = 'published' AND visibility = 'public' AND deleted_at IS NULL
-      AND (title LIKE ? ESCAPE '\\' OR excerpt LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
-    ORDER BY CASE WHEN title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END,
+      AND (title LIKE ? OR excerpt LIKE ? OR content LIKE ?)
+    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END,
       COALESCE(published_at, created_at) DESC
     LIMIT ?
   `).all(like, like, like, prefix, limit) as any[]
@@ -59,8 +59,8 @@ export function searchAll(req: AuthRequest, res: Response) {
     SELECT id, title, slug, content, updated_at
     FROM pages
     WHERE status = 'published' AND deleted_at IS NULL
-      AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\')
-    ORDER BY CASE WHEN title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END, updated_at DESC
+      AND (title LIKE ? OR content LIKE ?)
+    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, updated_at DESC
     LIMIT ?
   `).all(...params) as any[]
   results.push(...pages.map((item) => ({
@@ -77,8 +77,8 @@ export function searchAll(req: AuthRequest, res: Response) {
     SELECT id, title, url, description, category, icon, avatar
     FROM navigation_links
     WHERE COALESCE(is_active, 1) != 0
-      AND (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR url LIKE ? ESCAPE '\\' OR category LIKE ? ESCAPE '\\')
-    ORDER BY CASE WHEN title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END, sort_order ASC, id DESC
+      AND (title LIKE ? OR description LIKE ? OR url LIKE ? OR category LIKE ?)
+    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, sort_order ASC, id DESC
     LIMIT ?
   `).all(like, like, like, like, prefix, limit) as any[]
   results.push(...navigation.map((item) => ({
@@ -96,8 +96,8 @@ export function searchAll(req: AuthRequest, res: Response) {
     SELECT id, title, original_title, cover, summary, status, progress
     FROM bangumi_items
     WHERE is_active = 1
-      AND (title LIKE ? ESCAPE '\\' OR original_title LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')
-    ORDER BY CASE WHEN title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END, sort_order ASC, id DESC
+      AND (title LIKE ? OR original_title LIKE ? OR summary LIKE ?)
+    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, sort_order ASC, id DESC
     LIMIT ?
   `).all(like, like, like, prefix, limit) as any[]
   results.push(...bangumi.map((item) => ({
@@ -115,8 +115,8 @@ export function searchAll(req: AuthRequest, res: Response) {
     SELECT id, title, description, cover, event_date, location
     FROM albums
     WHERE is_active = 1
-      AND (title LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\' OR location LIKE ? ESCAPE '\\')
-    ORDER BY CASE WHEN title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END, event_date DESC, sort_order ASC
+      AND (title LIKE ? OR description LIKE ? OR location LIKE ?)
+    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, event_date DESC, sort_order ASC
     LIMIT ?
   `).all(like, like, like, prefix, limit) as any[]
   results.push(...albums.map((item) => ({
@@ -135,8 +135,8 @@ export function searchAll(req: AuthRequest, res: Response) {
     FROM music_tracks t
     LEFT JOIN music_playlists p ON t.playlist_id = p.id
     WHERE t.is_active = 1
-      AND (t.title LIKE ? ESCAPE '\\' OR t.artist LIKE ? ESCAPE '\\' OR p.name LIKE ? ESCAPE '\\')
-    ORDER BY CASE WHEN t.title LIKE ? ESCAPE '\\' THEN 0 ELSE 1 END, t.sort_order ASC, t.id DESC
+      AND (t.title LIKE ? OR t.artist LIKE ? OR p.name LIKE ?)
+    ORDER BY CASE WHEN t.title LIKE ? THEN 0 ELSE 1 END, t.sort_order ASC, t.id DESC
     LIMIT ?
   `).all(like, like, like, prefix, limit) as any[]
   results.push(...music.map((item) => ({
@@ -150,6 +150,14 @@ export function searchAll(req: AuthRequest, res: Response) {
     meta: item.playlist_name || '',
   })))
 
+  const books = db.prepare("SELECT b.id,b.title,b.slug,b.author,b.description,b.cover,(SELECT c.title FROM book_chapters c JOIN book_volumes v ON v.id=c.volume_id WHERE v.book_id=b.id AND c.title LIKE ? ORDER BY v.sort_order,c.sort_order LIMIT 1) chapter_match FROM books b WHERE b.status='published' AND b.deleted_at IS NULL AND (b.title LIKE ? OR b.author LIKE ? OR b.description LIKE ? OR EXISTS(SELECT 1 FROM book_chapters c JOIN book_volumes v ON v.id=c.volume_id WHERE v.book_id=b.id AND (c.title LIKE ? OR c.content_html LIKE ?))) ORDER BY CASE WHEN b.title LIKE ? THEN 0 ELSE 1 END,b.updated_at DESC LIMIT ?").all(like,like,like,like,like,like,prefix,limit) as any[]
+  results.push(...books.map((item)=>({id:'book-'+item.id,kind:'book' as const,kind_label:'书籍',title:item.title,subtitle:item.chapter_match?('章节：'+item.chapter_match):(item.description||item.author||'个人书库'),href:'/books/'+encodePath(item.slug),image:item.cover||'',meta:item.author||''})))
+
+  const manga = db.prepare("SELECT id,title,slug,author,original_title,description,cover FROM manga_items WHERE is_active=1 AND (title LIKE ? OR author LIKE ? OR original_title LIKE ? OR description LIKE ?) ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END,updated_at DESC LIMIT ?").all(like,like,like,like,prefix,limit) as any[]
+  results.push(...manga.map((item)=>({id:'manga-'+item.id,kind:'manga' as const,kind_label:'漫画',title:item.title,subtitle:item.description||item.author||'漫画收藏',href:'/manga/'+encodePath(item.slug),image:item.cover||'',meta:'漫画收藏'})))
+
+  const series = db.prepare("SELECT id,title,slug,description,cover,series_type FROM article_series WHERE status='published' AND (title LIKE ? OR description LIKE ?) ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END,updated_at DESC LIMIT ?").all(like,like,prefix,limit) as any[]
+  results.push(...series.map((item)=>({id:'series-'+item.id,kind:'series' as const,kind_label:'专题',title:item.title,subtitle:item.description||'内容专题',href:'/series/'+encodePath(item.slug),image:item.cover||'',meta:item.series_type||''})))
   const groups = results.reduce<Record<string, HubResult[]>>((output, item) => {
     ;(output[item.kind] ||= []).push(item)
     return output

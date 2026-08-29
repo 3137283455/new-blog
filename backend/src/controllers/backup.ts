@@ -48,6 +48,9 @@ const APP_TABLES = [
   'music_play_logs',
   'personal_inbox',
   'personal_todos',
+  'content_import_jobs',
+  'content_subscriptions',
+  'content_relations',
 ] as const
 
 const DELETE_ORDER = [...APP_TABLES].reverse()

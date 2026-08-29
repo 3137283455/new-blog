@@ -60,25 +60,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
     function renderPosts(posts: any[]) {
       return posts.map((post: any) => {
-        const title = post.title_highlight || escapeHtml(post.title || '')
-        const snippet = post.content_snippet || escapeHtml(post.excerpt || '')
-        const date = post.published_at || post.created_at || ''
-        const category = post.category_highlight || escapeHtml(post.category_name || '')
-        const tags = Array.isArray(post.tags_highlight) ? post.tags_highlight : []
-        return `
-          <a class="ryu-card search-result block p-4 hover:text-primary" href="/article/${encodeURIComponent(post.slug)}">
-            <h2 class="text-xl font-black">${title}</h2>
-            <p class="mt-2 text-sm text-base-content/60">${snippet}</p>
-            <div class="search-meta mt-3 flex flex-wrap items-center gap-2 text-xs text-base-content/50">
-              ${category ? `<span class="search-chip">${category}</span>` : ''}
-              ${tags.map((tag: string) => `<span class="search-chip">${tag}</span>`).join('')}
-              ${date ? `<span>${escapeHtml(date)}</span>` : ''}
-            </div>
-          </a>
-        `
+        const title = escapeHtml(post.title || '')
+        const snippet = escapeHtml(post.subtitle || post.excerpt || '')
+        const image = post.image ? '<img class="search-result-cover" src="' + escapeHtml(post.image) + '" alt="" loading="lazy">' : ''
+        const meta = post.meta ? '<span>' + escapeHtml(post.meta) + '</span>' : ''
+        const label = escapeHtml(post.kind_label || '内容')
+        return '<a class="ryu-card search-result search-result-wide block p-4 hover:text-primary" href="' + escapeHtml(post.href || '#') + '">' + image + '<div><div class="search-meta flex flex-wrap items-center gap-2 text-xs text-base-content/50"><span class="search-chip">' + label + '</span>' + meta + '</div><h2 class="mt-2 text-xl font-black">' + title + '</h2><p class="mt-2 text-sm text-base-content/60">' + snippet + '</p></div></a>'
       }).join('')
     }
-
     function setMoreVisible(visible: boolean) {
       hasMore = visible
       moreButton?.classList.toggle('hidden', !visible)
@@ -125,16 +114,16 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
         if (!append) results.innerHTML = '<p class="text-base-content/45">正在搜索...</p>'
         if (summary) summary.textContent = `正在搜索“${currentQuery}”…`
         if (moreButton) moreButton.disabled = true
-        const params = new URLSearchParams({ q: query, page: String(page), pageSize: '20', sort: currentSort })
-        const res = await fetch(`${apiBase}/articles/search?${params.toString()}`, { cache: 'no-store', signal: searchController?.signal })
+        const params = new URLSearchParams({ q: query, limit: '12' })
+        const res = await fetch(`${apiBase}/search/all?${params.toString()}`, { cache: 'no-store', signal: searchController?.signal })
         const json = await res.json()
         if (!res.ok || json.success === false) throw new Error(json.message || '搜索失败')
-        const posts = json.data?.posts || json.data || []
+        const posts = json.data?.results || []
         const html = renderPosts(posts)
         results.innerHTML = append ? results.innerHTML + html : (html || '<p class="text-base-content/45">没有找到相关内容</p>')
-        const pagination = json.pagination || {}
+        const pagination = { total: json.data?.total || posts.length, page: 1, totalPages: 1 }
         if (!append) rememberSearch(currentQuery)
-        if (summary) summary.textContent = `找到 ${Number(pagination.total ?? posts.length)} 篇结果`
+        if (summary) summary.textContent = `找到 ${Number(pagination.total ?? posts.length)} 条全站结果`
         setMoreVisible(Number(pagination.page || page) < Number(pagination.totalPages || 1))
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return
@@ -254,5 +243,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       .search-workbench-head { align-items: flex-start; flex-direction: column; }
       .search-tools { align-items: flex-start; flex-direction: column; }
     }
-  </style>
+    .search-result-wide { display: grid !important; grid-template-columns: 5rem minmax(0, 1fr); gap: 1rem; align-items: center; }
+    .search-result-wide:not(:has(.search-result-cover)) { grid-template-columns: 1fr; }
+    .search-result-cover { width: 5rem; height: 5rem; border-radius: .8rem; object-fit: cover; }
+    @media (max-width: 520px) { .search-result-wide { grid-template-columns: 3.8rem minmax(0, 1fr); } .search-result-cover { width: 3.8rem; height: 4.6rem; } }  </style>
 </BaseLayout>

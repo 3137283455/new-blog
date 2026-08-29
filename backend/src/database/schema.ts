@@ -488,6 +488,50 @@ export function migrate() {
       played_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- 七项个人中枢能力
+    CREATE TABLE IF NOT EXISTS content_import_jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      kind TEXT NOT NULL DEFAULT 'unknown',
+      filename TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending',
+      progress INTEGER NOT NULL DEFAULT 0,
+      result_type TEXT DEFAULT '',
+      result_id INTEGER,
+      error TEXT DEFAULT '',
+      options TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS content_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL DEFAULT 'web',
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      icon TEXT DEFAULT '',
+      check_interval INTEGER DEFAULT 360,
+      last_checked_at TEXT,
+      last_changed_at TEXT,
+      last_signature TEXT DEFAULT '',
+      unread_count INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, url)
+    );
+    CREATE TABLE IF NOT EXISTS content_relations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_type TEXT NOT NULL,
+      source_id INTEGER NOT NULL,
+      target_type TEXT NOT NULL,
+      target_id INTEGER NOT NULL,
+      relation_type TEXT NOT NULL DEFAULT 'related',
+      note TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(source_type, source_id, target_type, target_id, relation_type)
+    );
     -- 全文搜索 FTS5
     CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
       title,
@@ -565,6 +609,10 @@ export function migrate() {
       ON personal_todos(done, created_at);
     CREATE INDEX IF NOT EXISTS idx_music_play_logs_track
       ON music_play_logs(track_id, played_at);
+    CREATE INDEX IF NOT EXISTS idx_import_jobs_created ON content_import_jobs(created_at DESC, status);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON content_subscriptions(user_id, is_active, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_relations_source ON content_relations(source_type, source_id, sort_order);
+    CREATE INDEX IF NOT EXISTS idx_relations_target ON content_relations(target_type, target_id);
   `)
 
   try {
