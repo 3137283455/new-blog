@@ -200,7 +200,7 @@ router.delete('/admin/bangumi/:id', auth, bangumiCtrl.remove)
 router.get('/admin/manga', auth, mangaCtrl.list)
 router.get('/admin/manga/search', auth, mangaCtrl.searchSource)
 router.post('/admin/manga', auth, mangaCtrl.create)
-router.post('/admin/manga/import', auth, mangaArchiveUpload.single('file'), mangaCtrl.importLocal)
+router.post('/admin/manga/import', auth, mangaArchiveUpload.fields([{ name: 'file', maxCount: 1 }, { name: 'files', maxCount: 80 }]), mangaCtrl.importLocal)
 router.put('/admin/manga/:id', auth, mangaCtrl.update)
 router.delete('/admin/manga/:id', auth, mangaCtrl.remove)
 

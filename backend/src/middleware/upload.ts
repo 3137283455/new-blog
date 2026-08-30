@@ -110,13 +110,16 @@ export const mangaArchiveUpload = multer({
       cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`)
     },
   }),
-  limits: { fileSize: 300 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 300 * 1024 * 1024, files: 80 },
   fileFilter(_req, file, cb) {
-    if (/\.(?:cbz|zip)$/i.test(file.originalname) || ['application/zip','application/x-zip-compressed'].includes(file.mimetype)) {
+    if (
+      /\.(?:cbz|zip|cbr|rar|cb7|7z|cbt|tar|pdf|jpe?g|png|webp|gif|avif|bmp)$/i.test(file.originalname) ||
+      ['application/zip','application/x-zip-compressed','application/x-rar-compressed','application/vnd.rar','application/x-7z-compressed','application/pdf','image/jpeg','image/png','image/webp','image/gif','image/avif','image/bmp'].includes(file.mimetype)
+    ) {
       cb(null, true)
       return
     }
-    cb(new Error('仅支持 CBZ 或 ZIP 漫画包'))
+    cb(new Error('支持 CBZ/ZIP、PDF、图片文件；CBR/RAR、CB7/7Z、CBT/TAR 需独立解压服务'))
   },
 })
 export const textBookUpload = multer({

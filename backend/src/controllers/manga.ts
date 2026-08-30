@@ -11,6 +11,8 @@ import { success, error } from '../utils/response'
 
 const browserUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 const imagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp)$/i
+const pagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp|pdf)$/i
+const unsupportedArchivePattern = /\.(?:cbr|rar|cb7|7z|cbt|tar)$/i
 const natural = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 function clean(value: unknown, max = 500) { return String(value ?? '').trim().slice(0, max) }
 function number(value: unknown, fallback = 0) { const result = Number(value); return Number.isFinite(result) ? result : fallback }
@@ -71,22 +73,57 @@ export function update(req: AuthRequest, res: Response) {
 }
 export function remove(req: AuthRequest, res: Response) { const result = db.prepare('DELETE FROM manga_items WHERE id=?').run(integer(req.params.id)); return result.changes ? success(res, null, '漫画已删除') : error(res, '漫画不存在', 'NOT_FOUND', 404) }
 
+type MangaPageSource = { relativePath: string; originalName: string; writeTo(target: string): void }
+type MangaImportGroup = { volume: string; chapter: string; items: MangaPageSource[] }
+function cleanImportParts(value: string) {
+  return value.replace(/\\/g, '/').replace(/^\/+/, '').split('/').filter((part) => part && part !== '.' && part !== '..' && !part.startsWith('.'))
+}
+function pageGroups(items: MangaPageSource[], packageName: string, fallbackVolume: string): MangaImportGroup[] {
+  let entries = items.map((item) => ({ item, parts: cleanImportParts(item.relativePath) })).filter((entry) => entry.parts.length)
+  if (!entries.length) throw new Error('文件中没有可用图片或 PDF 页面')
+  const firstFolder = entries[0].parts[0]
+  if (entries.every((entry) => entry.parts.length > 1 && entry.parts[0] === firstFolder)) entries = entries.map((entry) => ({ ...entry, parts: entry.parts.slice(1) }))
+  const layered = entries.some((entry) => entry.parts.length >= 3)
+  const groups = new Map<string, MangaImportGroup>()
+  for (const entry of entries) {
+    const folders = entry.parts.slice(0, -1)
+    const volume = layered ? (folders[0] || fallbackVolume) : fallbackVolume
+    const chapter = layered ? (folders.slice(1).join(' / ') || packageName) : (folders.join(' / ') || packageName)
+    const key = volume + '\u0000' + chapter
+    if (!groups.has(key)) groups.set(key, { volume, chapter, items: [] })
+    groups.get(key)!.items.push(entry.item)
+  }
+  return [...groups.values()].sort((a, b) => natural.compare(a.volume, b.volume) || natural.compare(a.chapter, b.chapter)).map((group) => ({ ...group, items: group.items.sort((a, b) => natural.compare(a.relativePath, b.relativePath)) }))
+}
 function archiveGroups(file: Express.Multer.File, fallbackVolume: string) {
-  const zip=new AdmZip(file.path)
-  let items=zip.getEntries().filter((entry)=>!entry.isDirectory&&imagePattern.test(entry.entryName)&&!entry.entryName.includes('__MACOSX')).map((entry)=>({entry,path:entry.entryName.replace(/\\/g,'/').replace(/^\/+/, '').split('/').filter((part)=>part&&part!=='.'&&!part.startsWith('.'))})).filter((item)=>item.path.length&&item.path.every((part)=>part!=='..'))
-  if(!items.length) throw new Error('压缩包中没有可用图片')
-  const first=items[0].path[0]; if(items.every((item)=>item.path.length>1&&item.path[0]===first)) items=items.map((item)=>({...item,path:item.path.slice(1)}))
-  const layered=items.some((item)=>item.path.length>=3)
-  const groups=new Map<string,{volume:string;chapter:string;items:typeof items}>()
-  for(const item of items){const folders=item.path.slice(0,-1); const volume=layered?(folders[0]||fallbackVolume):fallbackVolume; const chapter=layered?(folders.slice(1).join(' / ')||path.parse(file.originalname).name):(folders.join(' / ')||path.parse(file.originalname).name); const key=volume+'\u0000'+chapter; if(!groups.has(key))groups.set(key,{volume,chapter,items:[]}); groups.get(key)!.items.push(item)}
-  return [...groups.values()].sort((a,b)=>natural.compare(a.volume,b.volume)||natural.compare(a.chapter,b.chapter)).map((group)=>({...group,items:group.items.sort((a,b)=>natural.compare(a.path.join('/'),b.path.join('/')))}))
+  if (unsupportedArchivePattern.test(file.originalname)) throw new Error('CBR/RAR、CB7/7Z、CBT/TAR 需要独立解压服务；请先转为 CBZ/ZIP，或上传 PDF/图片。')
+  const zip = new AdmZip(file.path)
+  const items = zip.getEntries().filter((entry) => !entry.isDirectory && pagePattern.test(entry.entryName) && !entry.entryName.includes('__MACOSX')).map((entry) => ({ relativePath: entry.entryName, originalName: path.basename(entry.entryName), writeTo(target: string) { fs.writeFileSync(target, entry.getData()) } }))
+  return pageGroups(items, path.parse(file.originalname).name, fallbackVolume)
+}
+function uploadedMangaFiles(req: AuthRequest) {
+  const files: Express.Multer.File[] = []
+  if (req.file) files.push(req.file)
+  const source = req.files as Express.Multer.File[] | Record<string, Express.Multer.File[]> | undefined
+  if (Array.isArray(source)) files.push(...source)
+  else if (source) Object.values(source).forEach((list) => files.push(...list))
+  return files
+}
+function looseFileGroups(files: Express.Multer.File[], fallbackVolume: string) {
+  if (files.some((file) => unsupportedArchivePattern.test(file.originalname))) throw new Error('CBR/RAR、CB7/7Z、CBT/TAR 需要独立解压服务；请先转为 CBZ/ZIP，或上传 PDF/图片。')
+  const archives = files.filter((file) => /\.(?:cbz|zip)$/i.test(file.originalname))
+  if (archives.length > 1 || (archives.length && files.length > 1)) throw new Error('一次只能导入一个压缩包；多张图片或 PDF 请不要和压缩包混选。')
+  if (archives[0]) return archiveGroups(archives[0], fallbackVolume)
+  const pages = files.filter((file) => pagePattern.test(file.originalname)).map((file) => ({ relativePath: file.originalname, originalName: file.originalname, writeTo(target: string) { fs.copyFileSync(file.path, target) } }))
+  return pageGroups(pages, files.length === 1 ? path.parse(files[0].originalname).name : '散图导入', fallbackVolume)
 }
 export function importLocal(req: AuthRequest, res: Response) {
-  if(!req.file) return error(res,'请选择 CBZ 或 ZIP 漫画包','VALIDATION_ERROR')
+  const uploaded=uploadedMangaFiles(req)
+  if(!uploaded.length) return error(res,'请选择漫画文件','VALIDATION_ERROR')
   const requestedId=integer(req.body?.manga_id),existing=requestedId?db.prepare("SELECT * FROM manga_items WHERE id=? AND library_type='local'").get(requestedId) as any:null
-  if(requestedId&&!existing){fs.rmSync(req.file.path,{force:true});return error(res,'要追加的本地漫画不存在','NOT_FOUND',404)}
-  const title=clean(req.body?.title||existing?.title||path.parse(req.file.originalname).name,160),author=clean(req.body?.author||existing?.author,160),fallbackVolume=clean(req.body?.volume_title,160)||'正文'
-  let groups:ReturnType<typeof archiveGroups>;try{groups=archiveGroups(req.file,fallbackVolume)}catch(cause){fs.rmSync(req.file.path,{force:true});return error(res,cause instanceof Error?cause.message:'漫画包解析失败','IMPORT_FAILED')}
+  if(requestedId&&!existing){uploaded.forEach((file)=>fs.rmSync(file.path,{force:true}));return error(res,'要追加的本地漫画不存在','NOT_FOUND',404)}
+  const title=clean(req.body?.title||existing?.title||path.parse(uploaded[0].originalname).name,160),author=clean(req.body?.author||existing?.author,160),fallbackVolume=clean(req.body?.volume_title,160)||'正文'
+  let groups:MangaImportGroup[];try{groups=looseFileGroups(uploaded,fallbackVolume)}catch(cause){uploaded.forEach((file)=>fs.rmSync(file.path,{force:true}));return error(res,cause instanceof Error?cause.message:'漫画文件解析失败','IMPORT_FAILED')}
   const slug=existing?.slug||uniqueSlug(req.body?.slug||title),relativeRoot=`manga/${slug}-${Date.now()}`,absoluteRoot=path.join(config.uploadDir,...relativeRoot.split('/'))
   try{
     fs.mkdirSync(absoluteRoot,{recursive:true});let firstCover=''
@@ -101,15 +138,15 @@ export function importLocal(req: AuthRequest, res: Response) {
         let chapterOrder=chapterOrders.get(volume.id)
         if(chapterOrder===undefined)chapterOrder=integer((db.prepare('SELECT MAX(sort_order) value FROM manga_chapters WHERE volume_id=?').get(volume.id) as any)?.value,-1)+1
         const chapterTitle=db.prepare('SELECT 1 FROM manga_chapters WHERE volume_id=? AND title=?').get(volume.id,group.chapter)?`${group.chapter}（${new Date().toLocaleDateString('zh-CN')}）`:group.chapter
-        const cr=db.prepare('INSERT INTO manga_chapters (volume_id,title,slug,sort_order,source_filename) VALUES (?,?,?,?,?)').run(volume.id,chapterTitle,childSlug('manga_chapters',chapterTitle,'volume_id',volume.id),chapterOrder,req.file!.originalname)
+        const cr=db.prepare('INSERT INTO manga_chapters (volume_id,title,slug,sort_order,source_filename) VALUES (?,?,?,?,?)').run(volume.id,chapterTitle,childSlug('manga_chapters',chapterTitle,'volume_id',volume.id),chapterOrder,uploaded[0].originalname)
         const chapterId=Number(cr.lastInsertRowid),chapterDir=path.join(absoluteRoot,String(volume.sort_order+1),String(chapterOrder+1));chapterOrders.set(volume.id,chapterOrder+1);fs.mkdirSync(chapterDir,{recursive:true})
-        group.items.forEach((item,index)=>{const ext=path.extname(item.path[item.path.length-1]).toLowerCase()||'.jpg',filename=String(index+1).padStart(5,'0')+ext,target=path.join(chapterDir,filename);fs.writeFileSync(target,item.entry.getData());const imageUrl=`/uploads/${relativeRoot}/${volume.sort_order+1}/${chapterOrder!+1}/${filename}`;if(!firstCover)firstCover=imageUrl;db.prepare('INSERT INTO manga_pages (chapter_id,image_url,sort_order) VALUES (?,?,?)').run(chapterId,imageUrl,index)})
+        group.items.forEach((item,index)=>{const ext=path.extname(item.originalName).toLowerCase()||'.jpg',filename=String(index+1).padStart(5,'0')+ext,target=path.join(chapterDir,filename);item.writeTo(target);const imageUrl=`/uploads/${relativeRoot}/${volume.sort_order+1}/${chapterOrder!+1}/${filename}`;if(!firstCover)firstCover=imageUrl;db.prepare('INSERT INTO manga_pages (chapter_id,image_url,sort_order) VALUES (?,?,?)').run(chapterId,imageUrl,index)})
       }
       db.prepare("UPDATE manga_items SET cover=CASE WHEN cover='' THEN ? ELSE cover END,updated_at=datetime('now') WHERE id=?").run(firstCover,mangaId)
       return mangaId
     })()
     return success(res,attach(db.prepare('SELECT * FROM manga_items WHERE id=?').get(mangaId),true),existing?`已追加 ${groups.length} 章漫画`:`已导入 ${groups.length} 章漫画`)
-  }catch(cause){fs.rmSync(absoluteRoot,{recursive:true,force:true});console.error('本地漫画导入失败:',cause);return error(res,cause instanceof Error?cause.message:'本地漫画导入失败','IMPORT_FAILED',500)}finally{fs.rmSync(req.file.path,{force:true})}
+  }catch(cause){fs.rmSync(absoluteRoot,{recursive:true,force:true});console.error('本地漫画导入失败:',cause);return error(res,cause instanceof Error?cause.message:'本地漫画导入失败','IMPORT_FAILED',500)}finally{uploaded.forEach((file)=>fs.rmSync(file.path,{force:true}))}
 }
 export function getReadingState(req: DeviceRequest,res: Response){const row=db.prepare('SELECT * FROM manga_reading_states WHERE user_id=? AND manga_id=?').get(req.deviceUserId!,integer(req.params.mangaId)) as any;if(row)row.settings=json(row.settings);return success(res,row||null)}
 export function putReadingState(req: DeviceRequest,res: Response){const userId=req.deviceUserId!,mangaId=integer(req.params.mangaId);if(!db.prepare("SELECT 1 FROM manga_items WHERE id=? AND library_type='local'").get(mangaId))return error(res,'本地漫画不存在','NOT_FOUND',404);const current=db.prepare('SELECT * FROM manga_reading_states WHERE user_id=? AND manga_id=?').get(userId,mangaId) as any,base=integer(req.body?.revision),sameDevice=Boolean(current&&Number(current.device_id)===Number(req.deviceId));if(current&&base!==current.revision&&!sameDevice&&!req.body?.force)return res.status(409).json({success:false,code:'READING_CONFLICT',message:'另一台设备已有更新，请选择保留哪一份进度',data:{server:current,submitted:req.body}});const revision=(current?.revision||0)+1;db.prepare("INSERT INTO manga_reading_states (user_id,manga_id,volume_id,chapter_id,page_index,mode,settings,revision,device_id,updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(user_id,manga_id) DO UPDATE SET volume_id=excluded.volume_id,chapter_id=excluded.chapter_id,page_index=excluded.page_index,mode=excluded.mode,settings=excluded.settings,revision=excluded.revision,device_id=excluded.device_id,updated_at=datetime('now')").run(userId,mangaId,integer(req.body?.volume_id)||null,integer(req.body?.chapter_id)||null,Math.max(0,integer(req.body?.page_index)),req.body?.mode==='paged'?'paged':'scroll',JSON.stringify(req.body?.settings&&typeof req.body.settings==='object'?req.body.settings:{}),revision,req.deviceId!);return success(res,{revision},'漫画进度已同步')}
