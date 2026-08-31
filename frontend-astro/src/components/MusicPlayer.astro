@@ -317,3 +317,8 @@ const payload = JSON.stringify(tracks)
   document.addEventListener('DOMContentLoaded', initMusicPlayers);
   document.addEventListener('astro:page-load', initMusicPlayers);
 </script>
+<style>
+  :global(.toast[hidden]) {
+    display: none !important;
+  }
+</style>

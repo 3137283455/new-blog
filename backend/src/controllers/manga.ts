@@ -95,6 +95,39 @@ function pageGroups(items: MangaPageSource[], packageName: string, fallbackVolum
   }
   return [...groups.values()].sort((a, b) => natural.compare(a.volume, b.volume) || natural.compare(a.chapter, b.chapter)).map((group) => ({ ...group, items: group.items.sort((a, b) => natural.compare(a.relativePath, b.relativePath)) }))
 }
+function shouldKeepEpubImage(name: string) {
+  const normalized = name.toLowerCase()
+  return pagePattern.test(normalized) && !/(?:^|\/)(?:icon|logo|banner|button|bg|background|mask|shadow|spacer|blank|ad)[-_\.]/i.test(normalized) && !/\.svg$/i.test(normalized)
+}
+function resolveZipPath(from: string, target: string) {
+  const base = from.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
+  return cleanImportParts((base ? base + '/' : '') + target.split('#')[0].split('?')[0]).join('/')
+}
+function entrySize(entry: AdmZip.IZipEntry) {
+  const header = entry.header as unknown as { size?: number; compressedSize?: number }
+  return Number(header.size || header.compressedSize || 0)
+}
+function epubGroups(file: Express.Multer.File, fallbackVolume: string) {
+  const zip = new AdmZip(file.path)
+  const byName = new Map(zip.getEntries().filter((entry) => !entry.isDirectory).map((entry) => [entry.entryName.replace(/\\/g, '/').replace(/^\/+/, ''), entry]))
+  const docs = zip.getEntries().filter((entry) => !entry.isDirectory && /\.(?:xhtml|html|htm)$/i.test(entry.entryName)).sort((a, b) => natural.compare(a.entryName, b.entryName))
+  const used = new Set<string>()
+  const items: MangaPageSource[] = []
+  for (const doc of docs) {
+    const html = doc.getData().toString('utf8')
+    const candidates = [...html.matchAll(/<(?:img|image)\b[^>]*(?:src|href|xlink:href)=['"]([^'"]+)['"][^>]*>/gi)]
+      .map((match) => resolveZipPath(doc.entryName, match[1]))
+      .map((ref) => ({ ref, entry: byName.get(ref) }))
+      .filter((item): item is { ref: string; entry: AdmZip.IZipEntry } => Boolean(item.entry) && !used.has(item.ref) && shouldKeepEpubImage(item.ref))
+      .sort((a, b) => entrySize(b.entry) - entrySize(a.entry))
+    const picked = candidates[0]
+    if (!picked) continue
+    used.add(picked.ref)
+    items.push({ relativePath: doc.entryName.replace(/\.(?:xhtml|html|htm)$/i, '/' + path.basename(picked.ref)), originalName: path.basename(picked.ref), writeTo(target: string) { fs.writeFileSync(target, picked.entry.getData()) } })
+  }
+  if (!items.length) return archiveGroups(file, fallbackVolume)
+  return pageGroups(items, path.parse(file.originalname).name, fallbackVolume)
+}
 function archiveGroups(file: Express.Multer.File, fallbackVolume: string) {
   if (unsupportedArchivePattern.test(file.originalname)) throw new Error('MOBI/AZW 与 CBR/RAR、CB7/7Z、CBT/TAR 需要独立转换/解压服务；请先转为 CBZ/ZIP、图片型 EPUB，或上传 PDF/图片。')
   const zip = new AdmZip(file.path)
@@ -113,7 +146,7 @@ function looseFileGroups(files: Express.Multer.File[], fallbackVolume: string) {
   if (files.some((file) => unsupportedArchivePattern.test(file.originalname))) throw new Error('MOBI/AZW 与 CBR/RAR、CB7/7Z、CBT/TAR 需要独立转换/解压服务；请先转为 CBZ/ZIP、图片型 EPUB，或上传 PDF/图片。')
   const archives = files.filter((file) => /\.(?:cbz|zip|epub)$/i.test(file.originalname))
   if (archives.length > 1 || (archives.length && files.length > 1)) throw new Error('一次只能导入一个 CBZ/ZIP/EPUB；多张图片或 PDF 请不要和压缩包混选。')
-  if (archives[0]) return archiveGroups(archives[0], fallbackVolume)
+  if (archives[0]) return /\.epub$/i.test(archives[0].originalname) ? epubGroups(archives[0], fallbackVolume) : archiveGroups(archives[0], fallbackVolume)
   const pages = files.filter((file) => pagePattern.test(file.originalname)).map((file) => ({ relativePath: file.originalname, originalName: file.originalname, writeTo(target: string) { fs.copyFileSync(file.path, target) } }))
   return pageGroups(pages, files.length === 1 ? path.parse(files[0].originalname).name : '散图导入', fallbackVolume)
 }
