@@ -57,6 +57,18 @@ const payload = JSON.stringify(tracks)
   </div>
 </section>
 
+<style is:global>
+  /* 强制将所有包含 hidden 属性的 toast 元素彻底隐藏，压制 display: flex 造成的黑块遮挡 */
+  .toast[hidden],
+  [data-toast][hidden],
+  [hidden] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+</style>
+
 <script>
   type StoredMusicState = {
     index: number;
@@ -285,6 +297,7 @@ const payload = JSON.stringify(tracks)
       audio?.addEventListener('ended', () => move(1));
       const persistState = () => save();
       window.addEventListener('pagehide', persistState);
+      document.documentElement.classList.remove('comic-page');
       document.addEventListener('astro:before-swap', persistState);
       window.addEventListener('boke:play-track', (event) => {
         const trackId = Number((event as CustomEvent<{ trackId?: number }>).detail?.trackId || 0);
@@ -314,8 +327,61 @@ const payload = JSON.stringify(tracks)
     });
   }
 
-  document.addEventListener('DOMContentLoaded', initMusicPlayers);
-  document.addEventListener('astro:page-load', initMusicPlayers);
-  
-</script>
+  // DOM 劫持修复：强制将所有带有 hidden 的 toast 节点从 inline-style 层面清除
+  function cleanupHiddenToasts() {
+    document.querySelectorAll('.toast[hidden], [data-toast][hidden]').forEach((el) => {
+      (el as HTMLElement).style.setProperty('display', 'none', 'important');
+    });
+  }
 
+  document.addEventListener('DOMContentLoaded', () => {
+    initMusicPlayers();
+    cleanupHiddenToasts();
+  });
+  document.addEventListener('astro:page-load', () => {
+    initMusicPlayers();
+    cleanupHiddenToasts();
+  });
+
+  // 持续监听变动，防止页面跳转后重新挂载弹出黑块
+  if (typeof window !== 'undefined' && 'MutationObserver' in window) {
+    const observer = new MutationObserver(cleanupHiddenToasts);
+    observer.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden']
+    });
+  }
+  // 自动清除导致黑块遮挡的冲突节点
+function purgeConflictToasts() {
+  document.querySelectorAll('.toast, [data-toast]').forEach((el) => {
+    // 只要带着 hidden 或者是导致遮罩的节点，直接从 DOM 中彻底删掉
+    if (el.hasAttribute('hidden') || el.classList.contains('toast')) {
+      el.remove();
+    }
+  });
+}
+
+// 1. 页面初次加载时立即执行删除
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', purgeConflictToasts);
+} else {
+  purgeConflictToasts();
+}
+
+// 2. 页面完全加载及 Astro 路由切换后再次确保删除
+document.addEventListener('astro:page-load', purgeConflictToasts);
+
+// 3. 开启实时监控：只要页面敢重新生成这个黑块，立刻把它 remove 掉
+if (typeof window !== 'undefined' && 'MutationObserver' in window) {
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach(() => purgeConflictToasts());
+  });
+  
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+</script>
