@@ -316,25 +316,6 @@ const payload = JSON.stringify(tracks)
 
   document.addEventListener('DOMContentLoaded', initMusicPlayers);
   document.addEventListener('astro:page-load', initMusicPlayers);
-  // 强制解决 toast 遮蔽问题的观察者脚本
-if (typeof window !== 'undefined') {
-  const fixHiddenToast = () => {
-    document.querySelectorAll('.toast[hidden], [data-toast][hidden]').forEach(el => {
-      el.style.setProperty('display', 'none', 'important');
-    });
-  };
-
-  // 立即执行一次
-  fixHiddenToast();
-
-  // 监听 DOM 变化，防止异步插入的 toast 继续遮挡
-  const observer = new MutationObserver(fixHiddenToast);
-  observer.observe(document.body || document.documentElement, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['hidden', 'class']
-  });
-}
+  
 </script>
 
