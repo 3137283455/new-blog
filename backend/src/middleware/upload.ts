@@ -113,13 +113,13 @@ export const mangaArchiveUpload = multer({
   limits: { fileSize: 300 * 1024 * 1024, files: 80 },
   fileFilter(_req, file, cb) {
     if (
-      /\.(?:cbz|zip|cbr|rar|cb7|7z|cbt|tar|pdf|jpe?g|png|webp|gif|avif|bmp)$/i.test(file.originalname) ||
-      ['application/zip','application/x-zip-compressed','application/x-rar-compressed','application/vnd.rar','application/x-7z-compressed','application/pdf','image/jpeg','image/png','image/webp','image/gif','image/avif','image/bmp'].includes(file.mimetype)
+      /\.(?:cbz|zip|epub|cbr|rar|cb7|7z|cbt|tar|pdf|jpe?g|png|webp|gif|avif|bmp)$/i.test(file.originalname) ||
+      ['application/zip','application/x-zip-compressed','application/epub+zip','application/x-rar-compressed','application/vnd.rar','application/x-7z-compressed','application/pdf','image/jpeg','image/png','image/webp','image/gif','image/avif','image/bmp'].includes(file.mimetype)
     ) {
       cb(null, true)
       return
     }
-    cb(new Error('支持 CBZ/ZIP、PDF、图片文件；CBR/RAR、CB7/7Z、CBT/TAR 需独立解压服务'))
+    cb(new Error('支持 CBZ/ZIP、图片型 EPUB、PDF、图片文件；CBR/RAR、CB7/7Z、CBT/TAR 需独立解压服务'))
   },
 })
 export const textBookUpload = multer({

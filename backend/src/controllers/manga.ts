@@ -12,7 +12,7 @@ import { success, error } from '../utils/response'
 const browserUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 const imagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp)$/i
 const pagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp|pdf)$/i
-const unsupportedArchivePattern = /\.(?:cbr|rar|cb7|7z|cbt|tar)$/i
+const unsupportedArchivePattern = /\.(?:cbr|rar|cb7|7z|cbt|tar|mobi|azw3?|kf8|prc)$/i
 const natural = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 function clean(value: unknown, max = 500) { return String(value ?? '').trim().slice(0, max) }
 function number(value: unknown, fallback = 0) { const result = Number(value); return Number.isFinite(result) ? result : fallback }
@@ -96,7 +96,7 @@ function pageGroups(items: MangaPageSource[], packageName: string, fallbackVolum
   return [...groups.values()].sort((a, b) => natural.compare(a.volume, b.volume) || natural.compare(a.chapter, b.chapter)).map((group) => ({ ...group, items: group.items.sort((a, b) => natural.compare(a.relativePath, b.relativePath)) }))
 }
 function archiveGroups(file: Express.Multer.File, fallbackVolume: string) {
-  if (unsupportedArchivePattern.test(file.originalname)) throw new Error('CBR/RAR、CB7/7Z、CBT/TAR 需要独立解压服务；请先转为 CBZ/ZIP，或上传 PDF/图片。')
+  if (unsupportedArchivePattern.test(file.originalname)) throw new Error('MOBI/AZW 与 CBR/RAR、CB7/7Z、CBT/TAR 需要独立转换/解压服务；请先转为 CBZ/ZIP、图片型 EPUB，或上传 PDF/图片。')
   const zip = new AdmZip(file.path)
   const items = zip.getEntries().filter((entry) => !entry.isDirectory && pagePattern.test(entry.entryName) && !entry.entryName.includes('__MACOSX')).map((entry) => ({ relativePath: entry.entryName, originalName: path.basename(entry.entryName), writeTo(target: string) { fs.writeFileSync(target, entry.getData()) } }))
   return pageGroups(items, path.parse(file.originalname).name, fallbackVolume)
@@ -110,9 +110,9 @@ function uploadedMangaFiles(req: AuthRequest) {
   return files
 }
 function looseFileGroups(files: Express.Multer.File[], fallbackVolume: string) {
-  if (files.some((file) => unsupportedArchivePattern.test(file.originalname))) throw new Error('CBR/RAR、CB7/7Z、CBT/TAR 需要独立解压服务；请先转为 CBZ/ZIP，或上传 PDF/图片。')
-  const archives = files.filter((file) => /\.(?:cbz|zip)$/i.test(file.originalname))
-  if (archives.length > 1 || (archives.length && files.length > 1)) throw new Error('一次只能导入一个压缩包；多张图片或 PDF 请不要和压缩包混选。')
+  if (files.some((file) => unsupportedArchivePattern.test(file.originalname))) throw new Error('MOBI/AZW 与 CBR/RAR、CB7/7Z、CBT/TAR 需要独立转换/解压服务；请先转为 CBZ/ZIP、图片型 EPUB，或上传 PDF/图片。')
+  const archives = files.filter((file) => /\.(?:cbz|zip|epub)$/i.test(file.originalname))
+  if (archives.length > 1 || (archives.length && files.length > 1)) throw new Error('一次只能导入一个 CBZ/ZIP/EPUB；多张图片或 PDF 请不要和压缩包混选。')
   if (archives[0]) return archiveGroups(archives[0], fallbackVolume)
   const pages = files.filter((file) => pagePattern.test(file.originalname)).map((file) => ({ relativePath: file.originalname, originalName: file.originalname, writeTo(target: string) { fs.copyFileSync(file.path, target) } }))
   return pageGroups(pages, files.length === 1 ? path.parse(files[0].originalname).name : '散图导入', fallbackVolume)
