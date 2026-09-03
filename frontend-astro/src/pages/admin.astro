@@ -807,6 +807,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
             <div class="grid overflow-hidden border-y border-base-content/10 xl:grid-cols-[minmax(18rem,.68fr)_minmax(0,1.32fr)]">
               <div class="grid content-start gap-4 py-4 xl:border-r xl:border-base-content/10 xl:pr-5">
                 <div class="grid gap-3 border-b border-base-content/10 pb-4 sm:grid-cols-2 xl:grid-cols-1">
+                  <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">小说默认源</span><select id="search-source-default-book" class="select select-bordered rounded-xl"></select></label>
                   <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">追番默认源</span><select id="search-source-default-bangumi" class="select select-bordered rounded-xl"></select></label>
                   <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">漫画默认源</span><select id="search-source-default-manga" class="select select-bordered rounded-xl"></select></label>
                 </div>
@@ -817,7 +818,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
                 <textarea id="content-search-source-editor" class="textarea textarea-bordered min-h-[24rem] w-full rounded-2xl font-mono text-xs leading-5 lg:min-h-[32rem]" spellcheck="false" aria-label="单个检索源 JSON 规则"></textarea>
                 <section class="grid gap-3 border-t border-base-content/10 pt-4">
                   <div class="flex flex-wrap items-start justify-between gap-2"><div><h4 class="font-black">保存前试跑</h4><p class="text-xs text-base-content/45">直接测试编辑器里的未保存规则；填写详情 ID 时优先测试详情接口。</p></div><span id="search-source-test-badge" class="badge badge-ghost">未测试</span></div>
-                  <div class="grid gap-2 sm:grid-cols-[8rem_1fr_1fr_auto]"><select id="search-source-test-kind" class="select select-bordered select-sm rounded-xl"><option value="bangumi">追番</option><option value="manga">漫画</option></select><input id="search-source-test-query" class="input input-bordered input-sm rounded-xl" placeholder="搜索关键词" /><input id="search-source-test-id" class="input input-bordered input-sm rounded-xl" placeholder="详情 ID（可选）" /><button id="search-source-test" class="ryu-btn-primary btn-sm" type="button">试跑规则</button></div>
+                  <div class="grid gap-2 sm:grid-cols-[8rem_1fr_1fr_auto]"><select id="search-source-test-kind" class="select select-bordered select-sm rounded-xl"><option value="book">小说</option><option value="bangumi">追番</option><option value="manga">漫画</option></select><input id="search-source-test-query" class="input input-bordered input-sm rounded-xl" placeholder="搜索关键词" /><input id="search-source-test-id" class="input input-bordered input-sm rounded-xl" placeholder="详情 ID（可选）" /><button id="search-source-test" class="ryu-btn-primary btn-sm" type="button">试跑规则</button></div>
                   <div id="search-source-test-results" class="grid gap-2"></div>
                 </section>
               </div>

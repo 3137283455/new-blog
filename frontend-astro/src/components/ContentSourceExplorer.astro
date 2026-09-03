@@ -1,0 +1,74 @@
+---
+interface Props { kind: 'book' | 'manga' | 'bangumi' }
+const { kind } = Astro.props
+const labels = { book: '小说', manga: '漫画', bangumi: '番剧' }
+const label = labels[kind]
+---
+
+<section class="source-explorer" data-source-explorer data-kind={kind}>
+  <header class="source-explorer-header">
+    <div>
+      <small>SOURCE DISCOVERY</small>
+      <h2>从源中搜索{label}</h2>
+      <p>源只负责发现与阅读，书架只保存你的阅读状态。</p>
+    </div>
+    <span class="source-explorer-status" data-source-status>正在读取已导入的源…</span>
+  </header>
+  <form class="source-explorer-form" data-source-form>
+    <label class="source-explorer-input"><span aria-hidden="true">⌕</span><input data-source-query type="search" placeholder={`搜索${label}名称`} autocomplete="off" /><kbd>Enter</kbd></label>
+    <select data-source-select aria-label="选择内容源"><option value="">默认源</option></select>
+    <button type="submit">开始搜索 <span>→</span></button>
+  </form>
+  <div class="source-explorer-results" data-source-results aria-live="polite">
+    <p class="source-explorer-empty">导入源后，这里会显示来自源站的搜索结果。</p>
+  </div>
+</section>
+
+<style>
+  .source-explorer{width:min(1080px,100%);margin:1rem auto 0;border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);border-radius:var(--theme-card-radius,18px);background:color-mix(in srgb,var(--surface-solid) 76%,transparent);padding:1.35rem 1.5rem;color:var(--ink);box-shadow:0 18px 45px rgb(20 35 25/.05)}
+  .source-explorer-header{display:flex;align-items:end;justify-content:space-between;gap:1rem;padding-bottom:1rem;border-bottom:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+  .source-explorer-header small{color:var(--brand);font:850 .6rem system-ui;letter-spacing:.16em}.source-explorer h2{margin:.25rem 0;font:650 1.75rem var(--theme-title-font)}.source-explorer p,.source-explorer-status{color:var(--muted-ink);font-size:.67rem}.source-explorer-status{white-space:nowrap}
+  .source-explorer-form{display:grid;grid-template-columns:minmax(0,1fr) 12rem auto;gap:.6rem;margin-top:1rem}.source-explorer-input{display:flex;align-items:center;gap:.5rem;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:.75rem;background:color-mix(in srgb,var(--surface-solid) 75%,transparent);padding:0 .7rem}.source-explorer-input span{opacity:.55}.source-explorer-input input{width:100%;height:2.7rem;border:0;outline:0;background:transparent;color:inherit;font-size:.72rem}.source-explorer-input kbd{border:1px solid color-mix(in srgb,var(--ink) 12%,transparent);border-radius:.3rem;padding:.1rem .3rem;color:var(--muted-ink);font-size:.55rem}.source-explorer select,.source-explorer-form>button{min-height:2.7rem;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:.75rem;background:transparent;color:inherit;padding:0 .75rem;font-size:.68rem;font-weight:800}.source-explorer-form>button{border-color:transparent;background:var(--ink);color:var(--surface-solid)}.source-explorer-form>button span{color:#cfff4f}
+  .source-explorer-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:.6rem;margin-top:1rem}.source-explorer-empty{grid-column:1/-1;margin:0;padding:1.3rem;border:1px dashed color-mix(in srgb,var(--ink) 15%,transparent);border-radius:.8rem;text-align:center}.source-result{display:grid;grid-template-columns:3.2rem minmax(0,1fr);gap:.75rem;min-height:5.8rem;border:1px solid color-mix(in srgb,var(--ink) 9%,transparent);border-radius:.8rem;padding:.65rem;color:inherit;text-decoration:none;transition:transform .18s,background .18s}.source-result:hover{transform:translateY(-2px);background:color-mix(in srgb,var(--brand) 6%,transparent)}.source-result img,.source-result>span:first-child{width:3.2rem;height:4.5rem;object-fit:cover;border-radius:.45rem;background:color-mix(in srgb,var(--brand) 12%,var(--surface-solid))}.source-result>span:first-child{display:grid;place-items:center;font:650 1.4rem var(--theme-title-font)}.source-result strong,.source-result small,.source-result p{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.source-result strong{font-size:.75rem}.source-result small{margin-top:.2rem;color:var(--brand);font-size:.56rem}.source-result p{margin:.45rem 0 0;color:var(--muted-ink);font-size:.6rem;line-height:1.5}.source-result em{display:block;margin-top:.35rem;color:var(--muted-ink);font-size:.54rem;font-style:normal}
+  @media(max-width:700px){.source-explorer{padding:1rem}.source-explorer-header{display:grid;align-items:start}.source-explorer-status{white-space:normal}.source-explorer-form{grid-template-columns:1fr 1fr}.source-explorer-input{grid-column:1/-1}.source-explorer-form>button{grid-column:1/-1}}
+</style>
+
+<script>
+  // @ts-nocheck
+  function initContentSourceExplorer() {
+    document.querySelectorAll('[data-source-explorer]').forEach((root) => {
+      if (root.dataset.ready) return
+      root.dataset.ready = '1'
+      const api = window.__PUBLIC_API_BASE__ || '/api'
+      const kind = root.dataset.kind
+      const form = root.querySelector('[data-source-form]'), query = root.querySelector('[data-source-query]'), select = root.querySelector('[data-source-select]'), results = root.querySelector('[data-source-results]'), status = root.querySelector('[data-source-status]')
+      const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]))
+      const show = (message, failed = false) => { status.textContent = message; status.style.color = failed ? '#b73535' : '' }
+      async function loadSources() {
+        try {
+          const response = await fetch(`${api}/content-sources?kind=${encodeURIComponent(kind)}`), json = await response.json()
+          if (!response.ok || json.success === false) throw new Error(json.message || '源读取失败')
+          select.innerHTML = `<option value="">默认源</option>` + (json.data?.sources || []).map((source) => `<option value="${escape(source.id)}">${escape(source.label)}${source.has_reader ? ' · 可直接阅读' : ''}</option>`).join('')
+          show(json.data?.sources?.length ? `已启用 ${json.data.sources.length} 个${kind === 'book' ? '小说' : kind === 'manga' ? '漫画' : '番剧'}源` : '暂无此类型的源，请先在后台导入')
+        } catch (error) { show(error.message || '源读取失败', true) }
+      }
+      async function search() {
+        const value = query.value.trim()
+        if (!value) { show('请输入搜索关键词', true); query.focus(); return }
+        show('正在通过源站检索…'); results.innerHTML = '<p class="source-explorer-empty">正在请求源站…</p>'
+        try {
+          const params = new URLSearchParams({ kind, q: value }); if (select.value) params.set('source', select.value)
+          const response = await fetch(`${api}/content-sources/search?${params}`), json = await response.json()
+          if (!response.ok || json.success === false) throw new Error(json.message || '源站检索失败')
+          const source = json.data?.source, items = json.data?.items || []
+          results.innerHTML = items.map((item) => `<a class="source-result" href="/source/${encodeURIComponent(kind)}/${encodeURIComponent(item.source || source?.id || '')}/${encodeURIComponent(item.external_id)}"><span>${item.cover ? `<img src="${escape(item.cover)}" alt="" loading="lazy">` : escape(item.title.slice(0, 1))}</span><span><strong>${escape(item.title)}</strong><small>${escape(item.author || item.original_title || source?.label || '')}</small><p>${escape(item.description || '打开查看详情与可读章节')}</p><em>${escape(source?.label || item.source_label || '')}${item.total ? ` · ${item.total} 章` : ''}</em></span></a>`).join('') || '<p class="source-explorer-empty">源站没有返回匹配结果。</p>'
+          show(`来自 ${source?.label || '源站'} · 找到 ${items.length} 条结果`)
+        } catch (error) { results.innerHTML = `<p class="source-explorer-empty">${escape(error.message || '源站检索失败')}</p>`; show(error.message || '源站检索失败', true) }
+      }
+      form.addEventListener('submit', (event) => { event.preventDefault(); search() })
+      loadSources()
+    })
+  }
+  document.addEventListener('astro:page-load', initContentSourceExplorer)
+  initContentSourceExplorer()
+</script>

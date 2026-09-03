@@ -24,6 +24,8 @@ const sourceServer = http.createServer((req, res) => {
     if (req.method === 'GET' && url.pathname === '/alpha/item/get-1') return res.end(JSON.stringify({ payload: { entry: getItem } }))
     if (req.method === 'POST' && url.pathname === '/beta/search') return res.end(JSON.stringify({ response: { list: [formItem] } }))
     if (req.method === 'POST' && url.pathname === '/beta/detail') return res.end(JSON.stringify({ response: { entry: formItem } }))
+    if (req.method === 'GET' && url.pathname === '/beta/catalog/form-1') return res.end(JSON.stringify({ response: { chapters: [{ id: 'chapter-1', title: '第一话', volume: '第一卷', number: 1 }] } }))
+    if (req.method === 'GET' && url.pathname === '/beta/chapter/chapter-1') return res.end(JSON.stringify({ response: { title: '第一话', pages: [sourceOrigin + '/images/chapter-1-1.jpg', sourceOrigin + '/images/chapter-1-2.jpg'] } }))
     res.statusCode = 404
     res.end(JSON.stringify({ error: 'not found' }))
   })
@@ -55,7 +57,7 @@ async function main() {
       return json.data
     }
     const getRule = { schema: 'boke-content-search-source', version: 1, source: { id: 'get-anime', label: 'GET 动画源', enabled: true, kinds: ['bangumi'], api_base: sourceOrigin, page_base: 'https://get.example', page_path: '/work/{id}', headers: { 'X-Rule-Token': 'get-secret' }, search: { method: 'GET', path: '/alpha/find?term={query}&kind={type}&take={limit}', result_path: 'payload.results', body_type: 'json' }, detail: { method: 'GET', path: '/alpha/item/{id}', result_path: 'payload.entry', body_type: 'json' }, mapping: { id: 'uid', title: 'names.cn', original_title: 'names.original', cover: 'poster.large', rating: 'metrics.score', publication: 'aired', description: 'intro', type: 'media.label', total: 'episodes' }, type_values: { bangumi: 'anime' } } }
-    const formRule = { schema: 'boke-content-search-source', version: 1, source: { id: 'form-manga', label: '表单漫画源', enabled: true, kinds: ['manga'], api_base: sourceOrigin, page_base: 'https://form.example', page_path: '/comic/{id}', headers: { 'X-Rule-Token': 'form-secret' }, search: { method: 'POST', path: '/beta/search', result_path: 'response.list', body_type: 'form', body: { word: '{query}', category: '{type}', take: '{limit}' } }, detail: { method: 'POST', path: '/beta/detail', result_path: 'response.entry', body_type: 'form', body: { subject_id: '{id}' } }, mapping: { id: 'key', title: 'display', original_title: 'raw_title', cover: 'art', rating: 'stars', publication: 'published', description: 'about' }, type_values: { manga: 'comic' } } }
+    const formRule = { schema: 'boke-content-search-source', version: 1, source: { id: 'form-manga', label: '表单漫画源', enabled: true, kinds: ['book', 'manga'], api_base: sourceOrigin, page_base: 'https://form.example', page_path: '/comic/{id}', headers: { 'X-Rule-Token': 'form-secret' }, search: { method: 'POST', path: '/beta/search', result_path: 'response.list', body_type: 'form', body: { word: '{query}', category: '{type}', take: '{limit}' } }, detail: { method: 'POST', path: '/beta/detail', result_path: 'response.entry', body_type: 'form', body: { subject_id: '{id}' } }, chapters: { method: 'GET', path: '/beta/catalog/{id}', result_path: 'response.chapters', body_type: 'json' }, reader: { method: 'GET', path: '/beta/chapter/{chapter_id}', result_path: 'response', body_type: 'json' }, mapping: { id: 'key', title: 'display', original_title: 'raw_title', cover: 'art', rating: 'stars', publication: 'published', description: 'about' }, chapter_mapping: { id: 'id', title: 'title', volume: 'volume', number: 'number' }, reader_mapping: { title: 'title', pages: 'pages', page_url: 'url' }, read_mode: 'pages', type_values: { book: 'book', manga: 'comic' } } }
     const getPreview = await call('/admin/search-sources/test', { method: 'POST', body: JSON.stringify({ file: getRule, kind: 'bangumi', query: 'test' }) })
     const formPreview = await call('/admin/search-sources/test', { method: 'POST', body: JSON.stringify({ file: formRule, kind: 'manga', query: 'test' }) })
     if (getPreview.items[0]?.title !== '独立 GET 番剧' || formPreview.items[0]?.title !== '独立表单漫画') throw new Error('unsaved rule preview failed')
@@ -81,10 +83,21 @@ async function main() {
     if (!getRequest?.url.includes('kind=anime') || getRequest.token !== 'get-secret') throw new Error('GET request rule failed')
     if (formSearch?.body !== 'word=test&category=comic&take=20' || formSearch.token !== 'form-secret') throw new Error('form search rule failed')
     if (formDetail?.body !== 'subject_id=form-1') throw new Error('form detail rule failed')
+    async function publicCall(url) {
+      const response = await fetch(`${origin}/api${url}`)
+      const json = await response.json()
+      if (!response.ok || json.success === false) throw new Error(`${url} ${JSON.stringify(json)}`)
+      return json.data
+    }
+    const publicSearch = await publicCall('/content-sources/search?kind=manga&source=form-manga&q=test')
+    const publicDetail = await publicCall('/content-sources/manga/form-manga/form-1')
+    const publicChapter = await publicCall('/content-sources/manga/form-manga/form-1/chapter/chapter-1')
+    const publicBook = await publicCall('/content-sources/search?kind=book&source=form-manga&q=test')
+    if (publicSearch.items[0]?.title !== '独立表单漫画' || publicDetail.chapters[0]?.external_id !== 'chapter-1' || publicChapter.reader.pages.length !== 2 || publicBook.items[0]?.title !== '独立表单漫画') throw new Error('public source search/catalog/reader failed')
     let invalidRejected = false
     try { await call('/admin/search-sources/import', { method: 'POST', body: JSON.stringify({ ...getRule, source: { ...getRule.source, id: 'invalid', mapping: { title: 'names.cn' } } }) }) } catch (error) { invalidRejected = error.status === 400 }
     if (!invalidRejected) throw new Error('invalid mapping rule was accepted')
-    console.log(JSON.stringify({ success: true, independent_files: 2, get_rule: true, form_rule: true, detail_post: true, default_source_enforced: true, invalid_rule_rejected: true }, null, 2))
+    console.log(JSON.stringify({ success: true, independent_files: 2, get_rule: true, form_rule: true, detail_post: true, public_search: true, public_catalog: true, public_reader: true, book_kind: true, default_source_enforced: true, invalid_rule_rejected: true }, null, 2))
   } finally {
     child.kill('SIGTERM')
     sourceServer.close()

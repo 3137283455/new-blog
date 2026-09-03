@@ -62,7 +62,7 @@ export async function testSource(req: AuthRequest, res: Response) {
   const file = sourceFile(req.body)
   if (!validFile(file)) return error(res, '不是有效的单源规则文件', 'INVALID_SEARCH_SOURCE_FILE', 400)
   const kind = clean(req.body?.kind, 20) as ContentSearchKind
-  if (kind !== 'bangumi' && kind !== 'manga') return error(res, '请选择追番或漫画试跑类型', 'INVALID_SEARCH_KIND', 400)
+  if (kind !== 'book' && kind !== 'bangumi' && kind !== 'manga') return error(res, '请选择小说、追番或漫画试跑类型', 'INVALID_SEARCH_KIND', 400)
   try {
     const result = await testContentSearchSourceRule(file.source, kind, clean(req.body?.query, 120), clean(req.body?.id, 80), browserHeaders(req))
     return success(res, result, '检索源试跑成功')

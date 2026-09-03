@@ -1,0 +1,52 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro'
+import { getContentSourceDetail, type ContentSourceKind } from '../../../../lib/api'
+
+const kind = Astro.params.kind as ContentSourceKind
+const source = Astro.params.source || ''
+const id = Astro.params.id || ''
+if (!['book', 'manga', 'bangumi'].includes(kind)) return Astro.redirect('/404')
+const data = await getContentSourceDetail(kind, source, id)
+if (!data?.item) return Astro.redirect('/404')
+const item = data.item
+const sourceMeta = data.source
+const chapters = Array.isArray(data.chapters) ? data.chapters : []
+const home = kind === 'book' ? '/books' : kind === 'manga' ? '/manga' : '/bangumi'
+const titleLabel = kind === 'book' ? '小说' : kind === 'manga' ? '漫画' : '番剧'
+const chapterHref = (chapter: any) => data.can_read ? `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/chapter/${encodeURIComponent(chapter.external_id)}?id=${encodeURIComponent(id)}` : chapter.source_url
+---
+
+<BaseLayout title={item.title} subtitle={`${sourceMeta.label} · 源站详情`} showSidebar={false} showBanner={false} wide>
+  <main class="source-detail-page">
+    <a class="source-back" href={home}>← 返回{titleLabel}架</a>
+    <article class="source-detail-hero">
+      <div class="source-detail-cover">{item.cover ? <img src={item.cover} alt={`${item.title}封面`} /> : <span>{item.title.slice(0, 1)}</span>}</div>
+      <div class="source-detail-copy">
+        <small>{sourceMeta.label} · {data.can_read ? '站内阅读' : '源站阅读'}</small>
+        <h1>{item.title}</h1>
+        {item.original_title && item.original_title !== item.title && <p class="source-original">{item.original_title}</p>}
+        <p class="source-author">{item.author || item.publication || '源站未提供作者信息'}</p>
+        <p class="source-description">{item.description || '源站没有提供简介。'}</p>
+        <div class="source-detail-actions">
+          {chapters[0] && <a class="source-primary" href={chapterHref(chapters[0])} target={data.can_read ? undefined : '_blank'} rel={data.can_read ? undefined : 'noopener noreferrer'}>开始阅读 <span>→</span></a>}
+          {item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer">查看源站 ↗</a>}
+        </div>
+      </div>
+      <dl class="source-detail-facts">
+        <div><dt>{chapters.length || item.total || '—'}</dt><dd>{chapters.length ? '可读章节' : '总章节'}</dd></div>
+        <div><dt>{item.rating ? Number(item.rating).toFixed(1) : '—'}</dt><dd>评分</dd></div>
+        <div><dt>{sourceMeta.id}</dt><dd>来源 ID</dd></div>
+      </dl>
+    </article>
+
+    <section class="source-chapter-panel">
+      <header><div><small>CATALOG</small><h2>{data.can_read ? '目录与阅读' : '源站目录'}</h2></div><span>{chapters.length ? `${chapters.length} 个章节` : '此源未配置章节接口'}</span></header>
+      {chapters.length ? <ol>{chapters.map((chapter: any, index: number) => <li><a href={chapterHref(chapter)} target={data.can_read ? undefined : '_blank'} rel={data.can_read ? undefined : 'noopener noreferrer'}><span>{String(index + 1).padStart(2, '0')}</span><strong>{chapter.title}</strong><small>{chapter.volume || (data.can_read ? '站内阅读' : '源站打开')} {data.can_read ? '→' : '↗'}</small></a></li>)}</ol> : <p class="source-chapter-empty">当前源只提供作品详情。若要在本站阅读，请在源文件中增加 <code>chapters</code> 与 <code>reader</code> 接口；否则可通过上方源站入口阅读。</p>}
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .source-detail-page{width:min(1080px,100%);margin:auto;padding:1rem 1rem 5rem;color:var(--ink)}.source-back{display:inline-block;margin-bottom:1rem;color:var(--muted-ink);font-size:.7rem;font-weight:800}.source-detail-hero{display:grid;grid-template-columns:190px minmax(0,1fr) 160px;gap:2rem;align-items:center;border:1px solid var(--line);border-radius:calc(var(--theme-card-radius,18px)*1.2);background:color-mix(in srgb,var(--surface-solid) 86%,transparent);padding:1.8rem;box-shadow:0 22px 55px rgb(20 35 25/.08)}.source-detail-cover{overflow:hidden;aspect-ratio:2/3;border-radius:.8rem;background:color-mix(in srgb,var(--brand) 12%,var(--surface-solid));box-shadow:0 18px 35px rgb(20 30 22/.16)}.source-detail-cover img{width:100%;height:100%;object-fit:cover}.source-detail-cover span{display:grid;width:100%;height:100%;place-items:center;font:700 4rem var(--theme-title-font)}.source-detail-copy>small,.source-chapter-panel header small{color:var(--brand);font:850 .6rem system-ui;letter-spacing:.15em}.source-detail-copy h1{margin:.45rem 0 .2rem;font:650 clamp(2.4rem,5vw,4.4rem)/1.05 var(--theme-title-font)}.source-original,.source-description,.source-chapter-empty{color:var(--muted-ink)}.source-original{font-size:.7rem}.source-author{margin-top:.7rem;font-weight:850}.source-description{max-width:44rem;margin-top:1rem;line-height:1.8;white-space:pre-line}.source-detail-actions{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.35rem}.source-detail-actions a{display:inline-flex;min-height:2.6rem;align-items:center;border:1px solid var(--line);border-radius:.7rem;padding:.6rem .8rem;color:inherit;font-size:.68rem;font-weight:850}.source-detail-actions .source-primary{gap:.6rem;border-color:transparent;background:var(--ink);color:var(--surface-solid)}.source-primary span{color:#cfff4f}.source-detail-facts{display:grid;gap:1rem;border-left:1px solid var(--line);padding-left:1.5rem}.source-detail-facts div{display:grid;gap:.2rem}.source-detail-facts dt{font:650 1.1rem var(--theme-title-font);overflow:hidden;text-overflow:ellipsis}.source-detail-facts dd{color:var(--muted-ink);font-size:.58rem}.source-chapter-panel{margin-top:1rem;border:1px solid var(--line);border-radius:var(--theme-card-radius,18px);background:color-mix(in srgb,var(--surface-solid) 84%,transparent);padding:1.4rem}.source-chapter-panel header{display:flex;align-items:end;justify-content:space-between;padding-bottom:1rem;border-bottom:1px solid var(--line)}.source-chapter-panel h2{margin:.25rem 0 0;font:650 1.8rem var(--theme-title-font)}.source-chapter-panel header>span{color:var(--muted-ink);font-size:.62rem}.source-chapter-panel ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem;padding:1rem 0 0;list-style:none}.source-chapter-panel li a{display:grid;grid-template-columns:2.2rem minmax(0,1fr) auto;align-items:center;gap:.6rem;border-radius:.7rem;padding:.7rem;color:inherit}.source-chapter-panel li a:hover{background:color-mix(in srgb,var(--brand) 7%,transparent)}.source-chapter-panel li a>span{color:var(--muted-ink);font:.62rem ui-monospace}.source-chapter-panel li strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem}.source-chapter-panel li small{color:var(--muted-ink);font-size:.58rem}.source-chapter-empty{padding:1rem 0;font-size:.72rem;line-height:1.8}.source-chapter-empty code{color:var(--brand)}
+  @media(max-width:760px){.source-detail-page{padding:.5rem .65rem 3rem}.source-detail-hero{grid-template-columns:105px minmax(0,1fr);gap:1rem;padding:1rem}.source-detail-copy h1{font-size:1.8rem}.source-description{grid-column:1/-1;margin-top:.3rem;font-size:.72rem}.source-detail-actions{grid-column:1/-1;flex-direction:column}.source-detail-actions a{justify-content:center}.source-detail-facts{grid-column:1/-1;display:flex;border-top:1px solid var(--line);border-left:0;padding:1rem 0 0}.source-detail-facts dt{font-size:.9rem}.source-chapter-panel{padding:1rem}.source-chapter-panel header>span{display:none}.source-chapter-panel ol{grid-template-columns:1fr}}
+</style>

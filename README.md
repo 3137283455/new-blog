@@ -8,6 +8,7 @@
 - 📝 **Markdown 写作**：代码高亮、表格、图片、公式、脚注排版
 - 🗂️ **文章管理**：草稿/发布、置顶、推荐、私密、批量删除、回收站
 - 🔍 **全文搜索**：标题+正文+标签+分类模糊搜索，关键词高亮
+- 🧩 **可导入内容源**：导入 JSON 源后即可搜索小说、漫画和番剧；源可继续提供目录、正文或漫画图片
 - 💬 **评论系统**：发表、回复、审核、垃圾过滤
 - ❤️ **互动功能**：点赞、分享、回到顶部
 - ⭐ **本地收藏**：收藏文章、首页快速访问，阅读偏好保存在当前浏览器
@@ -133,6 +134,10 @@ npm run dev
 - `GET /api/pages/:slug` — 自定义页面
 - `GET /api/navigation` — 导航资源
 - `GET /api/bangumi` — 追番列表
+- `GET /api/content-sources?kind=book|manga|bangumi` — 已启用内容源（不返回源请求头）
+- `GET /api/content-sources/search?kind=...&q=...&source=...` — 通过导入源搜索内容
+- `GET /api/content-sources/:kind/:source/:id` — 源作品详情与章节目录
+- `GET /api/content-sources/:kind/:source/:id/chapter/:chapterId` — 源章节正文或漫画图片
 - `GET /api/albums` / `GET /api/albums/:id` — 相册与照片
 - `GET /api/settings/public` — 公开站点设置与音乐数据
 - `POST /api/articles/:id/comments` — 发表评论
@@ -145,6 +150,10 @@ npm run dev
 - 仪表盘统计、主题/插件管理、系统设置
 
 详细接口见 [架构设计文档](C:\Users\fu\.claude\plans\joyful-toasting-hoare.md)。
+
+### 内容源
+
+书库 `/books` 和漫画 `/manga` 页面包含「从源中搜索」入口。管理员在后台「内容检索源」中导入 JSON 规则即可接入新的站点，不需要修改页面代码。协议说明和可复制的模板见 [`docs/content-source.md`](docs/content-source.md) 与 [`sources/example.content-search-source.json`](sources/example.content-search-source.json)。
 
 ## 🏗️ 生产部署
 

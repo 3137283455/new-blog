@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import MangaLibraryRefactor from '../../components/MangaLibraryRefactor.astro'
+import ContentSourceExplorer from '../../components/ContentSourceExplorer.astro'
 import { getMangaItems } from '../../lib/api'
 import { resolveUploadUrl } from '../../lib/media'
 const manga=await getMangaItems()
@@ -9,7 +11,9 @@ const initial=local.length?'local':'network'
 const labels:Record<string,string>={reading:'在读',finished:'读完',planned:'想读',paused:'暂放'}
 ---
 <BaseLayout title="漫画" subtitle="本地漫画与网络收藏" showSidebar={false} showBanner={false} wide>
-  <main class="manga-library" data-manga-library data-initial={initial}>
+  <MangaLibraryRefactor manga={manga} />
+  <ContentSourceExplorer kind="manga" />
+  <main class="manga-library" data-legacy-manga-library hidden style="display:none!important" data-initial={initial}>
     <header class="manga-heading"><div><small>PERSONAL MANGA LIBRARY</small><h1>漫画书架</h1><p>本地漫画保存在自己的书架，网络漫画保留常用阅读入口。</p></div><dl><div><dt>{local.length}</dt><dd>本地</dd></div><div><dt>{network.length}</dt><dd>网络</dd></div></dl></header>
     <section class="library-bar"><nav aria-label="漫画类型"><button data-type="local" class={initial==='local'?'is-active':''}>本地漫画 <span>{local.length}</span></button><button data-type="network" class={initial==='network'?'is-active':''}>网络漫画 <span>{network.length}</span></button></nav><label><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="搜索漫画或作者" data-search /></label></section>
     <section class="manga-shelf" data-grid>

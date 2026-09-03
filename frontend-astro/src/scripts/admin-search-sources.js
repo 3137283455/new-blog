@@ -34,7 +34,7 @@
       id: 'my-source',
       label: '我的检索源',
       enabled: true,
-      kinds: ['bangumi', 'manga'],
+      kinds: ['book', 'bangumi', 'manga'],
       api_base: 'https://api.example.com',
       page_base: 'https://www.example.com',
       page_path: '/subject/{id}',
@@ -82,7 +82,7 @@
     state.selectedId = source?.id || '';
     const editor = $('#content-search-source-editor');
     if (editor) editor.value = JSON.stringify(source ? fileFor(source) : templateFile(), null, 2);
-    const kind = (source?.kinds || templateFile().source.kinds)[0] || 'bangumi';
+    const kind = (source?.kinds || templateFile().source.kinds)[0] || 'book';
     if ($('#search-source-test-kind')) $('#search-source-test-kind').value = kind;
     if ($('#search-source-test-results')) $('#search-source-test-results').innerHTML = '';
     const badge = $('#search-source-test-badge');
@@ -95,7 +95,7 @@
   }
 
   function renderDefaults() {
-    for (const kind of ['bangumi', 'manga']) {
+    for (const kind of ['book', 'bangumi', 'manga']) {
       const select = $(`#search-source-default-${kind}`);
       if (!select || !state.config) continue;
       select.innerHTML = sourceOptions(kind).map((source) => `<option value="${escapeHtml(source.id)}">${escapeHtml(source.label)} · ${escapeHtml(source.id)}</option>`).join('');

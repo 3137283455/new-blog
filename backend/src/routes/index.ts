@@ -25,6 +25,7 @@ import * as bookImportCtrl from '../controllers/book-import'
 import * as bookFormatsCtrl from '../controllers/book-formats'
 import * as mangaCtrl from '../controllers/manga'
 import * as searchSourceCtrl from '../controllers/search-sources'
+import * as contentSourceCtrl from '../controllers/content-sources'
 import * as contentCenterCtrl from '../controllers/content-center'
 import { upload, backupUpload, epubUpload, textBookUpload, mangaArchiveUpload } from '../middleware/upload'
 
@@ -85,6 +86,11 @@ router.post('/articles/:id/like', articleCtrl.like)
 router.get('/themes/active', themeCtrl.active)
 router.get('/plugins/active', pluginCtrl.activePlugins)
 router.get('/settings/public', settingCtrl.publicSettings)
+router.get('/content-sources', contentSourceCtrl.config)
+router.get('/content-sources/search', contentSourceCtrl.search)
+router.get('/content-sources/media', contentSourceCtrl.media)
+router.get('/content-sources/:kind/:source/:id', contentSourceCtrl.detail)
+router.get('/content-sources/:kind/:source/:id/chapter/:chapterId', contentSourceCtrl.chapter)
 router.get('/rss', articleCtrl.rss)
 router.get('/feed.json', articleCtrl.jsonFeed)
 router.get('/visitors/count', dashboardCtrl.todayCount)

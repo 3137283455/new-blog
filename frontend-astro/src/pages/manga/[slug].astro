@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import MangaDetailRefactor from '../../components/MangaDetailRefactor.astro'
 import { getManga } from '../../lib/api'
 import { resolveUploadUrl } from '../../lib/media'
 const item=await getManga(Astro.params.slug||'')
@@ -12,7 +13,8 @@ const primary=sources[0]
 const labels:Record<string,string>={reading:'在读',finished:'读完',planned:'想读',paused:'暂放'}
 ---
 <BaseLayout title={item.title} subtitle={item.author||'漫画收藏'} showSidebar={false} showBanner={false} wide>
-  <main class="manga-detail" data-manga-detail data-id={item.id} data-slug={item.slug}>
+  <MangaDetailRefactor item={item} isLocal={isLocal} volumes={volumes} first={first} sources={sources} primary={primary} labels={labels} />
+  <main class="manga-detail" data-legacy-manga-detail hidden style="display:none!important" data-id={item.id} data-slug={item.slug}>
     <a class="manga-back" href="/manga">← 返回漫画书架</a>
     <article class="manga-hero">
       <div class="detail-cover">{item.cover?<img src={resolveUploadUrl(item.cover)} alt={item.title+'封面'} />:<span>{item.title.slice(0,1)}</span>}</div>

@@ -211,6 +211,67 @@ export interface MangaReadSource {
   is_default?: number | boolean
   sort_order?: number
 }
+export type ContentSourceKind = 'book' | 'manga' | 'bangumi'
+export interface ContentSourceMeta {
+  id: string
+  label: string
+  kinds: ContentSourceKind[]
+  read_mode: 'external' | 'html' | 'pages' | 'auto'
+  has_catalog: boolean
+  has_reader: boolean
+}
+export interface ContentSourceItem {
+  external_id: string
+  source: string
+  source_label: string
+  title: string
+  original_title?: string
+  cover?: string
+  source_url?: string
+  rating?: number
+  publication?: string
+  description?: string
+  author?: string
+  type?: string
+  total?: number
+}
+export interface ContentSourceChapter {
+  external_id: string
+  title: string
+  volume?: string
+  number?: number
+  source_url?: string
+}
+export async function getContentSourceConfig(kind?: ContentSourceKind) {
+  try {
+    const suffix = kind ? `?kind=${encodeURIComponent(kind)}` : ''
+    const response = await apiFetch(`${API_BASE}/content-sources${suffix}`)
+    if (!response.ok) return null
+    return (await response.json()).data || null
+  } catch { return null }
+}
+export async function searchContentSources(kind: ContentSourceKind, query: string, source?: string) {
+  try {
+    const params = new URLSearchParams({ kind, q: query }); if (source) params.set('source', source)
+    const response = await apiFetch(`${API_BASE}/content-sources/search?${params}`)
+    if (!response.ok) return null
+    return (await response.json()).data || null
+  } catch { return null }
+}
+export async function getContentSourceDetail(kind: ContentSourceKind, source: string, id: string) {
+  try {
+    const response = await apiFetch(`${API_BASE}/content-sources/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/${encodeURIComponent(id)}`)
+    if (!response.ok) return null
+    return (await response.json()).data || null
+  } catch { return null }
+}
+export async function getContentSourceChapter(kind: ContentSourceKind, source: string, id: string, chapterId: string) {
+  try {
+    const response = await apiFetch(`${API_BASE}/content-sources/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/${encodeURIComponent(id)}/chapter/${encodeURIComponent(chapterId)}`)
+    if (!response.ok) return null
+    return (await response.json()).data || null
+  } catch { return null }
+}
 export interface MangaItem {
   id: number
   title: string

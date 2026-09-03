@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro'
+import BookLibraryRefactor from '../../components/BookLibraryRefactor.astro'
+import ContentSourceExplorer from '../../components/ContentSourceExplorer.astro'
 import { getBooks } from '../../lib/api'
 import { resolveUploadUrl } from '../../lib/media'
 const books = await getBooks()
@@ -8,7 +10,9 @@ const totalChapters = books.reduce((sum, book) => sum + Number(book.chapter_coun
 const statusLabel = (status?: string) => ({ reading: '阅读中', finished: '已读完', planned: '想阅读', paused: '暂放' }[status || 'reading'] || '阅读中')
 ---
 <BaseLayout title="书库" subtitle="小说、分卷与长期阅读" showSidebar={false} showBanner={false}>
-  <section class="library" data-library>
+  <BookLibraryRefactor books={books} />
+  <ContentSourceExplorer kind="book" />
+  <section class="library" data-legacy-library hidden style="display:none!important">
     <header class="library-heading"><div><p>PERSONAL LIBRARY</p><h1>书库</h1><span>读过的、正在读的，以及准备留到以后的故事。</span></div><dl><div><dt>{books.length}</dt><dd>藏书</dd></div><div><dt>{totalVolumes}</dt><dd>分卷</dd></div><div><dt>{totalChapters}</dt><dd>章节</dd></div></dl></header>
     <section class="continue-reading" data-continue hidden><div class="continue-cover"><img data-continue-cover alt="" /></div><div class="continue-copy"><p>CONTINUE READING</p><h2 data-continue-title>继续阅读</h2><span data-continue-chapter></span><div class="continue-progress"><i data-continue-bar></i></div><small data-continue-progress></small></div><a data-continue-link href="/books">继续阅读 <span>→</span></a></section>
     <section class="library-panel">
