@@ -14,7 +14,7 @@ const sourceMeta = data.source
 const chapters = Array.isArray(data.chapters) ? data.chapters : []
 const home = kind === 'book' ? '/books' : kind === 'manga' ? '/manga' : '/bangumi'
 const titleLabel = kind === 'book' ? '小说' : kind === 'manga' ? '漫画' : '番剧'
-const chapterHref = (chapter: any) => data.can_read ? `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/chapter/${encodeURIComponent(chapter.external_id)}?id=${encodeURIComponent(id)}` : chapter.source_url
+const chapterHref = (chapter: any) => data.can_read ? `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/chapter/${encodeURIComponent(chapter.external_id)}?id=${encodeURIComponent(id)}&title=${encodeURIComponent(chapter.title || '')}` : chapter.source_url
 ---
 
 <BaseLayout title={item.title} subtitle={`${sourceMeta.label} · 源站详情`} showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
@@ -32,6 +32,11 @@ const chapterHref = (chapter: any) => data.can_read ? `/source/${encodeURICompon
         <div class="source-detail-actions">
           {chapters[0] && <a class="source-primary" href={chapterHref(chapters[0])} target={data.can_read ? undefined : '_blank'} rel={data.can_read ? undefined : 'noopener noreferrer'}>开始阅读 <span>→</span></a>}
           {item.source_url && <a href={item.source_url} target="_blank" rel="noopener noreferrer">查看源站 ↗</a>}
+          {kind === 'manga' && <div class="manga-collection-actions" data-manga-collection data-source={source} data-external-id={id} data-title={item.title} data-original-title={item.original_title || ''} data-author={item.author || ''} data-cover={item.cover || ''} data-description={item.description || ''} data-source-url={item.source_url || ''} data-publication={item.publication || ''}>
+            <button type="button" data-manga-shelf>加入书架</button>
+            <button type="button" data-manga-favorite>收藏</button>
+            <span data-manga-collection-message></span>
+          </div>}
         </div>
       </div>
       <dl class="source-detail-facts">
@@ -49,6 +54,59 @@ const chapterHref = (chapter: any) => data.can_read ? `/source/${encodeURICompon
 </BaseLayout>
 
 <style>
-  .source-detail-page{width:min(1080px,100%);margin:auto;padding:1rem 1rem 5rem;color:var(--ink)}.source-back{display:inline-block;margin-bottom:1rem;color:var(--muted-ink);font-size:.7rem;font-weight:800}.source-detail-hero{display:grid;grid-template-columns:190px minmax(0,1fr) 160px;gap:2rem;align-items:center;border:1px solid var(--line);border-radius:calc(var(--theme-card-radius,18px)*1.2);background:color-mix(in srgb,var(--surface-solid) 86%,transparent);padding:1.8rem;box-shadow:0 22px 55px rgb(20 35 25/.08)}.source-detail-cover{overflow:hidden;aspect-ratio:2/3;border-radius:.8rem;background:color-mix(in srgb,var(--brand) 12%,var(--surface-solid));box-shadow:0 18px 35px rgb(20 30 22/.16)}.source-detail-cover img{width:100%;height:100%;object-fit:cover}.source-detail-cover span{display:grid;width:100%;height:100%;place-items:center;font:700 4rem var(--theme-title-font)}.source-detail-copy>small,.source-chapter-panel header small{color:var(--brand);font:850 .6rem system-ui;letter-spacing:.15em}.source-detail-copy h1{margin:.45rem 0 .2rem;font:650 clamp(2.4rem,5vw,4.4rem)/1.05 var(--theme-title-font)}.source-original,.source-description,.source-chapter-empty{color:var(--muted-ink)}.source-original{font-size:.7rem}.source-author{margin-top:.7rem;font-weight:850}.source-description{max-width:44rem;margin-top:1rem;line-height:1.8;white-space:pre-line}.source-detail-actions{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.35rem}.source-detail-actions a{display:inline-flex;min-height:2.6rem;align-items:center;border:1px solid var(--line);border-radius:.7rem;padding:.6rem .8rem;color:inherit;font-size:.68rem;font-weight:850}.source-detail-actions .source-primary{gap:.6rem;border-color:transparent;background:var(--ink);color:var(--surface-solid)}.source-primary span{color:#cfff4f}.source-detail-facts{display:grid;gap:1rem;border-left:1px solid var(--line);padding-left:1.5rem}.source-detail-facts div{display:grid;gap:.2rem}.source-detail-facts dt{font:650 1.1rem var(--theme-title-font);overflow:hidden;text-overflow:ellipsis}.source-detail-facts dd{color:var(--muted-ink);font-size:.58rem}.source-chapter-panel{margin-top:1rem;border:1px solid var(--line);border-radius:var(--theme-card-radius,18px);background:color-mix(in srgb,var(--surface-solid) 84%,transparent);padding:1.4rem}.source-chapter-panel header{display:flex;align-items:end;justify-content:space-between;padding-bottom:1rem;border-bottom:1px solid var(--line)}.source-chapter-panel h2{margin:.25rem 0 0;font:650 1.8rem var(--theme-title-font)}.source-chapter-panel header>span{color:var(--muted-ink);font-size:.62rem}.source-chapter-panel ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem;padding:1rem 0 0;list-style:none}.source-chapter-panel li a{display:grid;grid-template-columns:2.2rem minmax(0,1fr) auto;align-items:center;gap:.6rem;border-radius:.7rem;padding:.7rem;color:inherit}.source-chapter-panel li a:hover{background:color-mix(in srgb,var(--brand) 7%,transparent)}.source-chapter-panel li a>span{color:var(--muted-ink);font:.62rem ui-monospace}.source-chapter-panel li strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem}.source-chapter-panel li small{color:var(--muted-ink);font-size:.58rem}.source-chapter-empty{padding:1rem 0;font-size:.72rem;line-height:1.8}.source-chapter-empty code{color:var(--brand)}
+  .source-detail-page{width:min(1080px,100%);margin:auto;padding:1rem 1rem 5rem;color:var(--ink)}.source-back{display:inline-block;margin-bottom:1rem;color:var(--muted-ink);font-size:.7rem;font-weight:800}.source-detail-hero{display:grid;grid-template-columns:190px minmax(0,1fr) 160px;gap:2rem;align-items:center;border:1px solid var(--line);border-radius:calc(var(--theme-card-radius,18px)*1.2);background:color-mix(in srgb,var(--surface-solid) 86%,transparent);padding:1.8rem;box-shadow:0 22px 55px rgb(20 35 25/.08)}.source-detail-cover{overflow:hidden;aspect-ratio:2/3;border-radius:.8rem;background:color-mix(in srgb,var(--brand) 12%,var(--surface-solid));box-shadow:0 18px 35px rgb(20 30 22/.16)}.source-detail-cover img{width:100%;height:100%;object-fit:cover}.source-detail-cover span{display:grid;width:100%;height:100%;place-items:center;font:700 4rem var(--theme-title-font)}.source-detail-copy>small,.source-chapter-panel header small{color:var(--brand);font:850 .6rem system-ui;letter-spacing:.15em}.source-detail-copy h1{margin:.45rem 0 .2rem;font:650 clamp(2.4rem,5vw,4.4rem)/1.05 var(--theme-title-font)}.source-original,.source-description,.source-chapter-empty{color:var(--muted-ink)}.source-original{font-size:.7rem}.source-author{margin-top:.7rem;font-weight:850}.source-description{max-width:44rem;margin-top:1rem;line-height:1.8;white-space:pre-line}.source-detail-actions{display:flex;flex-wrap:wrap;gap:.55rem;margin-top:1.35rem}.source-detail-actions a{display:inline-flex;min-height:2.6rem;align-items:center;border:1px solid var(--line);border-radius:.7rem;padding:.6rem .8rem;color:inherit;font-size:.68rem;font-weight:850}.source-detail-actions .source-primary{gap:.6rem;border-color:transparent;background:var(--ink);color:var(--surface-solid)}.source-primary span{color:#cfff4f}.manga-collection-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.45rem}.manga-collection-actions button{min-height:2.6rem;border:1px solid var(--line);border-radius:.7rem;background:var(--surface-solid);color:inherit;padding:.6rem .8rem;font:850 .68rem inherit;cursor:pointer}.manga-collection-actions button.is-active{border-color:var(--brand);background:color-mix(in srgb,var(--brand) 12%,var(--surface-solid))}.manga-collection-actions span{color:var(--muted-ink);font-size:.58rem}.manga-collection-actions span.is-error{color:#c85d5d}.source-detail-facts{display:grid;gap:1rem;border-left:1px solid var(--line);padding-left:1.5rem}.source-detail-facts div{display:grid;gap:.2rem}.source-detail-facts dt{font:650 1.1rem var(--theme-title-font);overflow:hidden;text-overflow:ellipsis}.source-detail-facts dd{color:var(--muted-ink);font-size:.58rem}.source-chapter-panel{margin-top:1rem;border:1px solid var(--line);border-radius:var(--theme-card-radius,18px);background:color-mix(in srgb,var(--surface-solid) 84%,transparent);padding:1.4rem}.source-chapter-panel header{display:flex;align-items:end;justify-content:space-between;padding-bottom:1rem;border-bottom:1px solid var(--line)}.source-chapter-panel h2{margin:.25rem 0 0;font:650 1.8rem var(--theme-title-font)}.source-chapter-panel header>span{color:var(--muted-ink);font-size:.62rem}.source-chapter-panel ol{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem;padding:1rem 0 0;list-style:none}.source-chapter-panel li a{display:grid;grid-template-columns:2.2rem minmax(0,1fr) auto;align-items:center;gap:.6rem;border-radius:.7rem;padding:.7rem;color:inherit}.source-chapter-panel li a:hover{background:color-mix(in srgb,var(--brand) 7%,transparent)}.source-chapter-panel li a>span{color:var(--muted-ink);font:.62rem ui-monospace}.source-chapter-panel li strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.72rem}.source-chapter-panel li small{color:var(--muted-ink);font-size:.58rem}.source-chapter-empty{padding:1rem 0;font-size:.72rem;line-height:1.8}.source-chapter-empty code{color:var(--brand)}
   @media(max-width:760px){.source-detail-page{padding:.5rem .65rem 3rem}.source-detail-hero{grid-template-columns:105px minmax(0,1fr);gap:1rem;padding:1rem}.source-detail-copy h1{font-size:1.8rem}.source-description{grid-column:1/-1;margin-top:.3rem;font-size:.72rem}.source-detail-actions{grid-column:1/-1;flex-direction:column}.source-detail-actions a{justify-content:center}.source-detail-facts{grid-column:1/-1;display:flex;border-top:1px solid var(--line);border-left:0;padding:1rem 0 0}.source-detail-facts dt{font-size:.9rem}.source-chapter-panel{padding:1rem}.source-chapter-panel header>span{display:none}.source-chapter-panel ol{grid-template-columns:1fr}}
 </style>
+
+<script>
+  // @ts-nocheck
+  import { ensurePrivateDeviceToken } from '../../../../lib/private-device'
+  import { findLocalMangaCollection, getPrivateMangaCollections, removePrivateMangaCollection, saveLocalMangaCollection, syncPrivateMangaCollection } from '../../../../lib/manga-collections'
+
+  function initMangaCollection() {
+    const root = document.querySelector('[data-manga-collection]')
+    if (!root || root.dataset.ready) return
+    root.dataset.ready = '1'
+    const apiBase = window.__PUBLIC_API_BASE__ || '/api'
+    const shelfButton = root.querySelector('[data-manga-shelf]')
+    const favoriteButton = root.querySelector('[data-manga-favorite]')
+    const message = root.querySelector('[data-manga-collection-message]')
+    const key = { source: root.dataset.source, external_id: root.dataset.externalId }
+    let current = findLocalMangaCollection(key.source, key.external_id)
+    let deviceToken = ''
+
+    const render = () => {
+      shelfButton.textContent = current?.in_shelf ? '已在书架' : '加入书架'
+      favoriteButton.textContent = current?.is_favorite ? '已收藏' : '收藏'
+      shelfButton.classList.toggle('is-active', Boolean(current?.in_shelf))
+      favoriteButton.classList.toggle('is-active', Boolean(current?.is_favorite))
+    }
+    const baseItem = () => ({ id: current?.id, ...key, title: root.dataset.title || '未命名漫画', original_title: root.dataset.originalTitle || '', author: root.dataset.author || '', cover: root.dataset.cover || '', description: root.dataset.description || '', source_url: root.dataset.sourceUrl || '', publication: root.dataset.publication || '', status: current?.status || 'planned', in_shelf: Boolean(current?.in_shelf), is_favorite: Boolean(current?.is_favorite) })
+    const setMessage = (text, failed = false) => { message.textContent = text; message.classList.toggle('is-error', failed) }
+    const persist = async (next) => {
+      current = next.in_shelf || next.is_favorite ? next : null
+      saveLocalMangaCollection({ ...next, in_shelf: Boolean(next.in_shelf), is_favorite: Boolean(next.is_favorite) })
+      if (current && deviceToken) {
+        try { current = await syncPrivateMangaCollection(apiBase, deviceToken, current) || current; saveLocalMangaCollection(current); setMessage('已同步到书架') }
+        catch { setMessage('已保存在当前浏览器，云端同步失败', true) }
+      } else if (!current && deviceToken) {
+        try { await removePrivateMangaCollection(apiBase, deviceToken, next.id, key); setMessage('已从书架移除') }
+        catch { setMessage('已从当前浏览器移除，云端删除失败', true) }
+      } else { setMessage(current ? '已加入书架（当前浏览器）' : '已从当前浏览器移除') }
+      render()
+    }
+    shelfButton.addEventListener('click', () => persist({ ...baseItem(), in_shelf: !current?.in_shelf, is_favorite: Boolean(current?.is_favorite) }))
+    favoriteButton.addEventListener('click', () => persist({ ...baseItem(), in_shelf: true, is_favorite: !current?.is_favorite }))
+    render()
+    ;(async () => {
+      deviceToken = await ensurePrivateDeviceToken(apiBase)
+      if (!deviceToken) return
+      try {
+        const remote = (await getPrivateMangaCollections(apiBase, deviceToken)).find((item) => item.source === key.source && item.external_id === key.external_id)
+        if (remote) { current = remote; saveLocalMangaCollection(remote); render() }
+      } catch {}
+    })()
+  }
+  document.addEventListener('astro:page-load', initMangaCollection)
+  initMangaCollection()
+</script>

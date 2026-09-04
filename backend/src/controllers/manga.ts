@@ -142,3 +142,33 @@ export function importLocal(req: AuthRequest, res: Response) {
 export function getReadingState(req: DeviceRequest,res: Response){const row=db.prepare('SELECT * FROM manga_reading_states WHERE user_id=? AND manga_id=?').get(req.deviceUserId!,integer(req.params.mangaId)) as any;if(row)row.settings=json(row.settings);return success(res,row||null)}
 export function putReadingState(req: DeviceRequest,res: Response){const userId=req.deviceUserId!,mangaId=integer(req.params.mangaId);if(!db.prepare("SELECT 1 FROM manga_items WHERE id=? AND library_type='local'").get(mangaId))return error(res,'本地漫画不存在','NOT_FOUND',404);const current=db.prepare('SELECT * FROM manga_reading_states WHERE user_id=? AND manga_id=?').get(userId,mangaId) as any,base=integer(req.body?.revision),sameDevice=Boolean(current&&Number(current.device_id)===Number(req.deviceId));if(current&&base!==current.revision&&!sameDevice&&!req.body?.force)return res.status(409).json({success:false,code:'READING_CONFLICT',message:'另一台设备已有更新，请选择保留哪一份进度',data:{server:current,submitted:req.body}});const revision=(current?.revision||0)+1;db.prepare("INSERT INTO manga_reading_states (user_id,manga_id,volume_id,chapter_id,page_index,mode,settings,revision,device_id,updated_at) VALUES (?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(user_id,manga_id) DO UPDATE SET volume_id=excluded.volume_id,chapter_id=excluded.chapter_id,page_index=excluded.page_index,mode=excluded.mode,settings=excluded.settings,revision=excluded.revision,device_id=excluded.device_id,updated_at=datetime('now')").run(userId,mangaId,integer(req.body?.volume_id)||null,integer(req.body?.chapter_id)||null,Math.max(0,integer(req.body?.page_index)),req.body?.mode==='paged'?'paged':'scroll',JSON.stringify(req.body?.settings&&typeof req.body.settings==='object'?req.body.settings:{}),revision,req.deviceId!);return success(res,{revision},'漫画进度已同步')}
 export function privateLibrary(req: DeviceRequest,res: Response){const rows=db.prepare("SELECT m.id,m.slug,m.title,m.cover,s.volume_id,s.chapter_id,s.page_index,s.mode,s.updated_at progress_updated_at,v.slug volume_slug,v.title volume_title,c.slug chapter_slug,c.title chapter_title,(SELECT COUNT(*) FROM manga_pages p WHERE p.chapter_id=c.id) page_count FROM manga_reading_states s JOIN manga_items m ON m.id=s.manga_id LEFT JOIN manga_volumes v ON v.id=s.volume_id LEFT JOIN manga_chapters c ON c.id=s.chapter_id WHERE s.user_id=? AND m.is_active=1 ORDER BY s.updated_at DESC").all(req.deviceUserId!) as any[];return success(res,rows)}
+
+function collectionStatus(value: unknown) {
+  const item = clean(value, 30)
+  return ['reading', 'finished', 'planned', 'paused'].includes(item) ? item : 'planned'
+}
+function flag(value: unknown) { return value === true || value === 1 || value === '1' || value === 'true' ? 1 : 0 }
+function collectionView(row: any) {
+  if (!row) return row
+  return { ...row, in_shelf: Boolean(row.in_shelf), is_favorite: Boolean(row.is_favorite) }
+}
+export function privateCollections(req: DeviceRequest, res: Response) {
+  const rows = db.prepare("SELECT * FROM manga_collections WHERE user_id=? AND (in_shelf=1 OR is_favorite=1) ORDER BY is_favorite DESC, updated_at DESC, id DESC").all(req.deviceUserId!) as any[]
+  return success(res, rows.map(collectionView))
+}
+export function putCollection(req: DeviceRequest, res: Response) {
+  const userId = req.deviceUserId!
+  const source = clean(req.body?.source, 180)
+  const externalId = clean(req.body?.external_id, 300)
+  const title = clean(req.body?.title, 300)
+  if (!source || !externalId || !title) return error(res, '漫画来源、作品 ID 和标题不能为空', 'COLLECTION_REQUIRED')
+  const favorite = flag(req.body?.is_favorite)
+  const inShelf = favorite ? 1 : flag(req.body?.in_shelf)
+  db.prepare("INSERT INTO manga_collections (user_id,source,external_id,title,original_title,author,cover,description,source_url,publication,status,in_shelf,is_favorite,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now')) ON CONFLICT(user_id,source,external_id) DO UPDATE SET title=excluded.title,original_title=excluded.original_title,author=excluded.author,cover=excluded.cover,description=excluded.description,source_url=excluded.source_url,publication=excluded.publication,status=excluded.status,in_shelf=excluded.in_shelf,is_favorite=excluded.is_favorite,updated_at=datetime('now')").run(userId, source, externalId, title, clean(req.body?.original_title, 300), clean(req.body?.author, 200), validUrl(req.body?.cover), clean(req.body?.description, 5000), validUrl(req.body?.source_url), clean(req.body?.publication, 120), collectionStatus(req.body?.status), inShelf, favorite)
+  const row = db.prepare('SELECT * FROM manga_collections WHERE user_id=? AND source=? AND external_id=?').get(userId, source, externalId)
+  return success(res, collectionView(row), '漫画收藏已更新')
+}
+export function removeCollection(req: DeviceRequest, res: Response) {
+  const result = db.prepare('DELETE FROM manga_collections WHERE id=? AND user_id=?').run(integer(req.params.id), req.deviceUserId!)
+  return result.changes ? success(res, null, '漫画已从书架移除') : error(res, '收藏记录不存在', 'NOT_FOUND', 404)
+}

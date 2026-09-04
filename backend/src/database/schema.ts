@@ -299,6 +299,26 @@ export function migrate() {
       updated_at TEXT DEFAULT (datetime('now')),
       PRIMARY KEY(user_id, manga_id)
     );
+    -- 前台网络漫画书架与收藏；元数据快照只用于离线展示，不替代源站内容。
+    CREATE TABLE IF NOT EXISTS manga_collections (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      source TEXT NOT NULL,
+      external_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      original_title TEXT DEFAULT '',
+      author TEXT DEFAULT '',
+      cover TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      source_url TEXT DEFAULT '',
+      publication TEXT DEFAULT '',
+      status TEXT DEFAULT 'planned',
+      in_shelf INTEGER DEFAULT 1,
+      is_favorite INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, source, external_id)
+    );
     -- 相册
     CREATE TABLE IF NOT EXISTS albums (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -586,6 +606,8 @@ export function migrate() {
       ON manga_items(is_active, status, sort_order);
     CREATE INDEX IF NOT EXISTS idx_manga_read_sources_item
       ON manga_read_sources(manga_id, is_default DESC, sort_order, id);
+    CREATE INDEX IF NOT EXISTS idx_manga_collections_user
+      ON manga_collections(user_id, in_shelf, is_favorite, updated_at);
     CREATE INDEX IF NOT EXISTS idx_manga_volumes_item ON manga_volumes(manga_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS idx_manga_chapters_volume ON manga_chapters(volume_id, sort_order, id);
     CREATE INDEX IF NOT EXISTS idx_manga_pages_chapter ON manga_pages(chapter_id, sort_order, id);

@@ -801,8 +801,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
       </section>
           <section id="search-sources-panel" class="admin-panel hidden space-y-5" aria-labelledby="content-search-sources-title">
             <div class="flex flex-wrap items-start justify-between gap-3">
-              <div><p class="text-xs font-black tracking-[.18em] text-primary">MANGA · SOURCES</p><h2 id="content-search-sources-title" class="mt-1 text-2xl font-black">漫画源管理</h2><p class="text-sm text-base-content/50">这是漫画管理下的来源工作区。前台搜索和阅读依赖这里启用的来源；Venera 仓库、单源 JSON、同步、导入、导出和测试都集中在此处。</p></div>
-              <div class="flex flex-wrap gap-2"><button data-panel-tab="manga" class="ryu-btn" type="button">返回漫画管理</button><button id="search-source-new" class="ryu-btn" type="button">新建自定义源</button><label class="ryu-btn cursor-pointer">导入源文件<input id="search-source-import" class="hidden" type="file" accept="application/json,.json" multiple /></label><button id="search-source-export-all" class="ryu-btn" type="button">导出全部源</button></div>
+              <div><p class="text-xs font-black tracking-[.18em] text-primary">MANGA · SOURCES</p><h2 id="content-search-sources-title" class="mt-1 text-2xl font-black">漫画源管理</h2><p class="text-sm text-base-content/50">这里仅管理漫画源。同步 Venera 源仓库后，前台即可搜索、打开详情并阅读；本页不再编辑复杂的源脚本。</p></div>
+              <div class="flex flex-wrap gap-2"><button data-panel-tab="manga" class="ryu-btn" type="button">返回漫画管理</button><label class="ryu-btn cursor-pointer">导入源文件<input id="search-source-import" class="hidden" type="file" accept="application/json,.json" multiple /></label><button id="search-source-export-all" class="ryu-btn" type="button">导出全部源</button></div>
             </div>
             <section class="ryu-card grid gap-4 p-5">
               <div class="flex flex-wrap items-start justify-between gap-3">
@@ -822,25 +822,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               <div id="venera-source-test-results" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"></div>
               <p id="venera-repository-status" class="min-h-5 text-sm" aria-live="polite"></p>
             </section>
-            <div class="grid overflow-hidden border-y border-base-content/10 xl:grid-cols-[minmax(18rem,.68fr)_minmax(0,1.32fr)]">
-              <div class="grid content-start gap-4 py-4 xl:border-r xl:border-base-content/10 xl:pr-5">
-                <div class="grid gap-3 border-b border-base-content/10 pb-4 sm:grid-cols-2 xl:grid-cols-1">
-                  <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">小说默认源</span><select id="search-source-default-book" class="select select-bordered rounded-xl"></select></label>
-                  <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">追番默认源</span><select id="search-source-default-bangumi" class="select select-bordered rounded-xl"></select></label>
-                  <label class="grid gap-1.5"><span class="text-xs font-black text-base-content/60">漫画默认源</span><select id="search-source-default-manga" class="select select-bordered rounded-xl"></select></label>
-                </div>
-                <div id="content-search-source-list" class="grid border-t border-base-content/10 xl:max-h-[calc(100vh-16rem)] xl:overflow-y-auto"></div>
-              </div>
-              <div class="grid min-w-0 gap-3 py-4 xl:pl-5">
-                <div class="flex flex-wrap items-center justify-between gap-2"><div><h3 class="text-lg font-black">单源 JSON 编辑器</h3><p class="text-xs text-base-content/45">保存只更新当前文件中的一个源，不会覆盖其他源。</p></div><div class="flex flex-wrap gap-2"><button id="search-source-format" class="ryu-btn btn-sm" type="button">格式化</button><button id="search-source-export" class="ryu-btn btn-sm" type="button">导出当前源</button><button id="search-source-save" class="ryu-btn-primary btn-sm" type="button">校验并保存</button></div></div>
-                <textarea id="content-search-source-editor" class="textarea textarea-bordered min-h-[24rem] w-full rounded-2xl font-mono text-xs leading-5 lg:min-h-[32rem]" spellcheck="false" aria-label="单个检索源 JSON 规则"></textarea>
-                <section class="grid gap-3 border-t border-base-content/10 pt-4">
-                  <div class="flex flex-wrap items-start justify-between gap-2"><div><h4 class="font-black">保存前试跑</h4><p class="text-xs text-base-content/45">直接测试编辑器里的未保存规则；填写详情 ID 时优先测试详情接口。</p></div><span id="search-source-test-badge" class="badge badge-ghost">未测试</span></div>
-                  <div class="grid gap-2 sm:grid-cols-[8rem_1fr_1fr_auto]"><select id="search-source-test-kind" class="select select-bordered select-sm rounded-xl"><option value="book">小说</option><option value="bangumi">追番</option><option value="manga">漫画</option></select><input id="search-source-test-query" class="input input-bordered input-sm rounded-xl" placeholder="搜索关键词" /><input id="search-source-test-id" class="input input-bordered input-sm rounded-xl" placeholder="详情 ID（可选）" /><button id="search-source-test" class="ryu-btn-primary btn-sm" type="button">试跑规则</button></div>
-                  <div id="search-source-test-results" class="grid gap-2"></div>
-                </section>
-              </div>
-            </div>
+            <section class="ryu-card p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="text-lg font-black">其他漫画源</h3><p class="text-sm text-base-content/50">这里显示旧版单接口漫画源；支持导入、导出、启停和删除。Venera 源统一在上方仓库管理。</p></div><span class="badge badge-ghost">仅漫画</span></div>
+              <div id="content-search-source-list" class="mt-4 grid divide-y divide-base-content/10"></div>
+            </section>
             <p id="content-search-source-message" class="min-h-6 whitespace-pre-line text-sm" aria-live="polite"></p>
           </section>
 
@@ -963,26 +948,22 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
 
       <section id="manga-panel" class="admin-panel hidden">
         <div class="admin-subnav manga-domain-tabs" aria-label="漫画管理工作区"><button type="button" data-panel-tab="manga">漫画条目</button><button type="button" data-panel-tab="search-sources">漫画源管理</button></div>
-        <div class="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-          <form id="manga-form" class="ryu-card grid gap-4 p-5">
-            <input name="id" type="hidden" />
-            <div class="flex flex-wrap items-center justify-between gap-3"><div><h2 class="text-2xl font-black">漫画基础管理</h2><p class="text-sm text-base-content/50">这里只维护本地/网络漫画条目的资料、状态和显示顺序。漫画源、前台检索和源同步请切换到上方的「漫画源管理」。</p></div><button id="manga-reset" class="ryu-btn" type="button">新建条目</button></div>
-            <div class="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm"><b>漫画搜索与阅读已移到前台</b><p class="mt-1 text-base-content/55">源站检索、探索、详情和章节阅读都在漫画页面完成。</p><a class="mt-3 inline-flex font-black text-primary" href="/manga" target="_blank">打开前台漫画站 ↗</a></div>
-            <label class="grid gap-1"><span class="text-xs font-black text-base-content/60">漫画类型</span><select name="library_type" class="select select-bordered rounded-xl"><option value="network">网络漫画条目</option><option value="local">本地漫画条目</option></select></label>
-            <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="title" placeholder="漫画标题" required /><input class="input input-bordered rounded-xl" name="original_title" placeholder="原名 / 别名" /></div>
-            <div class="grid gap-3 md:grid-cols-2"><input class="input input-bordered rounded-xl" name="author" placeholder="作者" /><input class="input input-bordered rounded-xl" name="publication" placeholder="连载年份 / 出版信息" /></div>
-            <div class="join w-full"><input class="input join-item input-bordered w-full rounded-l-xl" name="cover" placeholder="封面地址" /><button class="btn join-item rounded-r-xl" type="button" data-pick-media data-target-form="manga-form" data-target-field="cover" data-media-type="image">选择</button></div>
-            <input name="slug" class="input input-bordered rounded-xl" placeholder="URL 标识（可留空）" />
-            <div class="grid gap-3 md:grid-cols-2"><input name="external_id" class="input input-bordered rounded-xl" placeholder="Bangumi ID" /><input name="source_url" class="input input-bordered rounded-xl" placeholder="资料页链接" /></div>
-            <input name="source" type="hidden" />
-            <div class="grid gap-3 md:grid-cols-3"><select name="status" class="select select-bordered rounded-xl"><option value="reading">在读</option><option value="finished">读完</option><option value="planned">想读</option><option value="paused">暂放</option></select><input name="progress" class="input input-bordered rounded-xl" placeholder="进度，如 36 话" /><input name="rating" class="input input-bordered rounded-xl" type="number" min="0" max="10" step="0.1" placeholder="评分" /></div>
-            <textarea name="description" class="textarea textarea-bordered min-h-28 rounded-xl" placeholder="简介"></textarea>
-            <section class="rounded-2xl border border-base-content/10 bg-base-200/30 p-4"><div><h3 class="font-black">阅读入口</h3><p class="text-xs text-base-content/45">这里只保留已经手工维护的网络条目入口；源仓库和前台源搜索统一归入上方的「漫画源管理」。</p></div><div id="manga-source-list" class="mt-3 grid gap-2"></div><button id="manga-source-add" class="ryu-btn btn-sm mt-3" type="button">新增外部入口</button></section>
-            <div class="grid gap-3 md:grid-cols-2"><input name="sort_order" class="input input-bordered rounded-xl" type="number" placeholder="排序" /><label class="label cursor-pointer justify-start gap-3"><input name="is_active" class="checkbox" type="checkbox" checked />前台显示</label></div>
-            <button class="ryu-btn-primary" type="submit">保存漫画</button><p id="manga-message" class="min-h-6 text-sm"></p>
-          </form>
-          <section class="ryu-card p-5"><div class="flex items-center justify-between"><div><h3 class="text-xl font-black">漫画列表</h3><p class="text-sm text-base-content/50">前台展示与阅读源入口。</p></div><a class="ryu-btn btn-sm" href="/manga" target="_blank">查看前台 ↗</a></div><div id="manga-list" class="admin-personal-list mt-4"></div></section>
-        </div>
+        <section class="ryu-card p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div><p class="text-xs font-black tracking-[.18em] text-primary">MANGA · WORKSPACE</p><h2 class="mt-1 text-2xl font-black">漫画基础设置</h2><p class="text-sm text-base-content/50">前台负责搜索、详情、章节阅读、书架和收藏；后台只维护已经登记的本地/兼容条目的状态和显示开关。</p></div>
+            <div class="flex flex-wrap gap-2"><a class="ryu-btn" href="/manga" target="_blank">打开前台漫画站 ↗</a><button data-panel-tab="search-sources" class="ryu-btn-primary" type="button">管理漫画源</button></div>
+          </div>
+          <div class="mt-5 grid gap-3 sm:grid-cols-3">
+            <div class="rounded-2xl bg-base-200/45 p-4"><span class="text-xs text-base-content/50">本地条目</span><strong id="manga-local-count" class="mt-1 block text-2xl font-black">0</strong></div>
+            <div class="rounded-2xl bg-base-200/45 p-4"><span class="text-xs text-base-content/50">兼容网络条目</span><strong id="manga-network-count" class="mt-1 block text-2xl font-black">0</strong></div>
+            <div class="rounded-2xl bg-base-200/45 p-4"><span class="text-xs text-base-content/50">前台可见</span><strong id="manga-visible-count" class="mt-1 block text-2xl font-black">0</strong></div>
+          </div>
+          <p class="mt-4 rounded-2xl border border-primary/15 bg-primary/5 p-4 text-sm text-base-content/65">网络漫画不需要先在这里建立条目：在前台选择源、搜索作品后即可打开详情、阅读、加入书架或收藏。Venera 源仓库和自定义源统一在“漫画源管理”中维护。</p>
+        </section>
+        <section class="ryu-card p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-xl font-black">已登记条目</h3><p class="text-sm text-base-content/50">仅保留基础状态、排序和前台显示设置；详细内容由前台源或本地内容流程提供。</p></div></div>
+          <div id="manga-list" class="admin-personal-list mt-4"></div>
+        </section>
       </section>
       <section id="albums-panel" class="admin-panel hidden">
         <div class="grid gap-4 xl:grid-cols-[0.8fr_0.8fr_1.2fr]">
@@ -1097,6 +1078,18 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
     </main>
     </section>
 
+    <dialog id="manga-settings-dialog" class="admin-media-picker">
+      <form id="manga-settings-form" class="admin-media-picker-panel" method="dialog">
+        <input name="id" type="hidden" />
+        <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-black tracking-[.18em] text-primary">MANGA · SETTINGS</p><h3 id="manga-settings-title" class="mt-1 text-xl font-black">漫画基础设置</h3><p id="manga-settings-meta" class="mt-1 text-sm text-base-content/50"></p></div><button id="manga-settings-close" class="admin-dialog-close" type="button" aria-label="关闭" title="关闭">&times;</button></div>
+        <div class="mt-5 grid gap-4">
+          <label class="grid gap-1"><span class="text-xs font-black text-base-content/60">阅读状态</span><select name="status" class="select select-bordered rounded-xl"><option value="reading">在读</option><option value="planned">想读</option><option value="finished">读完</option><option value="paused">暂放</option></select></label>
+          <label class="grid gap-1"><span class="text-xs font-black text-base-content/60">显示顺序</span><input name="sort_order" class="input input-bordered rounded-xl" type="number" min="-9999" max="9999" /></label>
+          <label class="label cursor-pointer justify-start gap-3 rounded-xl bg-base-200/45 px-4"><input name="is_active" class="checkbox" type="checkbox" />前台显示</label>
+        </div>
+        <div class="mt-5 flex items-center justify-between gap-3"><p id="manga-settings-message" class="min-h-6 text-sm"></p><div class="flex gap-2"><button id="manga-settings-cancel" class="ryu-btn" type="button">取消</button><button class="ryu-btn-primary" type="submit">保存设置</button></div></div>
+      </form>
+    </dialog>
     <dialog id="search-source-conflict-dialog" class="admin-media-picker">
       <div class="admin-media-picker-panel max-w-lg">
         <div class="flex items-center justify-between gap-3"><div><h3 class="text-xl font-black">检索源已存在</h3><p id="search-source-conflict-text" class="mt-1 text-sm text-base-content/55"></p></div><button id="search-source-conflict-cancel" class="admin-dialog-close" type="button" aria-label="关闭">&times;</button></div>

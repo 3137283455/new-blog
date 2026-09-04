@@ -321,9 +321,60 @@ export async function detailVeneraSource(id: unknown, comicId: string) {
 }
 export async function readVeneraSource(id: unknown, comicId: string, chapterId: string) {
   const record = getVeneraSource(id), runtime = await loadRuntime(record)
-  const result: any = await invoke(runtime, '__venera_source__.comic.loadEp(__venera_args__[0], __venera_args__[1])', [comicId, chapterId])
-  const pages = (Array.isArray(result?.images) ? result.images : Array.isArray(result?.pages) ? result.pages : []).map((item: any) => clean(typeof item === 'string' ? item : item?.url, 3000)).filter(Boolean)
-  return { record, reader: { title: clean(result?.title, 300), content: '', content_html: '', pages, source_url: clean(result?.url, 2000) } }
+  const readOne = async (candidateId: string) => {
+    try {
+      const result: any = await invoke(runtime, '__venera_source__.comic.loadEp(__venera_args__[0], __venera_args__[1])', [comicId, candidateId])
+      const pages = (Array.isArray(result?.images) ? result.images : Array.isArray(result?.pages) ? result.pages : []).map((item: any) => clean(typeof item === 'string' ? item : item?.url, 3000)).filter(Boolean)
+      return { result, pages }
+    } catch {
+      return { result: null, pages: [] as string[] }
+    }
+  }
+  const first = await readOne(chapterId)
+  let selectedId = chapterId, selectedTitle = '', result = first.result, pages = first.pages
+  if (!pages.length) {
+    try {
+      const info: any = await invoke(runtime, '__venera_source__.comic.loadInfo(__venera_args__[0])', [comicId])
+      const chapters = normalizeChapters(info?.chapters)
+      const selectedIndex = Math.max(0, chapters.findIndex((chapter) => chapter.external_id === chapterId))
+      const candidates: number[] = []
+      for (let offset = 0; candidates.length < 16; offset += 1) {
+        const forward = selectedIndex + offset
+        const backward = selectedIndex - offset
+        if (chapters[forward] && !candidates.includes(forward)) candidates.push(forward)
+        if (backward >= 0 && !candidates.includes(backward)) candidates.push(backward)
+        if (forward >= chapters.length && backward < 0) break
+      }
+      for (const index of candidates) {
+        const candidate = chapters[index]
+        if (!candidate || candidate.external_id === chapterId) continue
+        const attempt = await readOne(candidate.external_id)
+        if (attempt.pages.length) {
+          selectedId = candidate.external_id
+          selectedTitle = candidate.title
+          result = attempt.result
+          pages = attempt.pages
+          break
+        }
+      }
+    } catch {
+      // Keep the original empty result and show a useful reader error below.
+    }
+  }
+  const title = clean(result?.title, 300) || selectedTitle || '漫画阅读'
+  return {
+    record,
+    reader: {
+      title,
+      content: '',
+      content_html: '',
+      pages,
+      source_url: clean(result?.url, 2000),
+      chapter_id: selectedId,
+      chapter_title: selectedTitle || title,
+      error: pages.length ? '' : '源站暂时没有返回本章图片，可能是章节语言或版权区域不可用。请返回目录选择其他章节。',
+    },
+  }
 }
 export async function fetchVeneraImage(id: unknown, targetValue: unknown) {
   const record = getVeneraSource(id), runtime = await loadRuntime(record)
