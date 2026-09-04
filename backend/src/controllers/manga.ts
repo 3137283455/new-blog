@@ -6,10 +6,8 @@ import db from '../config/database'
 import { config } from '../config'
 import { AuthRequest } from '../middleware/auth'
 import { DeviceRequest } from '../middleware/device'
-import { detailContentSource, NormalizedContentSubject, searchContentSource } from '../services/content-search-sources'
 import { success, error } from '../utils/response'
 
-const browserUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 const imagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp)$/i
 const pagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp|pdf)$/i
 const unsupportedArchivePattern = /\.(?:cbr|rar|cb7|7z|cbt|tar|mobi|azw3?|kf8|prc)$/i
@@ -51,13 +49,6 @@ export function publicChapter(req: AuthRequest, res: Response) {
 }
 export function list(_req: AuthRequest, res: Response) { return success(res, (db.prepare(listSelect('ORDER BY library_type,sort_order,id DESC')).all() as any[]).map((row)=>attach(row,true))) }
 
-function normalizedSubject(item: NormalizedContentSubject) { return { external_id: item.external_id, source: item.source, source_label: item.source_label, title: item.title, original_title: item.original_title, author: '', cover: item.cover, source_url: item.source_url, rating: item.rating, publication: item.publication, description: item.description, library_type:'network' } }
-function searchHeaders(req: AuthRequest) { const incoming = clean(req.get('user-agent'), 500); return { 'User-Agent': /^Mozilla\/5\.0/i.test(incoming) ? incoming : browserUA, 'X-Application-User-Agent': 'new-blog/1.0.0 (https://github.com/3137283455/new-blog)' } }
-export async function searchSource(req: AuthRequest, res: Response) {
-  const query = clean(req.query.q, 100), id = clean(req.query.id, 80)
-  if (!query && !id) return error(res, '请输入漫画名称或数据源 ID')
-  try { if (id) { const result = await detailContentSource('manga', id, undefined, searchHeaders(req)); return success(res, [normalizedSubject(result.item)]) } const result = await searchContentSource('manga', query, undefined, searchHeaders(req), 20); const items = result.items.map(normalizedSubject); return items.length ? success(res, items) : error(res, `${result.rule.label} 没有返回匹配漫画`, 'SOURCE_EMPTY', 404) } catch (cause) { console.error('漫画源检索失败:', cause); return error(res, cause instanceof Error ? cause.message : '无法连接漫画数据源', 'SOURCE_UNAVAILABLE', 502) }
-}
 function replaceSources(id: number, input: unknown) { const list = normalizeSources(input); db.prepare('DELETE FROM manga_read_sources WHERE manga_id=?').run(id); const insert = db.prepare('INSERT INTO manga_read_sources (manga_id,name,url,remark,is_default,sort_order) VALUES (?,?,?,?,?,?)'); list.forEach((source) => insert.run(id, source.name, source.url, source.remark, source.is_default ? 1 : 0, source.sort_order)) }
 export function create(req: AuthRequest, res: Response) {
   const title = clean(req.body?.title, 160); if (!title) return error(res, '漫画标题不能为空')

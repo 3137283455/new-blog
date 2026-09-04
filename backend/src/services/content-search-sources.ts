@@ -13,6 +13,7 @@ export type ContentSearchRule = {
   timeout_ms: number
   headers?: Record<string, string>
   search: ContentSourceRequest
+  explore?: ContentSourceRequest
   detail: ContentSourceRequest
   chapters?: ContentSourceRequest
   reader?: ContentSourceRequest
@@ -118,6 +119,13 @@ export function contentSearchRuleErrors(raw: any) {
     const bodyType = clean(raw?.[section]?.body_type || 'json', 10)
     if (!['json', 'form', 'text'].includes(bodyType)) errors.push(`source.${section}.body_type：只支持 json、form 或 text`)
   }
+  if (raw?.explore) {
+    const method = clean(raw.explore.method, 10).toUpperCase()
+    if (!['GET', 'POST'].includes(method)) errors.push('source.explore.method：只支持 GET 或 POST')
+    if (!clean(raw.explore.path, 500)) errors.push('source.explore.path：不能为空')
+    const bodyType = clean(raw.explore.body_type || 'json', 10)
+    if (!['json', 'form', 'text'].includes(bodyType)) errors.push('source.explore.body_type：只支持 json、form 或 text')
+  }
   if (raw?.chapters) {
     const method = clean(raw.chapters.method, 10).toUpperCase()
     if (!['GET', 'POST'].includes(method)) errors.push('source.chapters.method：只支持 GET 或 POST')
@@ -159,7 +167,7 @@ function normalizeRule(raw: any, index: number): ContentSearchRule | null {
   const mapping = normalizeMapping(raw?.mapping)
   const searchTemplate = JSON.stringify({ path: searchPath, body: raw?.search?.body })
   const detailTemplate = JSON.stringify({ path: detailPath, body: raw?.detail?.body })
-  const chapters = normalizeEndpoint(raw?.chapters), reader = normalizeEndpoint(raw?.reader)
+  const explore = normalizeEndpoint(raw?.explore), chapters = normalizeEndpoint(raw?.chapters), reader = normalizeEndpoint(raw?.reader)
   const chapterMapping = normalizeMapping(raw?.chapter_mapping), readerMapping = normalizeMapping(raw?.reader_mapping)
   const readMode = ['external', 'html', 'pages', 'auto'].includes(clean(raw?.read_mode, 20)) ? clean(raw.read_mode, 20) as ContentSearchRule['read_mode'] : reader ? 'auto' : 'external'
   if (contentSearchRuleErrors(raw).length || !id || !label || !apiBase || !kinds.length || !searchPath || !detailPath || !pagePath || !searchTemplate.includes('{query}') || !detailTemplate.includes('{id}') || !pagePath.includes('{id}') || !mapping.id || !mapping.title) return null
@@ -168,6 +176,7 @@ function normalizeRule(raw: any, index: number): ContentSearchRule | null {
   return {
     id, label, enabled: raw?.enabled !== false, kinds: [...new Set(kinds)], api_base: apiBase, page_base: pageBase, page_path: pagePath, timeout_ms: Math.max(1000, Math.min(30000, Math.trunc(Number(raw?.timeout_ms) || 10000))), headers,
     search: { method: searchMethod, path: searchPath, result_path: clean(raw?.search?.result_path, 160), body_type: searchBodyType, ...(raw?.search?.body === undefined ? {} : { body: raw.search.body }) },
+    ...(explore ? { explore } : {}),
     detail: { method: detailMethod, path: detailPath, result_path: clean(raw?.detail?.result_path, 160), body_type: detailBodyType, ...(raw?.detail?.body === undefined ? {} : { body: raw.detail.body }) },
     ...(chapters ? { chapters } : {}),
     ...(reader ? { reader } : {}),
@@ -276,6 +285,13 @@ async function requestRule(rule: ContentSearchRule, request: ContentSourceReques
   try { return JSON.parse(responseText) } catch { throw new Error(`${rule.label} 返回的不是有效 JSON`) }
 }
 export async function searchContentSource(kind: ContentSearchKind, query: string, requested: unknown, baseHeaders: Record<string, string>, limit = 12) { const rule = resolveContentSourceRule(kind, requested), variables = { query, type: rule.type_values[kind] ?? '', limit }; const json = await requestRule(rule, rule.search, variables, baseHeaders); const rows = pathValue(json, rule.search.result_path); return { rule, items: (Array.isArray(rows) ? rows : []).map((item) => normalizeSubject(item, rule)).filter((item) => item.title) } }
+export async function exploreContentSource(kind: ContentSearchKind, requested: unknown, baseHeaders: Record<string, string>, page = 1, limit = 24) {
+  const rule = resolveContentSourceRule(kind, requested)
+  if (!rule.explore) throw new Error(`${rule.label} 没有配置探索页`)
+  const json = await requestRule(rule, rule.explore, { page, limit, type: rule.type_values[kind] ?? '' }, baseHeaders)
+  const rows = pathValue(json, rule.explore.result_path)
+  return { rule, page, items: (Array.isArray(rows) ? rows : []).map((item) => normalizeSubject(item, rule)).filter((item) => item.external_id && item.title) }
+}
 export async function detailContentSource(kind: ContentSearchKind, id: string, requested: unknown, baseHeaders: Record<string, string>) { const rule = resolveContentSourceRule(kind, requested), json = await requestRule(rule, rule.detail, { id, type: rule.type_values[kind] ?? '' }, baseHeaders), subject = pathValue(json, rule.detail.result_path); return { rule, item: normalizeSubject(subject, rule) } }
 function normalizeRemoteUrl(value: unknown, rule: ContentSearchRule) {
   const raw = clean(value, 2000)

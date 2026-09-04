@@ -8,7 +8,7 @@
 - 📝 **Markdown 写作**：代码高亮、表格、图片、公式、脚注排版
 - 🗂️ **文章管理**：草稿/发布、置顶、推荐、私密、批量删除、回收站
 - 🔍 **全文搜索**：标题+正文+标签+分类模糊搜索，关键词高亮
-- 🧩 **可导入内容源**：导入 JSON 源后即可搜索小说、漫画和番剧；源可继续提供目录、正文或漫画图片
+- 🧩 **前台漫画源**：漫画站支持单源/聚合搜索、源站探索、详情、目录和图片阅读；后台只维护源与基础漫画资料
 - 💬 **评论系统**：发表、回复、审核、垃圾过滤
 - ❤️ **互动功能**：点赞、分享、回到顶部
 - ⭐ **本地收藏**：收藏文章、首页快速访问，阅读偏好保存在当前浏览器
@@ -136,6 +136,7 @@ npm run dev
 - `GET /api/bangumi` — 追番列表
 - `GET /api/content-sources?kind=book|manga|bangumi` — 已启用内容源（不返回源请求头）
 - `GET /api/content-sources/search?kind=...&q=...&source=...` — 通过导入源搜索内容
+- `GET /api/content-sources/explore?kind=...&source=...` — 读取源的可选探索页
 - `GET /api/content-sources/:kind/:source/:id` — 源作品详情与章节目录
 - `GET /api/content-sources/:kind/:source/:id/chapter/:chapterId` — 源章节正文或漫画图片
 - `GET /api/albums` / `GET /api/albums/:id` — 相册与照片
@@ -153,7 +154,7 @@ npm run dev
 
 ### 内容源
 
-书库 `/books` 和漫画 `/manga` 页面包含「从源中搜索」入口。管理员在后台「内容检索源」中导入 JSON 规则即可接入新的站点，不需要修改页面代码。协议说明和可复制的模板见 [`docs/content-source.md`](docs/content-source.md) 与 [`sources/example.content-search-source.json`](sources/example.content-search-source.json)。
+漫画 `/manga` 是面向读者的漫画站：首页直接提供源选择、聚合搜索、可选探索页、详情和章节阅读，个人书架只负责收藏与本地条目。后台「内容检索源」负责导入和维护 JSON 规则，「漫画基础管理」只维护已有本地/网络条目的状态、排序、显示和外部入口，不再提供漫画导入或源站检索。协议说明和模板见 [`docs/content-source.md`](docs/content-source.md) 与 [`sources/example.content-search-source.json`](sources/example.content-search-source.json)。
 
 ## 🏗️ 生产部署
 

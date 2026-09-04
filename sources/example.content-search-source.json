@@ -17,6 +17,12 @@
       "result_path": "data.items",
       "body_type": "json"
     },
+    "explore": {
+      "method": "GET",
+      "path": "/discover?type={type}&page={page}&limit={limit}",
+      "result_path": "data.items",
+      "body_type": "json"
+    },
     "detail": {
       "method": "GET",
       "path": "/works/{id}",

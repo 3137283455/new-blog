@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import {
   ContentSearchKind,
   detailReadableContentSource,
+  exploreContentSource,
   getContentSearchConfig,
   getContentSourceRuleById,
   readContentSource,
@@ -22,7 +23,7 @@ function requestHeaders(req: Request) {
   }
 }
 function publicSource(rule: any) {
-  return { id: rule.id, label: rule.label, kinds: rule.kinds, read_mode: rule.read_mode, has_catalog: Boolean(rule.chapters), has_reader: Boolean(rule.reader) }
+  return { id: rule.id, label: rule.label, kinds: rule.kinds, read_mode: rule.read_mode, has_explore: Boolean(rule.explore), has_catalog: Boolean(rule.chapters), has_reader: Boolean(rule.reader) }
 }
 function publicItem(item: any) {
   return { ...item, author: item.author || '' }
@@ -40,11 +41,32 @@ export async function search(req: Request, res: Response) {
   if (!requestedKind) return error(res, 'kind 必须是 book、bangumi 或 manga', 'INVALID_SOURCE_KIND', 400)
   if (!query) return error(res, '请输入搜索关键词', 'QUERY_REQUIRED', 400)
   try {
+    if (requestedSource === 'all') {
+      const rules = getContentSearchConfig().sources.filter((source) => source.enabled && source.kinds.includes(requestedKind))
+      const settled = await Promise.allSettled(rules.map((rule) => searchContentSource(requestedKind, query, rule.id, requestHeaders(req), Math.min(20, Math.max(1, Number(req.query.limit) || 12)))))
+      const sources = settled.map((result, index) => result.status === 'fulfilled'
+        ? { ...publicSource(result.value.rule), ok: true, count: result.value.items.length }
+        : { ...publicSource(rules[index]), ok: false, count: 0, error: result.reason instanceof Error ? result.reason.message : '源请求失败' })
+      const items = settled.flatMap((result) => result.status === 'fulfilled' ? result.value.items.map(publicItem) : [])
+      if (!items.length) return error(res, sources.some((source) => source.ok) ? '所有漫画源都没有返回匹配结果' : '所有漫画源均请求失败', 'SOURCE_EMPTY', 404)
+      return success(res, { aggregate: true, source: null, sources, items })
+    }
     const result = await searchContentSource(requestedKind, query, requestedSource, requestHeaders(req), Math.min(30, Math.max(1, Number(req.query.limit) || 20)))
     return result.items.length ? success(res, { source: publicSource(result.rule), items: result.items.map(publicItem) }) : error(res, `${result.rule.label} 没有返回匹配结果`, 'SOURCE_EMPTY', 404)
   } catch (cause) {
     console.error('内容源检索失败:', cause)
     return error(res, cause instanceof Error ? cause.message : '无法连接内容源', 'SOURCE_UNAVAILABLE', 502)
+  }
+}
+
+export async function explore(req: Request, res: Response) {
+  const requestedKind = kind(req.query.kind), requestedSource = clean(req.query.source, 40)
+  if (!requestedKind) return error(res, 'kind 必须是 book、bangumi 或 manga', 'INVALID_SOURCE_KIND', 400)
+  try {
+    const result = await exploreContentSource(requestedKind, requestedSource, requestHeaders(req), Math.max(1, Number(req.query.page) || 1), Math.min(30, Math.max(1, Number(req.query.limit) || 24)))
+    return success(res, { source: publicSource(result.rule), page: result.page, items: result.items.map(publicItem) })
+  } catch (cause) {
+    return error(res, cause instanceof Error ? cause.message : '无法读取内容源探索页', 'SOURCE_EXPLORE_UNAVAILABLE', 502)
   }
 }
 

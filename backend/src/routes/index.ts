@@ -27,7 +27,7 @@ import * as mangaCtrl from '../controllers/manga'
 import * as searchSourceCtrl from '../controllers/search-sources'
 import * as contentSourceCtrl from '../controllers/content-sources'
 import * as contentCenterCtrl from '../controllers/content-center'
-import { upload, backupUpload, epubUpload, textBookUpload, mangaArchiveUpload } from '../middleware/upload'
+import { upload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
 
 const router = Router()
 
@@ -88,6 +88,7 @@ router.get('/plugins/active', pluginCtrl.activePlugins)
 router.get('/settings/public', settingCtrl.publicSettings)
 router.get('/content-sources', contentSourceCtrl.config)
 router.get('/content-sources/search', contentSourceCtrl.search)
+router.get('/content-sources/explore', contentSourceCtrl.explore)
 router.get('/content-sources/media', contentSourceCtrl.media)
 router.get('/content-sources/:kind/:source/:id', contentSourceCtrl.detail)
 router.get('/content-sources/:kind/:source/:id/chapter/:chapterId', contentSourceCtrl.chapter)
@@ -204,9 +205,7 @@ router.delete('/admin/bangumi/:id/play-sources/:sourceId', auth, bangumiCtrl.rem
 router.delete('/admin/bangumi/:id', auth, bangumiCtrl.remove)
 
 router.get('/admin/manga', auth, mangaCtrl.list)
-router.get('/admin/manga/search', auth, mangaCtrl.searchSource)
 router.post('/admin/manga', auth, mangaCtrl.create)
-router.post('/admin/manga/import', auth, mangaArchiveUpload.fields([{ name: 'file', maxCount: 1 }, { name: 'files', maxCount: 80 }]), mangaCtrl.importLocal)
 router.put('/admin/manga/:id', auth, mangaCtrl.update)
 router.delete('/admin/manga/:id', auth, mangaCtrl.remove)
 

@@ -217,6 +217,7 @@ export interface ContentSourceMeta {
   label: string
   kinds: ContentSourceKind[]
   read_mode: 'external' | 'html' | 'pages' | 'auto'
+  has_explore: boolean
   has_catalog: boolean
   has_reader: boolean
 }
@@ -254,6 +255,14 @@ export async function searchContentSources(kind: ContentSourceKind, query: strin
   try {
     const params = new URLSearchParams({ kind, q: query }); if (source) params.set('source', source)
     const response = await apiFetch(`${API_BASE}/content-sources/search?${params}`)
+    if (!response.ok) return null
+    return (await response.json()).data || null
+  } catch { return null }
+}
+export async function exploreContentSource(kind: ContentSourceKind, source: string, page = 1) {
+  try {
+    const params = new URLSearchParams({ kind, source, page: String(page) })
+    const response = await apiFetch(`${API_BASE}/content-sources/explore?${params}`)
     if (!response.ok) return null
     return (await response.json()).data || null
   } catch { return null }
