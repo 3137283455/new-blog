@@ -1,0 +1,11 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import MangaBrowsePage from '../../components/MangaBrowsePage.astro'
+
+const query = Astro.url.searchParams.get('q') || ''
+const source = Astro.url.searchParams.get('source') || 'all'
+---
+
+<BaseLayout title="搜索漫画" subtitle="从漫画源搜索作品" showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
+  <MangaBrowsePage mode="search" query={query} source={source} />
+</BaseLayout>

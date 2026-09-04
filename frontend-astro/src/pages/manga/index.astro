@@ -6,6 +6,6 @@ import { getMangaItems } from '../../lib/api'
 const manga = await getMangaItems()
 ---
 
-<BaseLayout title="漫画站" subtitle="搜索、发现与阅读本地和网络漫画" showSidebar={false} showBanner={false} wide>
+<BaseLayout title="漫画站" subtitle="搜索、发现与阅读本地和网络漫画" showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
   <MangaPortal manga={manga} />
 </BaseLayout>

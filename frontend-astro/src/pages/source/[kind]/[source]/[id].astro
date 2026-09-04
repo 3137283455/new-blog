@@ -1,10 +1,11 @@
 ---
 import BaseLayout from '../../../../layouts/BaseLayout.astro'
+import MangaSiteHeader from '../../../../components/MangaSiteHeader.astro'
 import { getContentSourceDetail, type ContentSourceKind } from '../../../../lib/api'
 
 const kind = Astro.params.kind as ContentSourceKind
-const source = Astro.params.source || ''
-const id = Astro.params.id || ''
+const source = decodeURIComponent(Astro.params.source || '')
+const id = decodeURIComponent(Astro.params.id || '')
 if (!['book', 'manga', 'bangumi'].includes(kind)) return Astro.redirect('/404')
 const data = await getContentSourceDetail(kind, source, id)
 if (!data?.item) return Astro.redirect('/404')
@@ -16,7 +17,8 @@ const titleLabel = kind === 'book' ? '小说' : kind === 'manga' ? '漫画' : '�
 const chapterHref = (chapter: any) => data.can_read ? `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/chapter/${encodeURIComponent(chapter.external_id)}?id=${encodeURIComponent(id)}` : chapter.source_url
 ---
 
-<BaseLayout title={item.title} subtitle={`${sourceMeta.label} · 源站详情`} showSidebar={false} showBanner={false} wide>
+<BaseLayout title={item.title} subtitle={`${sourceMeta.label} · 源站详情`} showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
+  {kind === 'manga' && <MangaSiteHeader active="discover" />}
   <main class="source-detail-page">
     <a class="source-back" href={home}>← 返回{titleLabel}架</a>
     <article class="source-detail-hero">

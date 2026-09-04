@@ -359,7 +359,7 @@
   document.addEventListener('click', (event) => {
     const target = event.target.closest('button');
     if (!target) return;
-    if (target.dataset.panelTab === 'search-sources') { document.querySelector('#bangumi-source-dialog')?.close(); load(); loadVenera(); }
+    if (target.dataset.panelTab === 'search-sources' || target.dataset.panel === 'search-sources') { document.querySelector('#bangumi-source-dialog')?.close(); load(); loadVenera(); }
     if (target.dataset.veneraRepositoryDelete) removeVeneraRepository(target.dataset.veneraRepositoryDelete);
     if (target.dataset.searchSourceEdit) {
       const source = state.config?.sources.find((item) => item.id === target.dataset.searchSourceEdit);

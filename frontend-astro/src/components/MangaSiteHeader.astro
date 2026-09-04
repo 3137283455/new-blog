@@ -1,0 +1,45 @@
+---
+interface Props {
+  active?: 'discover' | 'latest' | 'rank' | 'library'
+}
+
+const { active = 'discover' } = Astro.props
+const links = [
+  { key: 'discover', label: '发现', href: '/manga' },
+  { key: 'latest', label: '最新', href: '/manga/latest' },
+  { key: 'rank', label: '排行', href: '/manga/rank' },
+  { key: 'library', label: '书架', href: '/manga/library' },
+]
+---
+
+<header class="manga-site-header">
+  <a class="manga-site-brand" href="/manga" aria-label="返回漫画站首页">
+    <span>漫</span>
+    <strong>漫画站</strong>
+  </a>
+  <nav aria-label="漫画站导航">
+    {links.map((link) => <a class:list={{ active: active === link.key }} href={link.href}>{link.label}</a>)}
+  </nav>
+  <div class="manga-site-actions">
+    <a class="manga-site-search" href="/manga/search" aria-label="搜索漫画" title="搜索漫画">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4 4" /></svg>
+      <span>搜索漫画</span>
+    </a>
+    <a class="manga-site-reading" href="/reading">阅读记录 <span>↗</span></a>
+  </div>
+</header>
+
+<style>
+  .manga-site-header{display:flex;align-items:center;gap:2.2rem;min-height:4.6rem;border-bottom:1px solid var(--manga-line,#e5e8df);color:var(--manga-ink,#172018)}
+  .manga-site-brand{display:flex;align-items:center;gap:.62rem;color:inherit;text-decoration:none}
+  .manga-site-brand>span{display:grid;width:2.1rem;height:2.1rem;place-items:center;border-radius:.7rem;background:var(--manga-ink,#172018);color:#d8ff55;font-size:.82rem;font-weight:950;box-shadow:0 7px 18px #17201820}
+  .manga-site-brand strong{font:750 1.08rem var(--theme-title-font,Georgia,serif);letter-spacing:-.03em}
+  .manga-site-header nav{display:flex;align-items:center;gap:.18rem}
+  .manga-site-header nav a{border-radius:999px;padding:.55rem .75rem;color:var(--manga-muted,#7a8279);font-size:.68rem;font-weight:850;text-decoration:none;transition:background .18s,color .18s}
+  .manga-site-header nav a:hover,.manga-site-header nav a.active{background:var(--manga-soft,#f0f3e9);color:var(--manga-ink,#172018)}
+  .manga-site-actions{display:flex;align-items:center;gap:.5rem;margin-left:auto}
+  .manga-site-search,.manga-site-reading{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--manga-line,#e5e8df);border-radius:999px;padding:.55rem .75rem;color:var(--manga-ink,#172018);font-size:.63rem;font-weight:850;text-decoration:none}
+  .manga-site-search svg{width:.9rem;height:.9rem;fill:none;stroke:currentColor;stroke-width:1.8}
+  .manga-site-reading{border-color:transparent;color:var(--manga-muted,#7a8279)}.manga-site-reading span{color:var(--manga-brand,#2f6f4e);font-size:.9rem}
+  @media(max-width:650px){.manga-site-header{gap:.65rem;min-height:4rem}.manga-site-brand strong{display:none}.manga-site-header nav{margin-left:auto}.manga-site-header nav a{padding:.48rem .5rem;font-size:.61rem}.manga-site-actions{margin-left:0}.manga-site-search{padding:.55rem}.manga-site-search span,.manga-site-reading{display:none}}
+</style>

@@ -1,0 +1,10 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import MangaBrowsePage from '../../components/MangaBrowsePage.astro'
+
+const source = Astro.url.searchParams.get('source') || 'all'
+---
+
+<BaseLayout title="最新发现" subtitle="浏览漫画源的最新作品" showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
+  <MangaBrowsePage mode="latest" source={source} />
+</BaseLayout>

@@ -1,0 +1,20 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import MangaSiteHeader from '../../components/MangaSiteHeader.astro'
+---
+
+<BaseLayout title="漫画排行" subtitle="漫画源排行榜" showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
+  <main class="manga-rank-page">
+    <MangaSiteHeader active="rank" />
+    <section class="manga-rank-empty">
+      <p>RANKING IS SOURCE-DEPENDENT</p>
+      <h1>排行榜正在准备中。</h1>
+      <span>不同漫画源的排行口径并不一致，暂不拼接虚假榜单。你可以先按来源浏览最新作品，或直接搜索想看的漫画。</span>
+      <div><a href="/manga/latest">浏览最新发现 →</a><a href="/manga/search">搜索漫画 →</a></div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .manga-rank-page{--manga-ink:#172018;--manga-brand:#2f6f4e;--manga-muted:#7a8279;--manga-line:#e4e8df;width:min(1240px,100%);margin:0 auto;padding:0 1rem 5rem;color:var(--manga-ink)}.manga-rank-empty{display:grid;min-height:28rem;place-content:center;justify-items:center;gap:.7rem;margin-top:1rem;border:1px solid var(--manga-line);border-radius:1.2rem;background:linear-gradient(135deg,#f7f9f1,#edf3e4);padding:2rem;text-align:center}.manga-rank-empty>p{margin:0;color:var(--manga-brand);font:850 .57rem system-ui;letter-spacing:.16em}.manga-rank-empty h1{margin:.25rem 0 0;font:650 clamp(2.4rem,5vw,4.5rem) var(--theme-title-font,Georgia,serif);letter-spacing:-.05em}.manga-rank-empty>span{max-width:33rem;color:var(--manga-muted);font-size:.72rem;line-height:1.8}.manga-rank-empty>div{display:flex;gap:.5rem;margin-top:.6rem}.manga-rank-empty a{border-radius:999px;background:var(--manga-ink);padding:.65rem .85rem;color:#f4ffd9;font-size:.62rem;font-weight:850;text-decoration:none}.manga-rank-empty a+ a{border:1px solid var(--manga-line);background:transparent;color:var(--manga-ink)}@media(max-width:650px){.manga-rank-page{padding:0 .65rem 3rem}.manga-rank-empty{min-height:24rem;padding:1.4rem}.manga-rank-empty h1{font-size:2.7rem}.manga-rank-empty>div{flex-direction:column;width:100%}.manga-rank-empty a{text-align:center}}
+</style>

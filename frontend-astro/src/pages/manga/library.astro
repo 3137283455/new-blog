@@ -1,0 +1,16 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro'
+import MangaLibraryRefactor from '../../components/MangaLibraryRefactor.astro'
+import MangaSiteHeader from '../../components/MangaSiteHeader.astro'
+import { getMangaItems } from '../../lib/api'
+
+const manga = await getMangaItems()
+---
+
+<BaseLayout title="漫画书架" subtitle="管理本地漫画与网络收藏" showSidebar={false} showBanner={false} hideNav hideFooter hideMusic fullBleed>
+  <div class="manga-library-shell"><MangaSiteHeader active="library" /><MangaLibraryRefactor manga={manga} /></div>
+</BaseLayout>
+
+<style>
+  .manga-library-shell{--manga-ink:#172018;--manga-brand:#2f6f4e;--manga-muted:#7a8279;--manga-line:#e4e8df;--manga-soft:#f0f3e9;width:min(1240px,100%);margin:0 auto;padding:0 1rem}.manga-library-shell :global(.manga-collection-page){padding-left:0;padding-right:0}@media(max-width:700px){.manga-library-shell{padding:0 .65rem}}
+</style>

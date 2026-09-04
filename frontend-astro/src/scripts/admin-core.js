@@ -56,7 +56,7 @@ window.notifyAdmin = notify;
 
 const contentPanels = ['content-center', 'articles', 'series', 'books', 'navigation', 'bangumi', 'manga', 'albums', 'music'];
 const mediaPanels = ['media', 'fonts'];
-const settingsPanels = ['settings', 'personal', 'appearance', 'search-sources', 'taxonomy', 'comments', 'backup', 'plugins'];
+const settingsPanels = ['settings', 'personal', 'appearance', 'taxonomy', 'comments', 'backup', 'plugins'];
 const navPanelMap = {
   'content-center': 'articles',
   series: 'articles',
@@ -70,7 +70,6 @@ const navPanelMap = {
   personal: 'settings',
   appearance: 'settings',
   backup: 'settings',
-  'search-sources': 'settings',
   taxonomy: 'settings',
   comments: 'settings',
   plugins: 'settings',
@@ -91,14 +90,13 @@ const settingsLabels = {
   settings: '站点与账号',
   personal: '个人与同步',
   appearance: '主题外观',
-  'search-sources': '检索源',
   taxonomy: '分类标签',
   comments: '评论',
   backup: '备份与恢复',
   plugins: '插件',
 };
 
-const panelTitles = { dashboard: '概览', 'content-center': '个人内容中枢', articles: '文章管理', series: '专题管理', books: '书库管理', navigation: '导航管理', bangumi: '追番管理', manga: '漫画管理', albums: '相册管理', music: '音乐管理', media: '媒体资源', fonts: '字体库', settings: '系统设置', personal: '个人与同步', appearance: '主题外观', 'search-sources': '检索源', taxonomy: '分类标签', comments: '评论管理', backup: '备份与恢复', plugins: '插件管理', login: '后台登录' };
+const panelTitles = { dashboard: '概览', 'content-center': '个人内容中枢', articles: '文章管理', series: '专题管理', books: '书库管理', navigation: '导航管理', bangumi: '追番管理', manga: '漫画管理', albums: '相册管理', music: '音乐管理', media: '媒体资源', fonts: '字体库', settings: '系统设置', personal: '个人与同步', appearance: '主题外观', 'search-sources': '漫画源管理', taxonomy: '分类标签', comments: '评论管理', backup: '备份与恢复', plugins: '插件管理', login: '后台登录' };
 
 function ensurePanelTabs() {
   [
@@ -137,6 +135,7 @@ function switchPanel(panel) {
   syncPanelTabs(panel);
   const pageTitle = $('#admin-page-title');
   if (pageTitle) pageTitle.textContent = panelTitles[panel] || '后台管理';
+  if (panel === 'search-sources') window.dispatchEvent(new CustomEvent('content-search-sources-request'));
 }
 
 async function request(path, options = {}) {
@@ -407,7 +406,8 @@ async function loadAll() {
   } else {
     setStatus('已连接后端 API');
   }
-  switchPanel('dashboard');
+  const hashPanel = location.hash.replace(/^#/, '').split('?')[0];
+  switchPanel(panelTitles[hashPanel] ? hashPanel : 'dashboard');
 }
 
 function renderDashboard() {
@@ -2192,7 +2192,8 @@ $('#login-form').addEventListener('submit', async (event) => {
     $('#login-message').textContent = '';
     setStatus(`已登录：${user.nickname || user.username}`);
     await Promise.all([loadTaxonomy(), loadDashboard(), loadArticles(), loadMedia(), loadSettings()]);
-    switchPanel('dashboard');
+    const hashPanel = location.hash.replace(/^#/, '').split('?')[0];
+    switchPanel(panelTitles[hashPanel] ? hashPanel : 'dashboard');
   } catch (error) {
     $('#login-message').textContent = friendlyLoginError(error);
   }

@@ -6143,6 +6143,7 @@ select {
   .admin-sidebar .admin-nav::before { display: inline-grid; width: 1.15rem; place-items: center; color: currentColor; font-size: .82rem; content: '•'; }
   .admin-sidebar .admin-nav[data-panel='dashboard']::before { content: '▦'; }
   .admin-sidebar .admin-nav[data-panel='articles']::before { content: '▤'; }
+  .admin-sidebar .admin-nav[data-panel='search-sources']::before { content: '◈'; }
   .admin-sidebar .admin-nav[data-panel='media']::before { content: '▣'; }
   .admin-sidebar .admin-nav[data-panel='settings']::before { content: '⚙'; }
   .admin-sidebar .admin-nav:hover { background: #182742; color: #fff; transform: none; }
