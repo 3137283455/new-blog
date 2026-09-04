@@ -17,13 +17,78 @@ const mediaUrl = (url: string) => `/api/content-sources/media?source=${encodeURI
 ---
 
 <BaseLayout title={reader.title || '漫画阅读'} subtitle={`${data.source?.label || source} · 源阅读`} showSidebar={false} showBanner={false} hideFooter wide>
-  <main class:list={['source-reader-page', kind === 'manga' && 'source-reader-manga']}>
-    <header class="source-reader-topbar"><a href={backUrl}>‹</a><div><small>{data.source?.label || source}</small><strong>{reader.title || '漫画阅读'}</strong></div><span>{kind === 'manga' ? `${reader.pages?.length || 0} 页` : '源阅读'}</span></header>
-    {reader.error ? <section class="source-reader-error"><strong>本章暂时无法加载</strong><p>{reader.error}</p><a href={backUrl}>返回章节目录</a></section> : kind === 'manga' && reader.pages?.length ? <section class="source-reader-pages">{reader.pages.map((url: string, index: number) => <figure><img src={mediaUrl(url)} alt={`${reader.title} 第 ${index + 1} 页`} loading={index > 1 ? 'lazy' : undefined} /><figcaption>第 {index + 1} 页</figcaption></figure>)}</section> : <article class="source-reader-content" set:html={reader.content_html || `<p>${reader.content || '源站没有返回可读内容。'}</p>`}></article>}
+  <main class:list={['source-reader-page', kind === 'manga' && 'source-reader-manga']} data-source-reader={kind === 'manga' && reader.pages?.length ? 'manga' : undefined} data-page-count={kind === 'manga' ? reader.pages?.length || 0 : 0}>
+    <header class="source-reader-topbar"><a href={backUrl}>‹</a><div><small>{data.source?.label || source}</small><strong>{reader.title || '漫画阅读'}</strong></div><span data-reader-count>{kind === 'manga' ? `${reader.pages?.length || 0} 页` : '源阅读'}</span></header>
+    {reader.error ? <section class="source-reader-error"><strong>本章暂时无法加载</strong><p>{reader.error}</p><a href={backUrl}>返回章节目录</a></section> : kind === 'manga' && reader.pages?.length ? <>
+      <nav class="source-reader-controls" aria-label="漫画阅读控制">
+        <div class="source-reader-mode"><button type="button" data-reader-mode="scroll" class="is-active">连续</button><button type="button" data-reader-mode="paged">单页</button></div>
+        <div class="source-reader-pagination"><button type="button" data-reader-prev disabled>上一页</button><span data-reader-page>第 1 / {reader.pages.length} 页</span><button type="button" data-reader-next>下一页</button></div>
+      </nav>
+      <section class="source-reader-pages" data-reader-stage>{reader.pages.map((url: string, index: number) => <figure data-reader-figure data-index={index}><img src={mediaUrl(url)} alt={`${reader.title} 第 ${index + 1} 页`} loading={index > 1 ? 'lazy' : undefined} /><figcaption>第 {index + 1} 页</figcaption></figure>)}</section>
+    </> : <article class="source-reader-content" set:html={reader.content_html || `<p>${reader.content || '源站没有返回可读内容。'}</p>`}></article>}
   </main>
 </BaseLayout>
 
 <style>
-  .source-reader-page{width:min(920px,100%);min-height:calc(100vh - 6rem);margin:auto;padding:1rem 1rem 5rem;color:var(--ink)}.source-reader-topbar{position:sticky;z-index:5;top:0;display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:.7rem;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--surface-solid) 90%,transparent);padding:.7rem .2rem;backdrop-filter:blur(16px)}.source-reader-topbar>a{color:inherit;font-size:1.8rem;text-decoration:none}.source-reader-topbar div{min-width:0}.source-reader-topbar small,.source-reader-topbar strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.source-reader-topbar small{color:var(--muted-ink);font-size:.55rem}.source-reader-topbar strong{font-size:.78rem}.source-reader-topbar>span{color:var(--muted-ink);font-size:.6rem}.source-reader-content{max-width:760px;margin:0 auto;padding:3rem 1rem;font-family:var(--theme-body-font),sans-serif;font-size:1.15rem;line-height:2;overflow-wrap:anywhere}.source-reader-content :global(p){margin:0 0 1.35em;text-indent:2em}.source-reader-content :global(img){display:block;max-width:100%;height:auto;margin:2rem auto}.source-reader-content :global(h1),.source-reader-content :global(h2),.source-reader-content :global(h3){margin:2em 0 1em;font-family:var(--theme-title-font);line-height:1.35}.source-reader-content :global(a){color:var(--brand)}.source-reader-pages{padding:2rem 0}.source-reader-pages figure{margin:0 auto 1rem;background:#fff;box-shadow:0 5px 20px #0002}.source-reader-pages img{display:block;width:100%;height:auto}.source-reader-pages figcaption{padding:.35rem;background:#171917;color:#fff8;text-align:center;font-size:.58rem}.source-reader-error{display:grid;max-width:34rem;margin:18vh auto 0;gap:.75rem;border:1px solid #fff2;border-radius:1rem;background:#fff0;padding:2rem;color:#edf0eb}.source-reader-error strong{font-size:1.15rem}.source-reader-error p{color:#b6c0b8;font-size:.75rem;line-height:1.7}.source-reader-error a{justify-self:start;border-radius:.6rem;background:#cfff4f;color:#172019;padding:.65rem .85rem;font-size:.68rem;font-weight:850;text-decoration:none}.source-reader-manga{width:min(1100px,100%);background:#171917;color:#edf0eb}.source-reader-manga .source-reader-topbar{background:#171917;border-color:#fff2}.source-reader-manga .source-reader-pages{max-width:980px;margin:auto}.source-reader-manga .source-reader-pages figure{margin-bottom:1rem}
-  @media(max-width:600px){.source-reader-page{padding:0 0 4rem}.source-reader-topbar{padding:.65rem .75rem}.source-reader-content{padding:2rem 1rem;font-size:1rem}.source-reader-pages{padding:1rem 0}.source-reader-pages figure{box-shadow:none}}
+  .source-reader-page{width:min(920px,100%);min-height:calc(100vh - 6rem);margin:auto;padding:1rem 1rem 5rem;color:var(--ink)}.source-reader-topbar{position:sticky;z-index:5;top:0;display:grid;grid-template-columns:2rem minmax(0,1fr) auto;align-items:center;gap:.7rem;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--surface-solid) 90%,transparent);padding:.7rem .2rem;backdrop-filter:blur(16px)}.source-reader-topbar>a{color:inherit;font-size:1.8rem;text-decoration:none}.source-reader-topbar div{min-width:0}.source-reader-topbar small,.source-reader-topbar strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.source-reader-topbar small{color:var(--muted-ink);font-size:.55rem}.source-reader-topbar strong{font-size:.78rem}.source-reader-topbar>span{color:var(--muted-ink);font-size:.6rem}.source-reader-controls{position:sticky;z-index:4;top:3.45rem;display:flex;align-items:center;justify-content:space-between;gap:.7rem;border-bottom:1px solid #fff2;background:#171917ee;padding:.45rem .2rem;backdrop-filter:blur(12px)}.source-reader-mode,.source-reader-pagination{display:flex;align-items:center;gap:.3rem}.source-reader-controls button{border:1px solid #fff2;border-radius:.55rem;background:transparent;color:#edf0eb;padding:.45rem .6rem;font:700 .58rem system-ui;cursor:pointer}.source-reader-controls button:hover,.source-reader-controls button.is-active{border-color:#cfff4f;background:#cfff4f;color:#172019}.source-reader-controls button:disabled{cursor:not-allowed;opacity:.35}.source-reader-pagination span{min-width:6.8rem;color:#b6c0b8;text-align:center;font-size:.58rem}.source-reader-content{max-width:760px;margin:0 auto;padding:3rem 1rem;font-family:var(--theme-body-font),sans-serif;font-size:1.15rem;line-height:2;overflow-wrap:anywhere}.source-reader-content :global(p){margin:0 0 1.35em;text-indent:2em}.source-reader-content :global(img){display:block;max-width:100%;height:auto;margin:2rem auto}.source-reader-content :global(h1),.source-reader-content :global(h2),.source-reader-content :global(h3){margin:2em 0 1em;font-family:var(--theme-title-font);line-height:1.35}.source-reader-content :global(a){color:var(--brand)}.source-reader-pages{padding:2rem 0}.source-reader-pages figure{margin:0 auto 1rem;background:#fff;box-shadow:0 5px 20px #0002}.source-reader-pages img{display:block;width:100%;height:auto;max-width:100%;object-fit:contain}.source-reader-pages figcaption{padding:.35rem;background:#171917;color:#fff8;text-align:center;font-size:.58rem}.source-reader-error{display:grid;max-width:34rem;margin:18vh auto 0;gap:.75rem;border:1px solid #fff2;border-radius:1rem;background:#fff0;padding:2rem;color:#edf0eb}.source-reader-error strong{font-size:1.15rem}.source-reader-error p{color:#b6c0b8;font-size:.75rem;line-height:1.7}.source-reader-error a{justify-self:start;border-radius:.6rem;background:#cfff4f;color:#172019;padding:.65rem .85rem;font-size:.68rem;font-weight:850;text-decoration:none}.source-reader-manga{width:min(1100px,100%);background:#171917;color:#edf0eb}.source-reader-manga .source-reader-topbar{background:#171917;border-color:#fff2}.source-reader-manga .source-reader-pages{max-width:980px;margin:auto}.source-reader-manga .source-reader-pages figure{margin-bottom:1rem}.source-reader-manga[data-mode=paged] .source-reader-pages{display:grid;min-height:calc(100vh - 7rem);align-content:start;justify-items:center;padding:.75rem 0 1rem}.source-reader-manga[data-mode=paged] .source-reader-pages figure{display:none;width:100%;margin:0;background:transparent;box-shadow:none}.source-reader-manga[data-mode=paged] .source-reader-pages figure.is-current{display:grid;place-items:center}.source-reader-manga[data-mode=paged] .source-reader-pages img{width:auto;height:auto;max-width:100%;max-height:calc(100vh - 10rem);object-fit:contain}.source-reader-manga[data-mode=paged] .source-reader-pages figcaption{width:100%;max-width:36rem;margin-top:.65rem}.source-reader-manga[data-mode=paged] .source-reader-controls [data-reader-prev],.source-reader-manga[data-mode=paged] .source-reader-controls [data-reader-next]{display:inline-block}
+  @media(max-width:600px){.source-reader-page{padding:0 0 4rem}.source-reader-topbar{padding:.65rem .75rem}.source-reader-controls{top:3.25rem;padding:.4rem .75rem}.source-reader-controls button{padding:.42rem .5rem}.source-reader-pagination span{min-width:5.2rem}.source-reader-content{padding:2rem 1rem;font-size:1rem}.source-reader-pages{padding:1rem 0}.source-reader-pages figure{box-shadow:none}.source-reader-manga[data-mode=paged] .source-reader-pages{min-height:calc(100vh - 8.8rem);padding:.5rem 0}.source-reader-manga[data-mode=paged] .source-reader-pages img{max-height:calc(100vh - 8.8rem)}}
 </style>
+
+{kind === 'manga' && reader.pages?.length ? <script>
+  // @ts-nocheck
+  function initSourceReader() {
+    const root = document.querySelector('[data-source-reader="manga"]')
+    if (!root || root.dataset.ready) return
+    root.dataset.ready = '1'
+    const figures = [...root.querySelectorAll('[data-reader-figure]')]
+    const modes = [...root.querySelectorAll('[data-reader-mode]')]
+    const prev = root.querySelector('[data-reader-prev]')
+    const next = root.querySelector('[data-reader-next]')
+    const pageLabel = root.querySelector('[data-reader-page]')
+    const countLabel = root.querySelector('[data-reader-count]')
+    const storageKey = 'source_reader_mode'
+    let mode = localStorage.getItem(storageKey) === 'paged' ? 'paged' : 'scroll'
+    let current = Math.max(0, Math.min(figures.length - 1, Number(new URLSearchParams(location.search).get('page') || 1) - 1))
+    const render = () => {
+      root.dataset.mode = mode
+      modes.forEach((button) => button.classList.toggle('is-active', button.dataset.readerMode === mode))
+      figures.forEach((figure, index) => figure.classList.toggle('is-current', index === current))
+      prev.disabled = current <= 0
+      next.disabled = current >= figures.length - 1
+      pageLabel.textContent = `第 ${current + 1} / ${figures.length} 页`
+      countLabel.textContent = mode === 'paged' ? `${current + 1} / ${figures.length}` : `${figures.length} 页`
+      localStorage.setItem(storageKey, mode)
+    }
+    const go = (index) => {
+      current = Math.max(0, Math.min(figures.length - 1, index))
+      render()
+      if (mode === 'scroll') figures[current]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      const url = new URL(location.href)
+      url.searchParams.set('page', String(current + 1))
+      history.replaceState({}, '', url)
+    }
+    modes.forEach((button) => button.addEventListener('click', () => { mode = button.dataset.readerMode; render(); if (mode === 'paged') go(current) }))
+    prev.addEventListener('click', () => go(current - 1))
+    next.addEventListener('click', () => go(current + 1))
+    root.addEventListener('click', (event) => {
+      if (mode !== 'paged' || event.target.closest('button,a,figcaption')) return
+      const box = root.getBoundingClientRect()
+      go(event.clientX - box.left < box.width / 2 ? current - 1 : current + 1)
+    })
+    addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(current - 1)
+      if (event.key === 'ArrowRight' || event.key === 'PageDown') go(current + 1)
+    })
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        if (mode !== 'scroll') return
+        const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        if (visible) { current = Number(visible.target.dataset.index); render() }
+      }, { threshold: [0.35, 0.65] })
+      figures.forEach((figure) => observer.observe(figure))
+    }
+    render()
+  }
+  document.addEventListener('astro:page-load', initSourceReader)
+  initSourceReader()
+</script> : null}
