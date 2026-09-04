@@ -216,25 +216,52 @@ async function loadRuntime(record: VeneraSourceRecord): Promise<Runtime> {
   const className = code.match(/class\s+([A-Za-z_$][\w$]*)\s+extends\s+ComicSource\b/)?.[1]
   if (!className) throw new Error(`${record.name} 没有找到 ComicSource 子类`)
   const data = sourceData.get(record.id) || new Map<string, unknown>()
+  const settingValues = new Map<string, unknown>()
   sourceData.set(record.id, data)
   class ComicSourceBase {
     loadData(key: string) { return data.get(String(key)) }
     saveData(key: string, value: unknown) { data.set(String(key), value); return value }
     deleteData(key: string) { data.delete(String(key)) }
-    loadSetting(key: string) { const own = (this as any).settings?.[key]; return own && typeof own === 'object' && 'default' in own ? own.default : undefined }
+    loadSetting(key: string) {
+      if (settingValues.has(key)) return settingValues.get(key)
+      const own = (this as any).settings?.[key]
+      const value = own && typeof own === 'object' && 'default' in own ? own.default : undefined
+      if (value !== undefined) settingValues.set(key, value)
+      return value
+    }
+    get isLogged() { return false }
+    translate(key: string) { const translations = (this as any).translation; return translations?.zh_CN?.[key] ?? translations?.zh_CN?.[String(key)] ?? key }
   }
   const Network = createNetwork(record), Convert = convertApi()
   const contextObject: any = Object.create(null)
+  let clipboard = ''
   Object.assign(contextObject, {
-    ComicSource: ComicSourceBase, Comic: modelClass(), ComicDetails: modelClass(), Comment: modelClass(), Cookie: modelClass(), HtmlDocument: HtmlDocumentAdapter,
-    Network, Convert, APP: { locale: 'zh_CN', version: '1.6.0' }, Image: { empty: '' }, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController,
+    ComicSource: ComicSourceBase, Comic: modelClass(), ComicDetails: modelClass(), Comment: modelClass(), Cookie: modelClass(), ImageLoadingConfig: modelClass(), HtmlDocument: HtmlDocumentAdapter,
+    Network, Convert, APP: { locale: 'zh_CN', version: '1.6.0', platform: process.platform === 'win32' ? 'windows' : process.platform }, Image: { empty: '' }, URL, URLSearchParams, TextEncoder, TextDecoder, AbortController,
     console: { log() {}, info() {}, warn() {}, error() {} }, setTimeout, clearTimeout, setInterval, clearInterval,
+    log() {},
+    createUuid: () => crypto.randomUUID(),
+    randomInt: (minValue: unknown, maxValue: unknown) => { const min = Math.ceil(Number(minValue) || 0), max = Math.floor(Number(maxValue) || 0); return max <= min ? min : crypto.randomInt(min, max + 1) },
+    randomDouble: (minValue: unknown, maxValue: unknown) => { const min = Number(minValue) || 0, max = Number(maxValue) || 0; return min + Math.random() * (max - min) },
+    atob: (value: unknown) => Buffer.from(String(value ?? ''), 'base64').toString('binary'),
+    btoa: (value: unknown) => Buffer.from(String(value ?? ''), 'binary').toString('base64'),
+    setClipboard: async (value: unknown) => { clipboard = String(value ?? '') },
+    getClipboard: async () => clipboard,
+    UI: { showMessage() {}, launchUrl() {}, showDialog: async () => undefined, showLoading: () => 0, cancelLoading() {}, showInputDialog: async () => null, showSelectDialog: async () => null },
     fetch: async (url: unknown, options: any = {}) => { const result = await Network.fetchBytes(options.method || 'GET', url, options.headers || {}, options.body); const body = buffer(result.body); return { ok: result.status >= 200 && result.status < 300, status: result.status, statusText: '', headers: result.headers, arrayBuffer: async () => arrayBuffer(body), text: async () => body.toString('utf8'), json: async () => JSON.parse(body.toString('utf8')) } },
   })
   const context = vm.createContext(contextObject, { name: record.id, codeGeneration: { strings: false, wasm: false } })
+  contextObject.compute = async (source: unknown, ...args: unknown[]) => {
+    ;(context as any).__venera_compute_args__ = args
+    try { return await Promise.resolve(new vm.Script(`(${String(source)})(...__venera_compute_args__)`).runInContext(context, { timeout: 3000 })) }
+    finally { delete (context as any).__venera_compute_args__ }
+  }
   new vm.Script(`${code}\n;globalThis.__venera_source__ = new ${className}();`, { filename: record.file_name }).runInContext(context, { timeout: 2000 })
   const source = (context as any).__venera_source__
   if (!source?.search?.load || !source?.comic?.loadInfo || !source?.comic?.loadEp) throw new Error(`${record.name} 缺少搜索、详情或章节读取能力`)
+  for (const [key, definition] of Object.entries(source.settings || {})) {
+    if (definition && typeof definition === 'object' && 'default' in definition) settingValues.set(key, (definition as any).default)
+  }
   const runtime = { source, context, record }
   runtimeCache.set(record.id, runtime)
   if (typeof source.init === 'function') await invoke(runtime, '__venera_source__.init()', [], 10000).catch(() => undefined)

@@ -23,7 +23,7 @@ https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json
 npm run import:venera-sources -- https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json
 ```
 
-当前兼容层覆盖 Venera 源的 `explore`、`search.load`、`comic.loadInfo` 和 `comic.loadEp`，以及常用的 `Network`、`fetch`、`HtmlDocument`、`Convert` API。登录、评论、下载任务和需要用户交互的源设置暂不属于网页端兼容范围。
+当前兼容层覆盖 Venera 源的 `explore`、`search.load`、`comic.loadInfo` 和 `comic.loadEp`，以及常用的 `Network`、`fetch`、`HtmlDocument`、`Convert`、随机数、UUID、`compute` 和无界面运行时 API。登录、评论、下载任务和需要用户交互的源设置暂不属于网页端兼容范围。
 
 为避免执行任意远程脚本，目前只允许导入 `venera-app/venera-configs` 官方仓库的 jsDelivr 或 GitHub Raw 地址。源脚本属于受信任的远程代码，部署者应在同步升级前审阅仓库变更。
 

@@ -37,6 +37,11 @@ function publicSource(rule: any) {
 function publicItem(item: any) {
   return { ...item, author: item.author || '' }
 }
+function causeMessage(cause: unknown, fallback: string) {
+  if (cause instanceof Error) return cause.message || fallback
+  const message = clean(cause, 500)
+  return message || fallback
+}
 
 export function config(req: Request, res: Response) {
   const requestedKind = kind(req.query.kind)
@@ -73,7 +78,7 @@ export async function search(req: Request, res: Response) {
     return result.items.length ? success(res, { source: publicSource(result.rule), items: result.items.map(publicItem) }) : error(res, `${result.rule.label} 没有返回匹配结果`, 'SOURCE_EMPTY', 404)
   } catch (cause) {
     console.error('内容源检索失败:', cause)
-    return error(res, cause instanceof Error ? cause.message : '无法连接内容源', 'SOURCE_UNAVAILABLE', 502)
+    return error(res, causeMessage(cause, '无法连接内容源'), 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
@@ -88,7 +93,7 @@ export async function explore(req: Request, res: Response) {
     const result = await exploreContentSource(requestedKind, requestedSource, requestHeaders(req), Math.max(1, Number(req.query.page) || 1), Math.min(30, Math.max(1, Number(req.query.limit) || 24)))
     return success(res, { source: publicSource(result.rule), page: result.page, items: result.items.map(publicItem) })
   } catch (cause) {
-    return error(res, cause instanceof Error ? cause.message : '无法读取内容源探索页', 'SOURCE_EXPLORE_UNAVAILABLE', 502)
+    return error(res, causeMessage(cause, '无法读取内容源探索页'), 'SOURCE_EXPLORE_UNAVAILABLE', 502)
   }
 }
 
@@ -105,7 +110,7 @@ export async function detail(req: Request, res: Response) {
     return success(res, { source: publicSource(result.rule), item: publicItem(result.item), chapters: result.chapters, can_read: Boolean(result.rule.reader), read_mode: result.rule.read_mode })
   } catch (cause) {
     console.error('内容源详情读取失败:', cause)
-    return error(res, cause instanceof Error ? cause.message : '无法读取内容源详情', 'SOURCE_UNAVAILABLE', 502)
+    return error(res, causeMessage(cause, '无法读取内容源详情'), 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
@@ -122,7 +127,7 @@ export async function chapter(req: Request, res: Response) {
     return success(res, { source: publicSource(result.rule), reader: result.reader, kind: requestedKind })
   } catch (cause) {
     console.error('内容源章节读取失败:', cause)
-    return error(res, cause instanceof Error ? cause.message : '无法读取内容源章节', 'SOURCE_UNAVAILABLE', 502)
+    return error(res, causeMessage(cause, '无法读取内容源章节'), 'SOURCE_UNAVAILABLE', 502)
   }
 }
 
@@ -155,6 +160,6 @@ export async function media(req: Request, res: Response) {
     res.setHeader('Cache-Control', 'public, max-age=3600')
     return res.send(Buffer.from(await response.arrayBuffer()))
   } catch (cause) {
-    return error(res, cause instanceof Error ? cause.message : '源站图片读取失败', 'SOURCE_MEDIA_FAILED', 502)
+    return error(res, causeMessage(cause, '源站图片读取失败'), 'SOURCE_MEDIA_FAILED', 502)
   }
 }
