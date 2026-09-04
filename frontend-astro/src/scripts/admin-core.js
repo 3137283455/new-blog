@@ -66,6 +66,7 @@ const navPanelMap = {
   manga: 'articles',
   albums: 'articles',
   music: 'articles',
+  'search-sources': 'articles',
   fonts: 'media',
   personal: 'settings',
   appearance: 'settings',
@@ -136,6 +137,11 @@ function switchPanel(panel) {
   const pageTitle = $('#admin-page-title');
   if (pageTitle) pageTitle.textContent = panelTitles[panel] || '后台管理';
   if (panel === 'search-sources') window.dispatchEvent(new CustomEvent('content-search-sources-request'));
+}
+
+function resolveHashPanel(value) {
+  const panel = value === 'manga-sources' ? 'search-sources' : value;
+  return panelTitles[panel] ? panel : 'dashboard';
 }
 
 async function request(path, options = {}) {
@@ -407,7 +413,7 @@ async function loadAll() {
     setStatus('已连接后端 API');
   }
   const hashPanel = location.hash.replace(/^#/, '').split('?')[0];
-  switchPanel(panelTitles[hashPanel] ? hashPanel : 'dashboard');
+  switchPanel(resolveHashPanel(hashPanel));
 }
 
 function renderDashboard() {
@@ -2193,7 +2199,7 @@ $('#login-form').addEventListener('submit', async (event) => {
     setStatus(`已登录：${user.nickname || user.username}`);
     await Promise.all([loadTaxonomy(), loadDashboard(), loadArticles(), loadMedia(), loadSettings()]);
     const hashPanel = location.hash.replace(/^#/, '').split('?')[0];
-    switchPanel(panelTitles[hashPanel] ? hashPanel : 'dashboard');
+    switchPanel(resolveHashPanel(hashPanel));
   } catch (error) {
     $('#login-message').textContent = friendlyLoginError(error);
   }
