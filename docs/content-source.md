@@ -9,6 +9,24 @@
 3. 在 `/books` 或 `/manga` 前台直接搜索作品；漫画页可选择单源或聚合搜索。
 4. 打开源详情。配置了 `chapters` 和 `reader` 的源会在本站列出目录并阅读；只有搜索/详情接口的旧源会跳转到 `source_url`。
 
+## 导入 Venera 源仓库
+
+后台「内容检索源」可以直接同步 Venera 官方源仓库。在「Venera 源仓库」中填入下面的索引地址并点击「同步仓库」：
+
+```text
+https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json
+```
+
+同步只保存仓库索引；具体 JavaScript 源在首次使用时下载并由服务端兼容运行。同步后的源会自动出现在前台 `/manga` 的源选择器和聚合搜索中，并复用本站的详情、目录、阅读和图片代理接口。也可以在后端目录运行：
+
+```bash
+npm run import:venera-sources -- https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json
+```
+
+当前兼容层覆盖 Venera 源的 `explore`、`search.load`、`comic.loadInfo` 和 `comic.loadEp`，以及常用的 `Network`、`fetch`、`HtmlDocument`、`Convert` API。登录、评论、下载任务和需要用户交互的源设置暂不属于网页端兼容范围。
+
+为避免执行任意远程脚本，目前只允许导入 `venera-app/venera-configs` 官方仓库的 jsDelivr 或 GitHub Raw 地址。源脚本属于受信任的远程代码，部署者应在同步升级前审阅仓库变更。
+
 ## 最小结构
 
 ```json

@@ -26,6 +26,7 @@ import * as bookFormatsCtrl from '../controllers/book-formats'
 import * as mangaCtrl from '../controllers/manga'
 import * as searchSourceCtrl from '../controllers/search-sources'
 import * as contentSourceCtrl from '../controllers/content-sources'
+import * as veneraSourceCtrl from '../controllers/venera-sources'
 import * as contentCenterCtrl from '../controllers/content-center'
 import { upload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
 
@@ -192,6 +193,10 @@ router.put('/admin/search-sources', auth, searchSourceCtrl.saveConfig)
 router.post('/admin/search-sources/import', auth, searchSourceCtrl.importSource)
 router.post('/admin/search-sources/test', auth, searchSourceCtrl.testSource)
 router.delete('/admin/search-sources/:id', auth, searchSourceCtrl.removeSource)
+router.get('/admin/venera-sources', auth, veneraSourceCtrl.list)
+router.post('/admin/venera-sources/import', auth, veneraSourceCtrl.importRepository)
+router.post('/admin/venera-sources/test', auth, veneraSourceCtrl.testSource)
+router.delete('/admin/venera-sources', auth, veneraSourceCtrl.removeRepository)
 
 router.get('/admin/bangumi', auth, bangumiCtrl.list)
 router.get('/admin/bangumi/search', auth, bangumiCtrl.searchSource)

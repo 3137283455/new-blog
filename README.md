@@ -154,7 +154,7 @@ npm run dev
 
 ### 内容源
 
-漫画 `/manga` 是面向读者的漫画站：首页直接提供源选择、聚合搜索、可选探索页、详情和章节阅读，个人书架只负责收藏与本地条目。后台「内容检索源」负责导入和维护 JSON 规则，「漫画基础管理」只维护已有本地/网络条目的状态、排序、显示和外部入口，不再提供漫画导入或源站检索。协议说明和模板见 [`docs/content-source.md`](docs/content-source.md) 与 [`sources/example.content-search-source.json`](sources/example.content-search-source.json)。
+漫画 `/manga` 是面向读者的漫画站：首页直接提供源选择、聚合搜索、可选探索页、详情和章节阅读，个人书架只负责收藏与本地条目。后台「内容检索源」负责导入和维护 JSON 规则，也可以直接同步 Venera 官方 `venera-configs` 仓库；「漫画基础管理」只维护已有本地/网络条目的状态、排序、显示和外部入口，不再提供漫画导入或源站检索。协议说明和模板见 [`docs/content-source.md`](docs/content-source.md) 与 [`sources/example.content-search-source.json`](sources/example.content-search-source.json)。
 
 ## 🏗️ 生产部署
 

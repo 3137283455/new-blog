@@ -804,6 +804,24 @@ const apiBase = import.meta.env.PUBLIC_API_BASE || '/api'
               <div><h2 id="content-search-sources-title" class="text-2xl font-black">内容检索源</h2><p class="text-sm text-base-content/50">每个站点使用一个独立 JSON 规则文件，可分别定义 GET/POST、API 路径、请求体、响应路径和字段映射。</p></div>
               <div class="flex flex-wrap gap-2"><button id="search-source-new" class="ryu-btn" type="button">新建源</button><label class="ryu-btn cursor-pointer">导入源文件<input id="search-source-import" class="hidden" type="file" accept="application/json,.json" multiple /></label><button id="search-source-export-all" class="ryu-btn" type="button">备份全部</button></div>
             </div>
+            <section class="ryu-card grid gap-4 p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div><h3 class="text-lg font-black">Venera 源仓库</h3><p class="text-sm text-base-content/50">同步 Venera 的仓库索引后，前台漫画站即可直接选择这些源进行搜索、查看目录和阅读。</p></div>
+                <span id="venera-repository-badge" class="badge badge-ghost">尚未同步</span>
+              </div>
+              <div class="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
+                <input id="venera-repository-url" class="input input-bordered w-full rounded-xl font-mono text-xs" value="https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json" aria-label="Venera 仓库索引地址" />
+                <button id="venera-repository-import" class="ryu-btn-primary" type="button">同步仓库</button>
+              </div>
+              <div id="venera-repository-list" class="grid gap-2"></div>
+              <div class="grid gap-2 border-t border-base-content/10 pt-4 lg:grid-cols-[minmax(12rem,.8fr)_minmax(12rem,1fr)_auto]">
+                <select id="venera-source-test-select" class="select select-bordered rounded-xl" aria-label="选择 Venera 源"></select>
+                <input id="venera-source-test-query" class="input input-bordered rounded-xl" value="海贼王" placeholder="测试搜索关键词" />
+                <button id="venera-source-test" class="ryu-btn" type="button">测试源</button>
+              </div>
+              <div id="venera-source-test-results" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4"></div>
+              <p id="venera-repository-status" class="min-h-5 text-sm" aria-live="polite"></p>
+            </section>
             <div class="grid overflow-hidden border-y border-base-content/10 xl:grid-cols-[minmax(18rem,.68fr)_minmax(0,1.32fr)]">
               <div class="grid content-start gap-4 py-4 xl:border-r xl:border-base-content/10 xl:pr-5">
                 <div class="grid gap-3 border-b border-base-content/10 pb-4 sm:grid-cols-2 xl:grid-cols-1">
