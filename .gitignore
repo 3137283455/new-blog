@@ -31,3 +31,12 @@ npm-debug.log*
 
 # 系统
 Thumbs.db
+
+# Parallel refactor build and local visual-test artifacts
+.next/
+.next-*/
+apps/web/next-env.d.ts
+*.tsbuildinfo
+playwright-report/
+test-results/
+artifacts/

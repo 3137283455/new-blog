@@ -1,0 +1,527 @@
+/* Preserved from MangaPortal.astro. Values frozen by UI parity tests.
+ * Inactive dynamic-node rules intentionally excluded; see docs/refactor/README.md. */
+.manga-home:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  --manga-ink: #172018;
+  --manga-brand: #2f6f4e;
+  --manga-muted: #7a8279;
+  --manga-line: #e4e8df;
+  --manga-soft: #f0f3e9;
+  --manga-surface: #fff;
+  width: min(1240px, 100%);
+  margin: 0 auto;
+  padding: 0 1rem 5rem;
+  color: var(--manga-ink);
+}
+.manga-home [hidden]:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: none !important;
+}
+:where(.manga-home) .manga-eyebrow:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin: 0;
+  color: var(--manga-brand);
+  font:
+    850 0.57rem/1.2 system-ui,
+    sans-serif;
+  letter-spacing: 0.16em;
+}
+.manga-home-hero:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  align-items: center;
+  gap: 2rem;
+  margin-top: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--manga-line);
+  border-radius: 1.35rem;
+  background: linear-gradient(120deg, #f7f9f1, #eef3e5);
+  padding: clamp(2rem, 5vw, 4.5rem);
+  position: relative;
+}
+.manga-home-hero-copy:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  position: relative;
+  z-index: 1;
+  max-width: 43rem;
+}
+.manga-home-hero h1:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin: 0.65rem 0 0.9rem;
+  font: 650 clamp(2.8rem, 6vw, 5.5rem)/0.94 var(--theme-title-font, Georgia, serif);
+  letter-spacing: -0.06em;
+}
+.manga-home-hero h1 em:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-brand);
+  font-style: normal;
+}
+.manga-home-hero-copy
+  > p:not(.manga-eyebrow):not(.manga-inline-state):not(
+    :where(.manga-source-picker *, .manga-site-header *)
+  ) {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--manga-muted);
+  font-size: 0.72rem;
+  line-height: 1.8;
+}
+:where(.manga-home) .manga-search-bar:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.42rem;
+  max-width: 47rem;
+  margin-top: 1.55rem;
+  border: 1px solid #dfe5d7;
+  border-radius: 0.88rem;
+  background: #fff;
+  padding: 0.35rem;
+  box-shadow: 0 14px 34px #273b2512;
+}
+:where(.manga-home)
+  .manga-search-bar
+  label:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  padding-left: 0.65rem;
+}
+:where(.manga-home)
+  .manga-search-bar
+  label
+  svg:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  width: 0.95rem;
+  fill: none;
+  stroke: var(--manga-muted);
+  stroke-width: 1.8;
+}
+:where(.manga-home)
+  .manga-search-bar
+  input:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  width: 100%;
+  height: 2.8rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--manga-ink);
+  font-size: 0.7rem;
+}
+:where(.manga-home)
+  .manga-search-bar
+  > button:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  height: 2.8rem;
+  border: 0;
+  border-radius: 0.63rem;
+  background: var(--manga-ink);
+  padding: 0 0.9rem;
+  color: #f4ffd9;
+  font-size: 0.64rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+:where(.manga-home)
+  .manga-search-bar
+  > button
+  span:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin-left: 0.35rem;
+  color: #d8ff55;
+  font-size: 0.9rem;
+}
+:where(.manga-home) .manga-inline-state:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin-top: 0.65rem !important;
+  color: var(--manga-muted) !important;
+  font-size: 0.57rem !important;
+}
+:where(.manga-home)
+  .manga-inline-state.is-error:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: #a33f35 !important;
+}
+:where(.manga-home) .manga-hero-art:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  position: relative;
+  display: grid;
+  width: 22rem;
+  height: 22rem;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #ffffffcc 0 15%, transparent 16%),
+    radial-gradient(circle, #d8ff5540, #d8ff5510 38%, transparent 64%);
+  transform: rotate(-13deg);
+}
+:where(.manga-home)
+  .manga-hero-art
+  > span:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  width: 7.5rem;
+  height: 7.5rem;
+  place-items: center;
+  border: 1px solid #2f6f4e2f;
+  border-radius: 2rem;
+  background: var(--manga-ink);
+  color: #d8ff55;
+  font: 900 3.8rem var(--theme-title-font);
+  box-shadow: 0 25px 45px #1720182b;
+}
+:where(.manga-home) .hero-orbit:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  position: absolute;
+  border: 1px solid #2f6f4e38;
+  border-radius: 50%;
+}
+:where(.manga-home) .hero-orbit-one:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  inset: 1.5rem 3rem;
+  transform: rotate(35deg);
+}
+:where(.manga-home) .hero-orbit-two:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  inset: 3rem 1.5rem;
+  transform: rotate(-35deg);
+}
+:where(.manga-home) .hero-orbit-three:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  inset: 4.5rem 0;
+  transform: rotate(80deg);
+  border-style: dashed;
+}
+:where(.manga-home) .manga-shortcuts:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+:where(.manga-home) .manga-shortcuts > a:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid var(--manga-line);
+  border-radius: 0.95rem;
+  background: #ffffffb8;
+  padding: 0.8rem;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform 0.18s,
+    border-color 0.18s;
+}
+:where(.manga-home)
+  .manga-shortcuts
+  > a:hover:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  transform: translateY(-2px);
+  border-color: #adc29c;
+}
+:where(.manga-home) .shortcut-icon:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 0.75rem;
+  background: var(--manga-soft);
+  color: var(--manga-brand);
+  font-size: 1rem;
+  font-weight: 900;
+}
+:where(.manga-home)
+  .manga-shortcuts
+  small:not(:where(.manga-source-picker *, .manga-site-header *)),
+:where(.manga-home)
+  .manga-shortcuts
+  strong:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: block;
+}
+:where(.manga-home)
+  .manga-shortcuts
+  small:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-muted);
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+}
+:where(.manga-home)
+  .manga-shortcuts
+  strong:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+}
+:where(.manga-home) .manga-shortcuts > b:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-muted);
+  font-size: 0.56rem;
+  white-space: nowrap;
+}
+.manga-home-grid:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20rem;
+  align-items: start;
+  gap: 1.4rem;
+  margin-top: 2.5rem;
+}
+:where(.manga-home) .manga-section-head:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.95rem;
+}
+:where(.manga-home)
+  .manga-section-head
+  h2:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin: 0.35rem 0 0;
+  font: 650 2rem var(--theme-title-font);
+}
+:where(.manga-home)
+  .manga-section-head
+  > span:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-muted);
+  font-size: 0.57rem;
+}
+:where(.manga-home) .manga-result-grid:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.1rem 0.7rem;
+}
+:where(.manga-home)
+  .manga-result-empty[data-initial-placeholder]:not(
+    :where(.manga-source-picker *, .manga-site-header *)
+  ) {
+  grid-column: 1/-1;
+  display: grid;
+  min-height: 13rem;
+  place-content: center;
+  gap: 0.35rem;
+  border: 1px dashed var(--manga-line);
+  border-radius: 1rem;
+  text-align: center;
+}
+:where(.manga-home)
+  .manga-result-empty[data-initial-placeholder]
+  strong:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  font: 650 1.15rem var(--theme-title-font);
+}
+:where(.manga-home)
+  .manga-result-empty[data-initial-placeholder]
+  span:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-muted);
+  font-size: 0.62rem;
+}
+.manga-home-rail:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  gap: 0.8rem;
+}
+:where(.manga-home) .manga-rail-card:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  border: 1px solid var(--manga-line);
+  border-radius: 1rem;
+  background: #ffffffb8;
+  padding: 1rem;
+}
+:where(.manga-home)
+  .manga-rail-card
+  header:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--manga-line);
+  padding-bottom: 0.7rem;
+}
+:where(.manga-home) .manga-rail-card h3:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin: 0.32rem 0 0;
+  font: 650 1.45rem var(--theme-title-font);
+}
+:where(.manga-home)
+  .manga-rail-card
+  header
+  > a:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-brand);
+  font-size: 0.56rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+:where(.manga-home) .manga-shelf-stats:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  margin: 0.85rem 0;
+}
+:where(.manga-home)
+  .manga-shelf-stats
+  div:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  gap: 0.2rem;
+  border-right: 1px solid var(--manga-line);
+  text-align: center;
+}
+:where(.manga-home)
+  .manga-shelf-stats
+  div:last-child:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  border: 0;
+}
+:where(.manga-home)
+  .manga-shelf-stats
+  strong:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  font: 650 1.25rem var(--theme-title-font);
+}
+:where(.manga-home)
+  .manga-shelf-stats
+  span:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-muted);
+  font-size: 0.53rem;
+}
+:where(.manga-home) .manga-preview-list:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  gap: 0.18rem;
+}
+:where(.manga-home)
+  .manga-preview-list
+  > a:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  grid-template-columns: 2.3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  border-radius: 0.6rem;
+  padding: 0.42rem 0.25rem;
+  color: inherit;
+  text-decoration: none;
+}
+:where(.manga-home)
+  .manga-preview-list
+  > a:hover:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  background: var(--manga-soft);
+}
+:where(.manga-home) .preview-cover:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: grid;
+  width: 2.3rem;
+  height: 3.1rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  background: var(--manga-soft);
+  font: 700 1rem var(--theme-title-font);
+}
+:where(.manga-home) .preview-cover img:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+:where(.manga-home)
+  .manga-preview-list
+  strong:not(:where(.manga-source-picker *, .manga-site-header *)),
+:where(.manga-home)
+  .manga-preview-list
+  small:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.manga-home)
+  .manga-preview-list
+  strong:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  font-size: 0.64rem;
+}
+:where(.manga-home)
+  .manga-preview-list
+  small:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin-top: 0.16rem;
+  color: var(--manga-muted);
+  font-size: 0.52rem;
+}
+:where(.manga-home)
+  .manga-preview-list
+  > a
+  > b:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-muted);
+  font-size: 0.68rem;
+}
+:where(.manga-home)
+  .manga-preview-list
+  > p:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin: 0.8rem 0 0.2rem;
+  color: var(--manga-muted);
+  font-size: 0.62rem;
+  line-height: 1.6;
+}
+:where(.manga-home) .manga-rail-note:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  border-left: 3px solid #d8ff55;
+  background: var(--manga-soft);
+  padding: 0.8rem 1rem;
+}
+:where(.manga-home)
+  .manga-rail-note
+  > span:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  color: var(--manga-brand);
+  font: 850 0.52rem system-ui;
+  letter-spacing: 0.14em;
+}
+:where(.manga-home) .manga-rail-note p:not(:where(.manga-source-picker *, .manga-site-header *)) {
+  margin: 0.35rem 0 0;
+  color: var(--manga-muted);
+  font-size: 0.62rem;
+  line-height: 1.65;
+}
+@media (max-width: 900px) {
+  .manga-home-hero:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: 1fr;
+  }
+  :where(.manga-home) .manga-hero-art:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    position: absolute;
+    right: -8rem;
+    bottom: -5rem;
+    width: 24rem;
+    height: 24rem;
+    opacity: 0.48;
+  }
+  .manga-home-grid:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: 1fr;
+  }
+  .manga-home-rail:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: 1fr 1fr;
+  }
+  :where(.manga-home) .manga-result-grid:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .manga-home:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    padding: 0 0.65rem 3rem;
+  }
+  .manga-home-hero:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    margin-top: 0.7rem;
+    padding: 1.55rem 1rem;
+    border-radius: 1rem;
+  }
+  .manga-home-hero h1:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    font-size: 3rem;
+  }
+  :where(.manga-home) .manga-search-bar:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  :where(.manga-home)
+    .manga-search-bar
+    .manga-source-picker:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-column: 1;
+  }
+  :where(.manga-home)
+    .manga-search-bar
+    > button:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  :where(.manga-home) .manga-shortcuts:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: 1fr;
+  }
+  :where(.manga-home)
+    .manga-shortcuts
+    > a:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    padding: 0.65rem;
+  }
+  .manga-home-grid:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    margin-top: 1.8rem;
+  }
+  :where(.manga-home)
+    .manga-section-head:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    align-items: start;
+    flex-direction: column;
+  }
+  :where(.manga-home) .manga-result-grid:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 0.6rem;
+  }
+  .manga-home-rail:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    grid-template-columns: 1fr;
+  }
+  :where(.manga-home) .manga-rail-note:not(:where(.manga-source-picker *, .manga-site-header *)) {
+    display: none;
+  }
+}

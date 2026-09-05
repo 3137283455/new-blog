@@ -1,0 +1,302 @@
+{
+  "schema": 1,
+  "description": "UI source baseline; does not contain database or user data",
+  "entries": [
+    {
+      "file": "frontend-astro/src/components/Banner.astro",
+      "sha256": "50a1094a026a71badc4e79c30d3f83845f6616abeb284511b3f4cce796ddaeec"
+    },
+    {
+      "file": "frontend-astro/src/components/BaseCard.astro",
+      "sha256": "f845bc684bfea6bbc067988beaf9b4c27b7ab8dd78770dca9f81010f1cca11e3"
+    },
+    {
+      "file": "frontend-astro/src/components/BookLibraryRefactor.astro",
+      "sha256": "8b255dbc480fed2254818945e50c4203b76293459a89a1a17747b5b42edbaa01"
+    },
+    {
+      "file": "frontend-astro/src/components/ContentSourceExplorer.astro",
+      "sha256": "cfc1a882ce7b3c71c9db54102c3a2c160ffea9e8b9aac1e5d2cf014fb8687412"
+    },
+    {
+      "file": "frontend-astro/src/components/MangaBrowsePage.astro",
+      "sha256": "6be4df59d361355b70ad67d13c52c28e4252cfa3edad4a4cf6ede9bff2c4e93e"
+    },
+    {
+      "file": "frontend-astro/src/components/MangaDetailRefactor.astro",
+      "sha256": "4db4fd2bbb429a92d95b1f233ff0aeb4415e85f411beecde6c98ed306de90f6d"
+    },
+    {
+      "file": "frontend-astro/src/components/MangaLibraryRefactor.astro",
+      "sha256": "dd3c869006d7500d3dbf37904a9bf22222a02577de1b92fa41dee8e113ff04ba"
+    },
+    {
+      "file": "frontend-astro/src/components/MangaPortal.astro",
+      "sha256": "ca93171fec8f22a8cfca7a245457a6369f1f155537aa9ecdc53c37263024fd57"
+    },
+    {
+      "file": "frontend-astro/src/components/MangaSiteHeader.astro",
+      "sha256": "883caed84320b93a2f75b435d571df1cd228008f2d441367d02d18a6dcfd220a"
+    },
+    {
+      "file": "frontend-astro/src/components/MangaSourcePicker.astro",
+      "sha256": "35f90cf9a13004806aad608f273cb0b542d110c770447a2a5d3472b40d8d35b1"
+    },
+    {
+      "file": "frontend-astro/src/components/MusicPlayer.astro",
+      "sha256": "fb8813dffc1b7c59207e2ffceafc638fcf9fd8bf2cfb5a4677d2243538e9ad36"
+    },
+    {
+      "file": "frontend-astro/src/components/Navbar.astro",
+      "sha256": "893165213ffb3b37d871f653a242a3d8f26cd7b3d4440c4fc0c14b9f7e16a63a"
+    },
+    {
+      "file": "frontend-astro/src/components/Sidebar.astro",
+      "sha256": "1a14bac0be042561c78177bf4ac1f3060b4bb49091f1bfc025246e01b3319f62"
+    },
+    {
+      "file": "frontend-astro/src/layouts/BaseLayout.astro",
+      "sha256": "f9ecaecc4d95fd9b8b3ad149ddf41245ab00357f5160e4d66b5e3df047b96e89"
+    },
+    {
+      "file": "frontend-astro/src/pages/404.astro",
+      "sha256": "794289d442f775bedacace14e326d6770d86e266d87249166208bd432cac93dc",
+      "route": "/404"
+    },
+    {
+      "file": "frontend-astro/src/pages/admin.astro",
+      "sha256": "b4e065ec90482a78ef7f859733dc710be149815fa267ab79bef4932cd5aaa7f9",
+      "route": "/admin"
+    },
+    {
+      "file": "frontend-astro/src/pages/admin/write.astro",
+      "sha256": "057f93434aa1ab23608ba2b14d9a707a65db29bbb0d7b20d99972fe54e7a9181",
+      "route": "/admin/write"
+    },
+    {
+      "file": "frontend-astro/src/pages/albums.astro",
+      "sha256": "5bc6a02f6676dd7e0969c0b896733d30793333fc837a31a80cda0d155b2d7119",
+      "route": "/albums"
+    },
+    {
+      "file": "frontend-astro/src/pages/albums/[id].astro",
+      "sha256": "6c698b6e8995a51bcde58c9a24c5d6ad7a85e2fd12b07cd619112fe7e4bce168",
+      "route": "/albums/[id]"
+    },
+    {
+      "file": "frontend-astro/src/pages/api/[...path].ts",
+      "sha256": "0cca63042f45114b622e37d04d0c1c5a7d7e257989c26535a1b6294ecd899bf7",
+      "route": "/api/[...path]"
+    },
+    {
+      "file": "frontend-astro/src/pages/archive.astro",
+      "sha256": "3bb1bfbb2172c0340f1c26ed9b6e8bdb5517a2e64093fb7dd85868d487e9c3f7",
+      "route": "/archive"
+    },
+    {
+      "file": "frontend-astro/src/pages/article/[slug].astro",
+      "sha256": "ec4525d7a94571b7615f7d7976f6a49fcf6a4774dd3753ca954262511965375e",
+      "route": "/article/[slug]"
+    },
+    {
+      "file": "frontend-astro/src/pages/bangumi.astro",
+      "sha256": "434860c98321a03f83fde8fc24ab04943f35152ebbdcce226399392f5e9ef7e6",
+      "route": "/bangumi"
+    },
+    {
+      "file": "frontend-astro/src/pages/books/[book]/[volume]/[chapter]/index.astro",
+      "sha256": "9b589ec8996557213e3304624ee77c4080e61e0a6bd2f28af41476c96b7fbccd",
+      "route": "/books/[book]/[volume]/[chapter]"
+    },
+    {
+      "file": "frontend-astro/src/pages/books/[book]/[volume]/index.astro",
+      "sha256": "973c8db7e65973dbb70ac1a8a9929cb10a8070e3e7da5409d8d3e253c2bdb2d3",
+      "route": "/books/[book]/[volume]"
+    },
+    {
+      "file": "frontend-astro/src/pages/books/[book]/contents.astro",
+      "sha256": "54d3a019447004c881bb81b3e2a0bd4375dab44882873fe39649af499ccd0f28",
+      "route": "/books/[book]/contents"
+    },
+    {
+      "file": "frontend-astro/src/pages/books/[book]/index.astro",
+      "sha256": "b8a16469fd972ff62fc24567551befbba1f162164e982bf279a37eb6748734b5",
+      "route": "/books/[book]"
+    },
+    {
+      "file": "frontend-astro/src/pages/books/index.astro",
+      "sha256": "24ba14933c1d853503cbd34151e26520f5de0f9cd63fcbbbff36c8557e81b295",
+      "route": "/books"
+    },
+    {
+      "file": "frontend-astro/src/pages/feed.json.ts",
+      "sha256": "3740e11adb1d629d3d4c7e182e66e44e12aac57de0d6596e39b4bf721fe34903",
+      "route": "/feed.json"
+    },
+    {
+      "file": "frontend-astro/src/pages/index.astro",
+      "sha256": "866b71afc5f396747e039a0923fb37aa2d82c8183501f2b9bef5dfca686b69e9",
+      "route": "/"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/[slug].astro",
+      "sha256": "7ab60eae3924dfe4bfc9dfd7c59cc1d274845a08f49a4c48faf4cd08bda05412",
+      "route": "/manga/[slug]"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/[slug]/[volume]/[chapter]/index.astro",
+      "sha256": "6abed319645f4e8629512968a6c2e11cd0aa5157f2a28cb4fb39258fedda1eb4",
+      "route": "/manga/[slug]/[volume]/[chapter]"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/index.astro",
+      "sha256": "aedda4f6eb8cde865d43b70fa196b5cada483eff420d61b4d90097019e5ac1bb",
+      "route": "/manga"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/latest.astro",
+      "sha256": "d25fc56c676c37968e808c846124f5f07b4c610b8363d3206aa13984abe9fa1c",
+      "route": "/manga/latest"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/library.astro",
+      "sha256": "676a7ac5b6a22381430870a6e03ea769b00828153264d44efc3e18d87fc72bbf",
+      "route": "/manga/library"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/rank.astro",
+      "sha256": "179bf1c386030c6bae83e82832b7ac2b564ea0deef44f389209402f069f31707",
+      "route": "/manga/rank"
+    },
+    {
+      "file": "frontend-astro/src/pages/manga/search.astro",
+      "sha256": "2a0db1c28561d973e79e3a152279c6c318c3c025291bd1a9a180c159ef32c58a",
+      "route": "/manga/search"
+    },
+    {
+      "file": "frontend-astro/src/pages/manifest.webmanifest.ts",
+      "sha256": "4adac573a87bb74cd7cd0e4ae07f4e792e8899b86b9b10a7a0e3db5024493950",
+      "route": "/manifest.webmanifest"
+    },
+    {
+      "file": "frontend-astro/src/pages/memories.astro",
+      "sha256": "f77870badcbe2b8a9c2e60e08c3b85c4cb56243fee224be286d7727470101f77",
+      "route": "/memories"
+    },
+    {
+      "file": "frontend-astro/src/pages/music.astro",
+      "sha256": "0d7b3c0b4a091220f7de1ad1c1ad4b6472b271dd5d88b70bfbc223886ba0420c",
+      "route": "/music"
+    },
+    {
+      "file": "frontend-astro/src/pages/music/[index].astro",
+      "sha256": "e02ba18aee8e4542bc5b30e2a2ed72c2f76ff5db8b1ee608d328b285211e51bb",
+      "route": "/music/[index]"
+    },
+    {
+      "file": "frontend-astro/src/pages/nav.astro",
+      "sha256": "42ba2024ba8c91a802eb867098f75582101b19349ac28af36ea6e252aec38904",
+      "route": "/nav"
+    },
+    {
+      "file": "frontend-astro/src/pages/page/[slug].astro",
+      "sha256": "9d13f5fd2c8a2c9e0eea7679c938e65d7838825e536187ad1edc64e38faeee09",
+      "route": "/page/[slug]"
+    },
+    {
+      "file": "frontend-astro/src/pages/reading.astro",
+      "sha256": "c1ce35d48b42c2d2e2e902e5b33ed1ac898e5103f9a43a0b4604f9476d89f643",
+      "route": "/reading"
+    },
+    {
+      "file": "frontend-astro/src/pages/robots.txt.ts",
+      "sha256": "d2cd3766d2bb33b941136af8821cf86c97eaba4e259999f93d38917139ddbcb4",
+      "route": "/robots.txt"
+    },
+    {
+      "file": "frontend-astro/src/pages/rss.xml.ts",
+      "sha256": "b31ff69a95ae118c1ed5b1cd9ab1eb9cf4ea368dab83947ccea5ab691a90be06",
+      "route": "/rss.xml"
+    },
+    {
+      "file": "frontend-astro/src/pages/search.astro",
+      "sha256": "e8f586d868f68a7176daae1f22f57bf189c8cf7481e19a8986373ffb775bdaa7",
+      "route": "/search"
+    },
+    {
+      "file": "frontend-astro/src/pages/series.astro",
+      "sha256": "8c784d1835f8d956c7300e5fd931d25c481c440cd0ef985554bbc5ae6c1d3bb3",
+      "route": "/series"
+    },
+    {
+      "file": "frontend-astro/src/pages/series/[slug].astro",
+      "sha256": "f1f4bcd3704bd9c3187d893b5cfeccf6c4ec92d7735f9ca83a3407ee140f0925",
+      "route": "/series/[slug]"
+    },
+    {
+      "file": "frontend-astro/src/pages/sitemap.xml.ts",
+      "sha256": "7b81aae9511dd67af7ec94b390bbd0d2dd833ffee58b83c56e9e3ac76ca07f0a",
+      "route": "/sitemap.xml"
+    },
+    {
+      "file": "frontend-astro/src/pages/source/[kind]/[source]/[id].astro",
+      "sha256": "0211b3fed891aaffc42085d1414467157e853ee9839f8cdf98d400abb8508cf4",
+      "route": "/source/[kind]/[source]/[id]"
+    },
+    {
+      "file": "frontend-astro/src/pages/source/[kind]/[source]/chapter/[chapter].astro",
+      "sha256": "f851983aae4081921bd18955fe267a81a8675060253941fc88b467473c4f6e8c",
+      "route": "/source/[kind]/[source]/chapter/[chapter]"
+    },
+    {
+      "file": "frontend-astro/src/pages/sw.js.ts",
+      "sha256": "b11ae38d02d9d957b4b8a8dc06e7c974055f01edb5e5aae19da48bb4c1fe5f1e",
+      "route": "/sw.js"
+    },
+    {
+      "file": "frontend-astro/src/pages/uploads/[...path].ts",
+      "sha256": "53c7e6d63b86cb9fac7976aa910b68a6f64ac0b357a1a84b237d3e97e5555284",
+      "route": "/uploads/[...path]"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-books.js",
+      "sha256": "bc76a3ba0dbac72eb641a2d777aba1efc7fb78af2b4925932e8ac78259b152c2"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-content-center.js",
+      "sha256": "8d402a692add01f1b5bafe9ba3a27b2ed38ccd62ac17a73ae8467b6e51097bfe"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-core.js",
+      "sha256": "4ce57e6daee485c3823b0354c98300eacb6cc48842eef4c8594065126e7e93fd"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-extra.js",
+      "sha256": "220904ac565c94bd33424c3edc3d85210bea84fb7d4638c0efe047c0c8731a52"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-manga.js",
+      "sha256": "8b2e8e23133f8e3a31eb812d3f0b8a5eacd2b5f6033a16832884564b045d7b93"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-personal.js",
+      "sha256": "563719c1ef842352f5319e6e7b469c2810fdf68bd9b895b02f2709450a0dfb56"
+    },
+    {
+      "file": "frontend-astro/src/scripts/admin-search-sources.js",
+      "sha256": "e088f6eb330267e835db17f34311e9964290cfb7d06420f5b160d1aa49efdc52"
+    },
+    {
+      "file": "frontend-astro/src/scripts/bookmark-import.js",
+      "sha256": "544e3eb6702dab62cbfe57197e5667ba50ac155d6b1f97669651f793a471bb80"
+    },
+    {
+      "file": "frontend-astro/src/scripts/manga-experience.js",
+      "sha256": "8df795fecdb90ab24bc468c8876b8aa87397a44808e486d6c0a6b8ce06882bac"
+    },
+    {
+      "file": "frontend-astro/src/styles/global.scss",
+      "sha256": "7e4a24b3ac0411f567a13bd1323decbffce8d72653f066fa8126cf5ad3b4abf5"
+    }
+  ]
+}

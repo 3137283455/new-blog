@@ -2,6 +2,12 @@
   "name": "boke-workspace",
   "private": true,
   "scripts": {
+    "dev:web": "npm run dev --prefix apps/web",
+    "dev:refactor": "node scripts/refactor/dev.mjs",
+    "build:web": "npm run build --prefix apps/web",
+    "test:web": "npm run test --prefix apps/web",
+    "test:ui": "npm run test:ui --prefix apps/web",
+    "refactor:inventory": "node scripts/refactor/inventory.mjs",
     "start:all": "powershell -ExecutionPolicy Bypass -File scripts/start-all.ps1",
     "build": "npm run build --prefix backend && npm run build --prefix frontend-astro"
   }
