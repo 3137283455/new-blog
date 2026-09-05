@@ -34,6 +34,15 @@ const mediaUrl = (url: string) => `/api/content-sources/media?source=${encodeURI
   @media(max-width:600px){.source-reader-page{padding:0 0 4rem}.source-reader-topbar{padding:.65rem .75rem}.source-reader-controls{top:3.25rem;padding:.4rem .75rem}.source-reader-controls button{padding:.42rem .5rem}.source-reader-pagination span{min-width:5.2rem}.source-reader-content{padding:2rem 1rem;font-size:1rem}.source-reader-pages{padding:1rem 0}.source-reader-pages figure{box-shadow:none}.source-reader-manga[data-mode=paged] .source-reader-pages{min-height:calc(100vh - 8.8rem);padding:.5rem 0}.source-reader-manga[data-mode=paged] .source-reader-pages img{max-height:calc(100vh - 8.8rem)}}
 </style>
 
+<style>
+  /* The fixed reader bars must not cover the top of a page after
+     scrollIntoView() advances through continuous reading. */
+  .source-reader-pages figure { scroll-margin-top: 7.25rem; }
+  @media (max-width: 600px) {
+    .source-reader-pages figure { scroll-margin-top: 6.9rem; }
+  }
+</style>
+
 {kind === 'manga' && reader.pages?.length ? <script>
   // @ts-nocheck
   function initSourceReader() {
