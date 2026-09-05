@@ -125,8 +125,12 @@ export function getVeneraSource(id: unknown) {
 }
 
 function buffer(value: any) {
-  if (value instanceof ArrayBuffer) return Buffer.from(new Uint8Array(value))
-  if (ArrayBuffer.isView(value)) return Buffer.from(value.buffer, value.byteOffset, value.byteLength)
+  // Values returned by a source live in a VM context, so `instanceof
+  // ArrayBuffer` is not reliable across realms.  Detect transferable binary
+  // values by their shape as well; otherwise image request bodies and
+  // onResponse results can be silently coerced into an invalid buffer.
+  if (value instanceof ArrayBuffer || Object.prototype.toString.call(value) === '[object ArrayBuffer]') return Buffer.from(new Uint8Array(value))
+  if (ArrayBuffer.isView(value) || value?.buffer && typeof value.byteLength === 'number') return Buffer.from(value.buffer, value.byteOffset || 0, value.byteLength)
   if (typeof value === 'string') return Buffer.from(value)
   return Buffer.from(value || [])
 }
@@ -376,15 +380,75 @@ export async function readVeneraSource(id: unknown, comicId: string, chapterId: 
     },
   }
 }
+type VeneraImageConfig = {
+  url?: unknown
+  method?: unknown
+  data?: unknown
+  headers?: unknown
+  onResponse?: unknown
+  onLoadFailed?: unknown
+}
+
+function imageHeaders(value: unknown) {
+  if (!value || typeof value !== 'object') return {}
+  return Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, item]) => [clean(key, 100), clean(item, 2000)]).filter(([key, item]) => key && item))
+}
+
+function imageMethod(value: unknown) {
+  const method = clean(value || 'GET', 12).toUpperCase()
+  return ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].includes(method) ? method : 'GET'
+}
+
+function imageBody(value: unknown) {
+  if (value == null) return undefined
+  if (typeof value === 'string' || value instanceof ArrayBuffer || ArrayBuffer.isView(value) || Object.prototype.toString.call(value) === '[object ArrayBuffer]') return buffer(value)
+  return JSON.stringify(value)
+}
+
+async function invokeImageCallback(runtime: Runtime, callback: unknown, body?: unknown) {
+  if (typeof callback !== 'function') return undefined
+  const args = body === undefined ? [callback] : [callback, body]
+  return invoke(runtime, body === undefined ? '__venera_args__[0]()' : '__venera_args__[0](__venera_args__[1])', args, 30000)
+}
+
 export async function fetchVeneraImage(id: unknown, targetValue: unknown) {
   const record = getVeneraSource(id), runtime = await loadRuntime(record)
-  let url = remoteUrl(targetValue), headers: Record<string, string> = {}
+  const initialUrl = remoteUrl(targetValue)
   const handler = runtime.source?.comic?.onImageLoad || runtime.source?.comic?.onThumbnailLoad
-  if (typeof handler === 'function') {
-    const method = runtime.source.comic.onImageLoad === handler ? 'onImageLoad' : 'onThumbnailLoad'
-    const config: any = await invoke(runtime, `__venera_source__.comic.${method}(__venera_args__[0], '', '')`, [url]).catch(() => null)
-    if (config?.url) url = remoteUrl(config.url)
-    if (config?.headers && typeof config.headers === 'object') headers = Object.fromEntries(Object.entries(config.headers).slice(0, 20).map(([key, value]) => [clean(key, 100), clean(value, 1000)]).filter(([key]) => key))
+  const handlerName = runtime.source?.comic?.onImageLoad === handler ? 'onImageLoad' : 'onThumbnailLoad'
+  const initialConfig: VeneraImageConfig = typeof handler === 'function'
+    ? await invoke(runtime, `__venera_source__.comic.${handlerName}(__venera_args__[0], '', '')`, [initialUrl]).catch(() => null) || { url: initialUrl }
+    : { url: initialUrl }
+
+  async function request(config: VeneraImageConfig, depth = 0): Promise<Response> {
+    const url = remoteUrl(config.url || initialUrl)
+    const method = imageMethod(config.method)
+    const headers = imageHeaders(config.headers)
+    const body = ['GET', 'HEAD'].includes(method) ? undefined : imageBody(config.data)
+    const response = await fetch(url, { method, headers, body, redirect: 'follow', signal: AbortSignal.timeout(25000) })
+    if (!response.ok && depth < 2 && typeof config.onLoadFailed === 'function') {
+      const fallback = await invokeImageCallback(runtime, config.onLoadFailed).catch(() => undefined)
+      if (fallback && typeof fallback === 'object' && (fallback as any).url) return request(fallback as VeneraImageConfig, depth + 1)
+    }
+    if (!response.ok) return response
+
+    // Venera sources may decrypt or otherwise transform the response bytes
+    // before the image decoder sees them.  Preserve that contract by
+    // replacing the response body with the callback result when provided.
+    if (typeof config.onResponse === 'function') {
+      const raw = Buffer.from(await response.arrayBuffer())
+      const transformed = await invokeImageCallback(runtime, config.onResponse, arrayBuffer(raw)).catch(() => undefined)
+      if (transformed != null) {
+        const bodyBuffer = buffer(transformed)
+        const responseHeaders = new Headers(response.headers)
+        responseHeaders.delete('content-length')
+        responseHeaders.delete('content-encoding')
+        responseHeaders.delete('transfer-encoding')
+        return new Response(bodyBuffer, { status: response.status, headers: responseHeaders })
+      }
+    }
+    return response
   }
-  return fetch(url, { headers, signal: AbortSignal.timeout(25000) })
+
+  return request(initialConfig)
 }
