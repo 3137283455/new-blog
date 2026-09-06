@@ -2,6 +2,9 @@ import { cache } from 'react';
 import { getJson } from '../http/json';
 
 export interface SiteSettings {
+  footer_text?: string;
+  copyright_year?: number;
+  show_visitor_stats?: boolean;
   nav_search_engines?: Array<{ id: string; name: string; mark?: string; url: string }>;
   music_playlist?: Array<{
     id?: number;

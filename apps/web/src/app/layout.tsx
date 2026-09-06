@@ -18,6 +18,7 @@ import '../features/manga/styles/MangaLibrary.css';
 import '../features/manga/styles/MangaDetail.css';
 import '../features/manga/styles/SourceReader.css';
 import '../features/manga/styles/LocalReader.css';
+import '../features/reading/reading-hub.css';
 
 export const dynamic = 'force-dynamic';
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f4f2ea' };

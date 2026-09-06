@@ -26,7 +26,10 @@ const fixture = createServer(async (request, response) => {
     response.end(ready ? 'ready' : 'starting');
     return;
   }
-  if (url.pathname === '/api/content-sources/media') {
+  if (
+    url.pathname === '/api/content-sources/media' ||
+    /^\/uploads\/fixture\/[\w-]+\.svg$/.test(url.pathname)
+  ) {
     response.writeHead(200, { 'content-type': 'image/svg+xml' });
     response.end(coverSvg);
     return;
