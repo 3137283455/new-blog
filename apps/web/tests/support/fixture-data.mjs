@@ -42,10 +42,64 @@ export function fixtureResponse(url) {
   if (path === '/api/themes/active') return { config: {} };
   if (path === '/api/music') return [];
   if (path === '/api/manga') return shelf;
+  if (path === '/api/manga/local-fixture')
+    return {
+      ...shelf[0],
+      description: '本地漫画的简介。',
+      chapter_count: 2,
+      volume_count: 2,
+      volumes: [
+        {
+          id: 1,
+          slug: 'volume-1',
+          title: '第一卷',
+          chapter_count: 1,
+          chapters: [{ id: 11, slug: 'chapter-1', title: '初见', page_count: 2 }],
+        },
+        {
+          id: 2,
+          slug: 'volume-2',
+          title: '第二卷',
+          chapter_count: 1,
+          chapters: [{ id: 21, slug: 'chapter-2', title: '重逢', page_count: 3 }],
+        },
+      ],
+    };
+  if (path === '/api/manga/network-fixture')
+    return {
+      ...shelf[1],
+      status: 'planned',
+      read_sources: [
+        { id: 1, name: '站点 A', url: 'https://fixture.invalid/read', is_default: true },
+        { id: 2, name: '站点 B', url: 'https://fixture.invalid/backup' },
+      ],
+    };
   if (path === '/api/content-sources') return { sources };
   if (path === '/api/content-sources/search')
     return { items: results(url.searchParams.get('q') || ''), source: sources[0] };
   if (path === '/api/content-sources/explore') return { items: results(), source: sources[0] };
+  if (
+    [
+      '/api/content-sources/manga/fixture:alpha/fixture/0',
+      '/api/content-sources/manga/fixture:alpha/fixture-0',
+    ].includes(decodeURIComponent(path))
+  )
+    return {
+      source: sources[0],
+      item: {
+        ...results()[0],
+        title: '星海漫游',
+        original_title: 'Star Voyage',
+        cover: '',
+        description: '一段关于星空与远方的旅程。',
+        source_url: 'https://fixture.invalid/comic',
+      },
+      can_read: true,
+      chapters: [
+        { external_id: 'ep-42', title: '第一章：启程', volume: '第一卷' },
+        { external_id: 'ep-43', title: '第二章：远方', volume: '第一卷' },
+      ],
+    };
   if (
     path.startsWith('/api/content-sources/manga/fixture%3Aalpha/') &&
     path.includes('/chapter/')

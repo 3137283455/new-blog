@@ -50,17 +50,22 @@ export function MangaBrowsePage({
         <form
           className="manga-browse-search"
           data-manga-search-form=""
+          action="/manga/search"
+          method="get"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!state.query.trim()) input.current?.focus();
-            void state.search(state.query, state.selected);
+            const submitted = String(new FormData(event.currentTarget).get('q') || '');
+            if (!submitted.trim()) input.current?.focus();
+            void state.search(submitted, state.selected);
           }}
         >
+          <input type="hidden" name="source" value={state.selected} />
           <label>
             <SearchIcon />
             <input
               ref={input}
               data-manga-query=""
+              name="q"
               type="search"
               value={state.query}
               onChange={(event) => state.setQuery(event.target.value)}

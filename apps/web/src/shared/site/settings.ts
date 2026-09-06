@@ -2,6 +2,8 @@ import { cache } from 'react';
 import { getJson } from '../http/json';
 
 export interface SiteSettings {
+  nav_search_engines?: Array<{id:string;name:string;mark?:string;url:string}>;
+  music_playlist?: Array<{id?:number;title:string;artist?:string;url:string;cover?:string}>;
   site_title?: string;
   site_language?: string;
   site_author?: string;
@@ -50,5 +52,7 @@ export function themeCss(theme: ThemeConfig) {
     '',
   );
   const font = (value: string) => value.replace(/[{};<>]/g, '');
-  return `:root{--theme-primary:${primary};--brand:${primary};--theme-primary-hover:${hover};--theme-card-radius:${Number(theme.card_radius || 18)}px;--theme-card-opacity:${Number(theme.card_opacity || 0.86)};--theme-content-width:${Number(theme.content_width || 72)}rem;--theme-body-font:${font(theme.body_font || 'system-ui')};--theme-title-font:${font(theme.title_font || 'Georgia, serif')};}`;
+  // The legacy stylesheet's later light/dark editorial palette wins for --brand.
+  // Next hoists CSS before inline styles, so redeclaring it here reverses that cascade.
+  return `:root{--theme-primary:${primary};--theme-primary-hover:${hover};--theme-card-radius:${Number(theme.card_radius || 18)}px;--theme-card-opacity:${Number(theme.card_opacity || 0.86)};--theme-content-width:${Number(theme.content_width || 72)}rem;--theme-body-font:${font(theme.body_font || 'system-ui')};--theme-title-font:${font(theme.title_font || 'Georgia, serif')};}`;
 }

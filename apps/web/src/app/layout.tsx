@@ -8,6 +8,10 @@ import '../features/manga/styles/MangaSiteHeader.css';
 import '../features/manga/styles/MangaSourcePicker.css';
 import '../features/manga/styles/MangaPortal.css';
 import '../features/manga/styles/MangaBrowsePage.css';
+import '../features/manga/styles/SourceDetail.css';
+import '../features/manga/styles/MangaRank.css';
+import '../features/manga/styles/MangaLibrary.css';
+import '../features/manga/styles/MangaDetail.css';
 
 export const dynamic = 'force-dynamic';
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f4f2ea' };

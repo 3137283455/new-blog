@@ -36,10 +36,13 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
           <form
             className="manga-search-bar"
             data-manga-search-form=""
+            action="/manga/search"
+            method="get"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!state.query.trim()) input.current?.focus();
-              void state.search(state.query, state.selected);
+              const submitted = String(new FormData(event.currentTarget).get('q') || '');
+              if (!submitted.trim()) input.current?.focus();
+              void state.search(submitted, state.selected);
             }}
           >
             <label>
@@ -47,6 +50,7 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
               <input
                 ref={input}
                 data-manga-query=""
+                name="q"
                 type="search"
                 placeholder="搜索漫画、作者或关键词"
                 autoComplete="off"
@@ -55,6 +59,7 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
               />
             </label>
             <MangaSourcePicker state={state} />
+            <input type="hidden" name="source" value={state.selected} />
             <button type="submit">
               开始搜索 <span>→</span>
             </button>
