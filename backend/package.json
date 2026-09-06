@@ -13,6 +13,7 @@
     "test:library-formats": "npm run build && node scripts/test-library-formats-manga.js",
     "test:search-sources": "npm run build && node scripts/test-search-source-rules.js",
     "test:manga-engine": "npm run build && node --test scripts/test-manga-engine.js scripts/test-manga-integration.js",
+    "test:manga-storage": "npm run build && node --test scripts/test-manga-storage.js",
     "import:venera-sources": "npm run build && node scripts/import-venera-repository.js",
     "start": "node dist/app.js",
     "db:migrate": "tsx src/database/schema.ts",

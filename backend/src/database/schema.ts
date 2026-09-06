@@ -1,6 +1,8 @@
 import db from '../config/database'
+import { migrateSourceStorage } from '../modules/manga/storage/source-store'
 
 export function migrate() {
+  migrateSourceStorage(db)
   db.exec(`
     -- 用户表
     CREATE TABLE IF NOT EXISTS users (

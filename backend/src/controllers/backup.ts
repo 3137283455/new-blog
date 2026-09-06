@@ -8,6 +8,7 @@ import { config } from '../config'
 import { success, error } from '../utils/response'
 import { renderArticleContent } from '../utils/markdown'
 import { AuthRequest } from '../middleware/auth'
+import { SOURCE_STORAGE_TABLES } from '../modules/manga/storage/source-store'
 
 const APP_TABLES = [
   'users',
@@ -28,6 +29,7 @@ const APP_TABLES = [
   'media_folders',
   'media',
   'settings',
+  ...SOURCE_STORAGE_TABLES,
   'likes',
   'visitor_logs',
   'themes',

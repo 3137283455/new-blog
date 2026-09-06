@@ -5,132 +5,39 @@ import db from '../config/database'
 import { invokeSource } from '../modules/manga/runtime/invocation'
 import { loadExactChapter } from '../modules/manga/runtime/chapter'
 import { loadSourceImage, type ImageContext } from '../modules/manga/images/pipeline'
+import { PersistentSourceMap } from '../modules/manga/storage/source-store'
+import { sourceStore } from '../modules/manga/storage/database-store'
 
-export const DEFAULT_VENERA_REPOSITORY = 'https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json'
+import { getVeneraSource, clean, fetchLimited, sourceConfigurationRevision, type VeneraSourceRecord } from '../modules/manga/repositories'
+export * from '../modules/manga/repositories'
 
-export type VeneraSourceRecord = {
-  id: string
-  key: string
-  name: string
-  version: string
-  description: string
-  file_name: string
-  script_url: string
-  repository_url: string
-  enabled: boolean
-}
-
-export type VeneraRepository = {
-  url: string
-  name: string
-  updated_at: string
-  sources: VeneraSourceRecord[]
-}
-
-type VeneraRepositoryConfig = { version: 1; repositories: VeneraRepository[] }
 type Runtime = { source: any; context: vm.Context; record: VeneraSourceRecord }
 
-const SETTING_KEY = 'venera_source_repositories'
 const runtimeCache = new Map<string, Runtime>()
 const runtimeLoads = new Map<string, Promise<Runtime>>()
 let runtimeGeneration = 0
+let observedConfigurationRevision = -1
 const sourceData = new Map<string, Map<string, unknown>>()
-const sourceCookies = new Map<string, Map<string, Array<{ name: string; value: string; domain?: string }>>>()
+const sourceCookies = new Map<string, PersistentSourceMap>()
 
-function clean(value: unknown, max = 500) { return String(value ?? '').trim().slice(0, max) }
-function slug(value: unknown) { return clean(value, 120).toLowerCase().replace(/\.js$/i, '').replace(/[^a-z0-9_-]+/g, '-') }
-function allowedRepositoryUrl(value: unknown) {
-  try {
-    const url = new URL(clean(value, 2000))
-    if (url.protocol !== 'https:') return ''
-    const jsdelivr = url.hostname === 'cdn.jsdelivr.net' && /^\/gh\/venera-app\/venera-configs@[^/]+\/index\.json$/i.test(url.pathname)
-    const github = url.hostname === 'raw.githubusercontent.com' && /^\/venera-app\/venera-configs\/[^/]+\/index\.json$/i.test(url.pathname)
-    return jsdelivr || github ? url.toString() : ''
-  } catch { return '' }
+export async function getVeneraSourceSettings(id: unknown) {
+  const record = getVeneraSource(id), runtime = await loadRuntime(record)
+  const saved = sourceStore.readArea(record.id, 'settings')
+  return Object.entries(runtime.source.settings || {}).map(([key, definition]: [string, any]) => ({
+    key, title: clean(definition?.title || key, 300), type: clean(definition?.type, 50), options: definition?.options || [],
+    value: saved.has(key) ? saved.get(key) : definition?.default,
+  }))
 }
-function allowedScriptUrl(value: unknown) {
-  try {
-    const url = new URL(clean(value, 2000))
-    if (url.protocol !== 'https:' || !url.pathname.toLowerCase().endsWith('.js')) return ''
-    const jsdelivr = url.hostname === 'cdn.jsdelivr.net' && /^\/gh\/venera-app\/venera-configs@[^/]+\//i.test(url.pathname)
-    const github = url.hostname === 'raw.githubusercontent.com' && /^\/venera-app\/venera-configs\/[^/]+\//i.test(url.pathname)
-    return jsdelivr || github ? url.toString() : ''
-  } catch { return '' }
-}
-function normalizeConfig(value: unknown): VeneraRepositoryConfig {
-  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as any : {}
-  const repositories = (Array.isArray(raw.repositories) ? raw.repositories : []).slice(0, 8).flatMap((repository: any) => {
-    const url = allowedRepositoryUrl(repository?.url)
-    if (!url) return []
-    const sources = (Array.isArray(repository?.sources) ? repository.sources : []).slice(0, 100).flatMap((item: any) => {
-      const scriptUrl = allowedScriptUrl(item?.script_url)
-      const fileName = clean(item?.file_name, 180)
-      const id = clean(item?.id || `venera:${slug(fileName || item?.key)}`, 180)
-      if (!id.startsWith('venera:') || !scriptUrl || !fileName) return []
-      return [{ id, key: clean(item?.key || slug(fileName), 120), name: clean(item?.name || item?.key || fileName, 160), version: clean(item?.version || '0.0.0', 40), description: clean(item?.description, 500), file_name: fileName, script_url: scriptUrl, repository_url: url, enabled: item?.enabled !== false } as VeneraSourceRecord]
-    })
-    return [{ url, name: clean(repository?.name || 'Venera 官方源仓库', 120), updated_at: clean(repository?.updated_at, 60), sources }]
-  })
-  return { version: 1, repositories }
-}
-export function getVeneraRepositoryConfig(): VeneraRepositoryConfig {
-  const row = db.prepare('SELECT value FROM settings WHERE key=?').get(SETTING_KEY) as any
-  if (!row?.value) return { version: 1, repositories: [] }
-  try { return normalizeConfig(JSON.parse(row.value)) } catch { return { version: 1, repositories: [] } }
-}
-function saveConfig(config: VeneraRepositoryConfig) {
-  const normalized = normalizeConfig(config)
-  db.prepare("INSERT OR REPLACE INTO settings (key,value,type,description) VALUES (?,?,'json','Venera JavaScript 漫画源仓库')").run(SETTING_KEY, JSON.stringify(normalized))
-  runtimeCache.clear()
-  runtimeLoads.clear()
+export async function saveVeneraSourceSettings(id: unknown, values: unknown) {
+  if (!values || typeof values !== 'object' || Array.isArray(values)) throw new Error('设置必须为对象')
+  const record = getVeneraSource(id), runtime = await loadRuntime(record)
+  const entries = Object.entries(values)
+  if (entries.some(([key]) => !Object.hasOwn(runtime.source.settings || {}, key))) throw new Error('包含此源未定义的设置')
+  db.transaction(() => entries.forEach(([key, value]) => sourceStore.write(record.id, 'settings', key, value)))()
+  runtimeCache.delete(record.id)
+  runtimeLoads.delete(record.id)
   runtimeGeneration++
-  return normalized
 }
-async function fetchLimited(url: string, maxBytes: number, timeout = 20000) {
-  const response = await fetch(url, { headers: { Accept: 'application/json,text/javascript,text/plain,*/*', 'User-Agent': 'new-blog-venera/1.0' }, signal: AbortSignal.timeout(timeout) })
-  if (!response.ok) throw new Error(`Venera 源仓库 HTTP ${response.status}`)
-  const declared = Number(response.headers.get('content-length') || 0)
-  if (declared > maxBytes) throw new Error('Venera 源文件超过大小限制')
-  const text = await response.text()
-  if (Buffer.byteLength(text) > maxBytes) throw new Error('Venera 源文件超过大小限制')
-  return text
-}
-export async function importVeneraRepository(input: unknown) {
-  const url = allowedRepositoryUrl(input)
-  if (!url) throw new Error('目前仅允许导入 venera-app/venera-configs 的 jsDelivr 或 GitHub Raw 索引')
-  const text = await fetchLimited(url, 1024 * 1024)
-  let list: any[]
-  try { list = JSON.parse(text) } catch { throw new Error('Venera 源仓库返回的不是有效 JSON') }
-  if (!Array.isArray(list)) throw new Error('Venera 源仓库根节点必须是数组')
-  const seen = new Set<string>()
-  const sources = list.slice(0, 100).flatMap((item: any): VeneraSourceRecord[] => {
-    const fileName = clean(item?.fileName || item?.filename, 180)
-    const direct = clean(item?.url, 2000)
-    let scriptUrl = ''
-    try { scriptUrl = allowedScriptUrl(direct || new URL(fileName, url).toString()) } catch {}
-    const baseId = slug(fileName || item?.key)
-    if (!fileName || !scriptUrl || !baseId || seen.has(baseId)) return []
-    seen.add(baseId)
-    return [{ id: `venera:${baseId}`, key: clean(item?.key || baseId, 120), name: clean(item?.name || item?.key || baseId, 160), version: clean(item?.version || '0.0.0', 40), description: clean(item?.description, 500), file_name: fileName, script_url: scriptUrl, repository_url: url, enabled: true }]
-  })
-  if (!sources.length) throw new Error('仓库没有可用的 Venera JavaScript 漫画源')
-  const current = getVeneraRepositoryConfig()
-  const repository: VeneraRepository = { url, name: 'Venera 官方源仓库', updated_at: new Date().toISOString(), sources }
-  const repositories = current.repositories.some((item) => item.url === url) ? current.repositories.map((item) => item.url === url ? repository : item) : [...current.repositories, repository]
-  return saveConfig({ version: 1, repositories })
-}
-export function removeVeneraRepository(input: unknown) {
-  const url = allowedRepositoryUrl(input)
-  const current = getVeneraRepositoryConfig()
-  return saveConfig({ version: 1, repositories: current.repositories.filter((item) => item.url !== url) })
-}
-export function getVeneraSources() { return getVeneraRepositoryConfig().repositories.flatMap((repository) => repository.sources).filter((source) => source.enabled) }
-export function getVeneraSource(id: unknown) {
-  const source = getVeneraSources().find((item) => item.id === clean(id, 180))
-  if (!source) throw new Error(`Venera 漫画源 ${clean(id, 180) || '(未选择)'} 不存在`)
-  return source
-}
-
 function buffer(value: any) {
   // Values returned by a source live in a VM context, so `instanceof
   // ArrayBuffer` is not reliable across realms.  Detect transferable binary
@@ -199,11 +106,11 @@ function remoteUrl(value: unknown) {
 }
 function headersObject(headers: Headers) { return Object.fromEntries(headers.entries()) }
 function createNetwork(record: VeneraSourceRecord) {
-  const cookieJar = sourceCookies.get(record.id) || new Map()
+  const cookieJar = sourceCookies.get(record.id) || new PersistentSourceMap(sourceStore, record.id, 'cookies')
   sourceCookies.set(record.id, cookieJar)
   async function request(method: string, urlValue: unknown, headersValue?: any, data?: any, bytes = false) {
     const url = remoteUrl(urlValue), target = new URL(url), headers = new Headers(headersValue || {})
-    const cookies = cookieJar.get(target.origin) || []
+    const cookies = (cookieJar.get(target.origin) || []) as Array<{name: string; value: string}>
     if (cookies.length && !headers.has('cookie')) headers.set('cookie', cookies.map((item: { name: string; value: string }) => `${item.name}=${item.value}`).join('; '))
     const response = await fetch(url, { method, headers, body: method === 'GET' || method === 'HEAD' ? undefined : data == null ? undefined : typeof data === 'string' || ArrayBuffer.isView(data) || data instanceof ArrayBuffer ? data as any : JSON.stringify(data), redirect: 'follow', signal: AbortSignal.timeout(25000) })
     const bodyBuffer = Buffer.from(await response.arrayBuffer())
@@ -221,6 +128,12 @@ function createNetwork(record: VeneraSourceRecord) {
 }
 function modelClass() { return class { constructor(value: any) { if (value && typeof value === 'object') Object.assign(this, value) } } }
 async function loadRuntime(record: VeneraSourceRecord): Promise<Runtime> {
+  if (observedConfigurationRevision !== sourceConfigurationRevision) {
+    runtimeCache.clear()
+    runtimeLoads.clear()
+    runtimeGeneration++
+    observedConfigurationRevision = sourceConfigurationRevision
+  }
   const cached = runtimeCache.get(record.id)
   if (cached) return cached
   const pending = runtimeLoads.get(record.id)
@@ -236,11 +149,13 @@ async function loadRuntime(record: VeneraSourceRecord): Promise<Runtime> {
   return loading
 }
 async function buildRuntime(record: VeneraSourceRecord): Promise<Runtime> {
-  const code = await fetchLimited(record.script_url, 2 * 1024 * 1024)
+  const configurationRevision = sourceConfigurationRevision
+  const cachedScript = sourceStore.readScript(record)
+  const code = cachedScript ?? await fetchLimited(record.script_url, 2 * 1024 * 1024)
   const className = code.match(/class\s+([A-Za-z_$][\w$]*)\s+extends\s+ComicSource\b/)?.[1]
   if (!className) throw new Error(`${record.name} 没有找到 ComicSource 子类`)
-  const data = sourceData.get(record.id) || new Map<string, unknown>()
-  const settingValues = new Map<string, unknown>()
+  const data = sourceData.get(record.id) || new PersistentSourceMap(sourceStore, record.id, 'data')
+  const settingValues = new PersistentSourceMap(sourceStore, record.id, 'settings')
   sourceData.set(record.id, data)
   class ComicSourceBase {
     loadData(key: string) { return data.get(String(key)) }
@@ -250,7 +165,6 @@ async function buildRuntime(record: VeneraSourceRecord): Promise<Runtime> {
       if (settingValues.has(key)) return settingValues.get(key)
       const own = (this as any).settings?.[key]
       const value = own && typeof own === 'object' && 'default' in own ? own.default : undefined
-      if (value !== undefined) settingValues.set(key, value)
       return value
     }
     get isLogged() { return false }
@@ -281,11 +195,9 @@ async function buildRuntime(record: VeneraSourceRecord): Promise<Runtime> {
   new vm.Script(`${code}\n;globalThis.__venera_source__ = new ${className}();`, { filename: record.file_name }).runInContext(context, { timeout: 2000 })
   const source = (context as any).__venera_source__
   if (!source?.search?.load || !source?.comic?.loadInfo || !source?.comic?.loadEp) throw new Error(`${record.name} 缺少搜索、详情或章节读取能力`)
-  for (const [key, definition] of Object.entries(source.settings || {})) {
-    if (definition && typeof definition === 'object' && 'default' in definition) settingValues.set(key, (definition as any).default)
-  }
   const runtime = { source, context, record }
   if (typeof source.init === 'function') await invoke(runtime, '__venera_source__.init()', [], 10000)
+  if (cachedScript === undefined && configurationRevision === sourceConfigurationRevision) sourceStore.writeScript(record, code)
   return runtime
 }
 async function invoke(runtime: Runtime, expression: string, args: unknown[], timeout = 30000) {

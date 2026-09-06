@@ -1,6 +1,6 @@
 import { Response } from 'express'
 import { AuthRequest } from '../middleware/auth'
-import { getVeneraRepositoryConfig, importVeneraRepository, removeVeneraRepository, searchVeneraSource } from '../services/venera-sources'
+import { getVeneraRepositoryConfig, importVeneraRepository, removeVeneraRepository, searchVeneraSource, exportVeneraConfiguration, importVeneraConfiguration, setVeneraSourceEnabled, getVeneraSourceSettings, saveVeneraSourceSettings } from '../services/venera-sources'
 import { error, success } from '../utils/response'
 
 function clean(value: unknown, max = 500) { return String(value ?? '').trim().slice(0, max) }
@@ -22,11 +22,29 @@ export function list(_req: AuthRequest, res: Response) {
 
 export async function importRepository(req: AuthRequest, res: Response) {
   try {
-    const config = await importVeneraRepository(req.body?.url)
+    const config = req.body?.file ? importVeneraConfiguration(req.body.file, req.body.mode || 'merge') : await importVeneraRepository(req.body?.url)
     return success(res, present(config), 'Venera 漫画源仓库已同步')
   } catch (cause) {
     return error(res, cause instanceof Error ? cause.message : 'Venera 漫画源仓库导入失败', 'VENERA_REPOSITORY_IMPORT_FAILED', 400)
   }
+}
+
+export function exportConfiguration(_req: AuthRequest, res: Response) {
+  res.setHeader('Content-Disposition', 'attachment; filename="venera-repositories.json"')
+  res.setHeader('Cache-Control', 'no-store')
+  return res.json(exportVeneraConfiguration())
+}
+
+export function toggleSource(req: AuthRequest, res: Response) {
+  try { return success(res, present(setVeneraSourceEnabled(req.params.sourceId, req.body?.enabled))) }
+  catch (cause) { return error(res, cause instanceof Error ? cause.message : '源状态保存失败', 'VENERA_SOURCE_UPDATE_FAILED', 400) }
+}
+
+export async function sourceSettings(req: AuthRequest, res: Response) {
+  try {
+    if (req.method === 'PUT') await saveVeneraSourceSettings(req.params.sourceId, req.body?.values)
+    return success(res, await getVeneraSourceSettings(req.params.sourceId))
+  } catch (cause) { return error(res, cause instanceof Error ? cause.message : '源设置读取失败', 'VENERA_SOURCE_SETTINGS_FAILED', 400) }
 }
 
 export function removeRepository(req: AuthRequest, res: Response) {
