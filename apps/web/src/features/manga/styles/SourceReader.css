@@ -1,0 +1,266 @@
+.source-reader-page {
+  width: min(920px, 100%);
+  min-height: calc(100vh - 6rem);
+  margin: auto;
+  padding: 1rem 1rem 5rem;
+  color: var(--ink);
+}
+:where(.source-reader-page) .source-reader-topbar {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface-solid) 90%, transparent);
+  padding: 0.7rem 0.2rem;
+  backdrop-filter: blur(16px);
+}
+:where(.source-reader-page) .source-reader-topbar > a {
+  color: inherit;
+  font-size: 1.8rem;
+  text-decoration: none;
+}
+:where(.source-reader-page) .source-reader-topbar div {
+  min-width: 0;
+}
+:where(.source-reader-page) .source-reader-topbar small,
+:where(.source-reader-page) .source-reader-topbar strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.source-reader-page) .source-reader-topbar small {
+  color: var(--muted-ink);
+  font-size: 0.55rem;
+}
+:where(.source-reader-page) .source-reader-topbar strong {
+  font-size: 0.78rem;
+}
+:where(.source-reader-page) .source-reader-topbar > span {
+  color: var(--muted-ink);
+  font-size: 0.6rem;
+}
+:where(.source-reader-page) .source-reader-controls {
+  position: sticky;
+  z-index: 4;
+  top: 3.45rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border-bottom: 1px solid #fff2;
+  background: #171917ee;
+  padding: 0.45rem 0.2rem;
+  backdrop-filter: blur(12px);
+}
+:where(.source-reader-page) .source-reader-mode,
+:where(.source-reader-page) .source-reader-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+:where(.source-reader-page) .source-reader-controls button {
+  border: 1px solid #fff2;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #edf0eb;
+  padding: 0.45rem 0.6rem;
+  font: 700 0.58rem system-ui;
+  cursor: pointer;
+}
+:where(.source-reader-page) .source-reader-controls button:hover,
+:where(.source-reader-page) .source-reader-controls button.is-active {
+  border-color: #cfff4f;
+  background: #cfff4f;
+  color: #172019;
+}
+:where(.source-reader-page) .source-reader-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+:where(.source-reader-page) .source-reader-pagination span {
+  min-width: 6.8rem;
+  color: #b6c0b8;
+  text-align: center;
+  font-size: 0.58rem;
+}
+:where(.source-reader-page) .source-reader-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+  font-family: var(--theme-body-font), sans-serif;
+  font-size: 1.15rem;
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+:where(.source-reader-page) .source-reader-content p {
+  margin: 0 0 1.35em;
+  text-indent: 2em;
+}
+:where(.source-reader-page) .source-reader-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 2rem auto;
+}
+:where(.source-reader-page) .source-reader-content h1,
+:where(.source-reader-page) .source-reader-content h2,
+:where(.source-reader-page) .source-reader-content h3 {
+  margin: 2em 0 1em;
+  font-family: var(--theme-title-font);
+  line-height: 1.35;
+}
+:where(.source-reader-page) .source-reader-content a {
+  color: var(--brand);
+}
+.source-reader-pages {
+  padding: 2rem 0;
+}
+.source-reader-pages figure {
+  margin: 0 auto 1rem;
+  background: #fff;
+  box-shadow: 0 5px 20px #0002;
+}
+.source-reader-pages img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+.source-reader-pages figcaption {
+  padding: 0.35rem;
+  background: #171917;
+  color: #fff8;
+  text-align: center;
+  font-size: 0.58rem;
+}
+:where(.source-reader-page) .source-reader-error {
+  display: grid;
+  max-width: 34rem;
+  margin: 18vh auto 0;
+  gap: 0.75rem;
+  border: 1px solid #fff2;
+  border-radius: 1rem;
+  background: #fff0;
+  padding: 2rem;
+  color: #edf0eb;
+}
+:where(.source-reader-page) .source-reader-error strong {
+  font-size: 1.15rem;
+}
+:where(.source-reader-page) .source-reader-error p {
+  color: #b6c0b8;
+  font-size: 0.75rem;
+  line-height: 1.7;
+}
+:where(.source-reader-page) .source-reader-error a {
+  justify-self: start;
+  border-radius: 0.6rem;
+  background: #cfff4f;
+  color: #172019;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+.source-reader-manga {
+  width: min(1100px, 100%);
+  background: #171917;
+  color: #edf0eb;
+}
+.source-reader-manga .source-reader-topbar {
+  background: #171917;
+  border-color: #fff2;
+}
+.source-reader-manga .source-reader-pages {
+  max-width: 980px;
+  margin: auto;
+}
+.source-reader-manga .source-reader-pages figure {
+  margin-bottom: 1rem;
+}
+.source-reader-manga[data-mode='paged'] .source-reader-pages {
+  display: grid;
+  min-height: calc(100vh - 7rem);
+  align-content: start;
+  justify-items: center;
+  padding: 0.75rem 0 1rem;
+}
+.source-reader-manga[data-mode='paged'] .source-reader-pages figure {
+  display: none;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.source-reader-manga[data-mode='paged'] .source-reader-pages figure.is-current {
+  display: grid;
+  place-items: center;
+}
+.source-reader-manga[data-mode='paged'] .source-reader-pages img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 10rem);
+  object-fit: contain;
+}
+.source-reader-manga[data-mode='paged'] .source-reader-pages figcaption {
+  width: 100%;
+  max-width: 36rem;
+  margin-top: 0.65rem;
+}
+.source-reader-manga[data-mode='paged'] .source-reader-controls [data-reader-prev],
+.source-reader-manga[data-mode='paged'] .source-reader-controls [data-reader-next] {
+  display: inline-block;
+}
+@media (max-width: 600px) {
+  .source-reader-page {
+    padding: 0 0 4rem;
+  }
+  :where(.source-reader-page) .source-reader-topbar {
+    padding: 0.65rem 0.75rem;
+  }
+  :where(.source-reader-page) .source-reader-controls {
+    top: 3.25rem;
+    padding: 0.4rem 0.75rem;
+  }
+  :where(.source-reader-page) .source-reader-controls button {
+    padding: 0.42rem 0.5rem;
+  }
+  :where(.source-reader-page) .source-reader-pagination span {
+    min-width: 5.2rem;
+  }
+  :where(.source-reader-page) .source-reader-content {
+    padding: 2rem 1rem;
+    font-size: 1rem;
+  }
+  .source-reader-pages {
+    padding: 1rem 0;
+  }
+  .source-reader-pages figure {
+    box-shadow: none;
+  }
+  .source-reader-manga[data-mode='paged'] .source-reader-pages {
+    min-height: calc(100vh - 8.8rem);
+    padding: 0.5rem 0;
+  }
+  .source-reader-manga[data-mode='paged'] .source-reader-pages img {
+    max-height: calc(100vh - 8.8rem);
+  }
+}
+
+/* The fixed reader bars must not cover the top of a page after
+     scrollIntoView() advances through continuous reading. */
+.source-reader-pages figure {
+  scroll-margin-top: 7.25rem;
+}
+@media (max-width: 600px) {
+  .source-reader-pages figure {
+    scroll-margin-top: 6.9rem;
+  }
+}

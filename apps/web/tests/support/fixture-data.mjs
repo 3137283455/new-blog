@@ -42,6 +42,43 @@ export function fixtureResponse(url) {
   if (path === '/api/themes/active') return { config: {} };
   if (path === '/api/music') return [];
   if (path === '/api/manga') return shelf;
+  if (path === '/api/manga/local-fixture/volume-1/chapter-1')
+    return {
+      manga: shelf[0],
+      chapter: {
+        id: 11,
+        slug: 'chapter-1',
+        title: '初见',
+        volume_id: 1,
+        volume_slug: 'volume-1',
+        volume_title: '第一卷',
+        pages: [
+          { image_url: '/uploads/fixture/one.svg' },
+          { image_url: '/uploads/fixture/two.svg' },
+          { image_url: '/uploads/fixture/three.svg' },
+        ],
+      },
+      navigation: [
+        {
+          id: 11,
+          slug: 'chapter-1',
+          title: '初见',
+          volume_id: 1,
+          volume_slug: 'volume-1',
+          volume_title: '第一卷',
+          page_count: 3,
+        },
+        {
+          id: 21,
+          slug: 'chapter-2',
+          title: '重逢',
+          volume_id: 2,
+          volume_slug: 'volume-2',
+          volume_title: '第二卷',
+          page_count: 3,
+        },
+      ],
+    };
   if (path === '/api/manga/local-fixture')
     return {
       ...shelf[0],

@@ -2,8 +2,14 @@ import { cache } from 'react';
 import { getJson } from '../http/json';
 
 export interface SiteSettings {
-  nav_search_engines?: Array<{id:string;name:string;mark?:string;url:string}>;
-  music_playlist?: Array<{id?:number;title:string;artist?:string;url:string;cover?:string}>;
+  nav_search_engines?: Array<{ id: string; name: string; mark?: string; url: string }>;
+  music_playlist?: Array<{
+    id?: number;
+    title: string;
+    artist?: string;
+    url: string;
+    cover?: string;
+  }>;
   site_title?: string;
   site_language?: string;
   site_author?: string;

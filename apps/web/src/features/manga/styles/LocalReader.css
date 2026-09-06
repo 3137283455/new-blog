@@ -1,0 +1,471 @@
+html.comic-page,
+html.comic-page body {
+  background: #171917;
+}
+.comic {
+  --bg: #171917;
+  --panel: #242724;
+  --text: #edf0eb;
+  --page: #fff;
+  --width: 980px;
+  --gap: 12px;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  padding: 4.2rem 1rem 6rem;
+}
+.comic[data-theme='light'] {
+  --bg: #eceeea;
+  --panel: #fff;
+  --text: #202620;
+  --page: #fff;
+}
+.comic[data-theme='paper'] {
+  --bg: #d9d0bd;
+  --panel: #eee5d1;
+  --text: #332d24;
+  --page: #f7f0df;
+}
+:where(.comic) .top {
+  position: fixed;
+  z-index: 30;
+  inset: 0 0 auto;
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  height: 3.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  padding: 0 max(1rem, calc((100vw - 1180px) / 2));
+  backdrop-filter: blur(18px);
+}
+:where(.comic) .top > a {
+  color: inherit;
+  font-size: 2rem;
+}
+:where(.comic) .top div {
+  min-width: 0;
+}
+:where(.comic) .top small,
+:where(.comic) .top b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.comic) .top small {
+  opacity: 0.5;
+  font-size: 0.55rem;
+}
+:where(.comic) .top b {
+  font-size: 0.72rem;
+}
+:where(.comic) .top span {
+  font: 0.65rem ui-monospace;
+}
+:where(.comic) .top i {
+  font-style: normal;
+}
+.comic main {
+  width: min(var(--width), 100%);
+  margin: auto;
+}
+.comic figure {
+  margin: 0 0 var(--gap);
+  background: var(--page);
+  box-shadow: 0 4px 18px #0003;
+}
+.comic figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.comic figure iframe {
+  display: block;
+  width: 100%;
+  height: min(86vh, 980px);
+  border: 0;
+  background: #fff;
+}
+.comic figcaption {
+  padding: 0.3rem;
+  background: #111;
+  color: #fff9;
+  text-align: center;
+  font-size: 0.55rem;
+}
+.comic:not(.numbers) figcaption {
+  display: none;
+}
+.comic[data-mode='paged'] {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 4.2rem 4.5rem 4.5rem;
+}
+.comic[data-mode='paged'] figure {
+  display: none;
+  margin: 0;
+  background: var(--page);
+  box-shadow: none;
+}
+.comic[data-mode='paged'] figure.current {
+  display: grid;
+  place-items: center;
+}
+.comic[data-mode='paged'] figure img {
+  width: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 8.7rem);
+  object-fit: contain;
+  background: var(--page);
+}
+.comic[data-mode='paged'] figure iframe {
+  width: min(100%, 980px);
+  height: calc(100vh - 8.7rem);
+}
+.comic[data-mode='paged'] .chapter-nav,
+.comic[data-mode='double'] .chapter-nav {
+  display: none;
+}
+.comic[data-mode='double'] {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 4.2rem 4.5rem 4.5rem;
+}
+.comic[data-mode='double'] main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  direction: var(--comic-direction, ltr);
+}
+.comic[data-mode='double'] figure {
+  display: none;
+  margin: 0;
+  background: var(--page);
+  box-shadow: none;
+}
+.comic[data-mode='double'] figure.current,
+.comic[data-mode='double'] figure.current + figure {
+  display: grid;
+  max-width: 50%;
+  place-items: center;
+}
+.comic[data-mode='double'] figure img {
+  width: auto;
+  max-width: 100%;
+  max-height: calc(100vh - 8.7rem);
+  object-fit: contain;
+  background: var(--page);
+}
+.comic[data-mode='double'] figure iframe {
+  width: 100%;
+  height: calc(100vh - 8.7rem);
+}
+:where(.comic) .chapter-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 2.5rem 0;
+}
+:where(.comic) .chapter-nav a {
+  max-width: 48%;
+  color: inherit;
+  font-size: 0.72rem;
+}
+:where(.comic) .chapter-nav span {
+  opacity: 0.45;
+}
+:where(.comic) .tools {
+  position: fixed;
+  z-index: 32;
+  right: max(0.7rem, calc((100vw - min(var(--width), 100vw)) / 2 - 4.3rem));
+  top: 50%;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 16px 45px #0005;
+  transform: translateY(-50%);
+}
+:where(.comic) .tools button {
+  display: grid;
+  width: 3.1rem;
+  height: 3.05rem;
+  place-items: center;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+  background: transparent;
+  color: inherit;
+}
+:where(.comic) .tools small,
+:where(.comic) .mobile small {
+  display: block;
+  font-size: 0.48rem;
+  opacity: 0.6;
+}
+:where(.comic) .tools button.active {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+:where(.comic) .trigger,
+:where(.comic) .mobile {
+  display: none;
+}
+:where(.comic) .scrim {
+  position: fixed;
+  z-index: 40;
+  inset: 0;
+  border: 0;
+  background: #05070599;
+  backdrop-filter: blur(3px);
+}
+:where(.comic) .catalog {
+  position: fixed;
+  z-index: 41;
+  inset: 0 auto 0 0;
+  width: min(390px, calc(100vw - 1.5rem));
+  background: var(--panel);
+  padding: 1.2rem;
+  box-shadow: 22px 0 60px #0006;
+  transform: translateX(-105%);
+  transition: 0.22s;
+}
+:where(.comic) .catalog.open {
+  transform: none;
+}
+:where(.comic) .catalog header {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  padding: 0.3rem 0.2rem 1rem;
+}
+:where(.comic) .catalog header small {
+  opacity: 0.5;
+  font-size: 0.55rem;
+}
+:where(.comic) .catalog h2 {
+  margin: 0.2rem 0;
+  font: 650 1.65rem var(--theme-title-font);
+}
+:where(.comic) .catalog header button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.4rem;
+}
+:where(.comic) .catalog nav {
+  height: calc(100vh - 5.8rem);
+  overflow: auto;
+  padding: 0.6rem 0;
+}
+:where(.comic) .catalog a {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.7rem;
+  padding: 0.72rem;
+  color: inherit;
+}
+:where(.comic) .catalog a:hover,
+:where(.comic) .catalog a.current {
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+}
+:where(.comic) .catalog a > span {
+  opacity: 0.4;
+  font: 0.6rem ui-monospace;
+}
+:where(.comic) .catalog a b,
+:where(.comic) .catalog a small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:where(.comic) .catalog a b {
+  font-size: 0.72rem;
+}
+:where(.comic) .catalog a small {
+  opacity: 0.48;
+  font-size: 0.54rem;
+}
+:where(.comic) .catalog em {
+  color: #75a7ff;
+  font-size: 0.52rem;
+  font-style: normal;
+}
+:where(.comic) .settings {
+  width: min(430px, calc(100vw - 1rem));
+  border: 0;
+  border-radius: 1.2rem;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0;
+}
+:where(.comic) .settings::backdrop {
+  background: #05070599;
+  backdrop-filter: blur(4px);
+}
+:where(.comic) .settings form {
+  padding: 1.3rem;
+}
+:where(.comic) .settings header {
+  display: flex;
+  justify-content: space-between;
+}
+:where(.comic) .settings h2 {
+  margin: 0;
+  font: 650 1.55rem var(--theme-title-font);
+}
+:where(.comic) .settings header button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.4rem;
+}
+:where(.comic) .settings label {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+  font-size: 0.7rem;
+}
+:where(.comic) .settings select {
+  height: 2.4rem;
+  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+}
+:where(.comic) .settings input {
+  accent-color: #75a7ff;
+}
+:where(.comic) .themes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+}
+:where(.comic) .themes button {
+  border: 1px solid color-mix(in srgb, var(--text) 15%, transparent);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  padding: 0.6rem;
+}
+:where(.comic) .themes button.active {
+  border-color: #75a7ff;
+}
+:where(.comic) .settings .toggle {
+  display: flex;
+  justify-content: space-between;
+}
+:where(.comic) .toast {
+  position: fixed;
+  z-index: 60;
+  top: 4.7rem;
+  left: 50%;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  font-size: 0.65rem;
+  transform: translateX(-50%);
+}
+@media (max-width: 760px) {
+  .comic {
+    padding: 3.55rem 0 4.8rem;
+  }
+  :where(.comic) .top {
+    height: 3.5rem;
+    padding: 0 0.7rem;
+  }
+  .comic main {
+    width: 100%;
+  }
+  .comic figure {
+    box-shadow: none;
+  }
+  :where(.comic) .tools {
+    display: none;
+  }
+  :where(.comic) .trigger {
+    position: fixed;
+    z-index: 35;
+    right: 0.7rem;
+    bottom: 0.8rem;
+    display: block;
+    width: 2.8rem;
+    height: 2.8rem;
+    border: 1px solid #fff3;
+    border-radius: 50%;
+    background: #171a18ee;
+    color: #fff;
+  }
+  :where(.comic) .mobile {
+    position: fixed;
+    z-index: 34;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    left: 0.6rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-radius: 1rem;
+    background: #171a18f2;
+    padding: 0.35rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(130%);
+    transition: 0.2s;
+  }
+  .comic.controls .mobile {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+  .comic.controls .trigger {
+    display: none;
+  }
+  :where(.comic) .mobile button {
+    display: grid;
+    height: 3rem;
+    place-items: center;
+    border: 0;
+    border-radius: 0.7rem;
+    background: transparent;
+    color: #fff;
+  }
+  :where(.comic) .mobile .primary {
+    background: #fff;
+    color: #171a18;
+  }
+  .comic[data-mode='paged'] {
+    padding: 3.7rem 0.25rem 4.7rem;
+  }
+  .comic[data-mode='paged'] figure img {
+    max-height: calc(100vh - 8.4rem);
+  }
+  :where(.comic) .chapter-nav {
+    padding: 1.8rem 0.7rem;
+  }
+  [data-music-player] {
+    z-index: 36 !important;
+  }
+}
+
+.comic-toast {
+  position: fixed;
+  z-index: 60;
+  top: 4.7rem;
+  left: 50%;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  padding: 0.65rem 1rem;
+  font-size: 0.65rem;
+  transform: translateX(-50%);
+}
+.comic-toast[hidden] {
+  display: none !important;
+}

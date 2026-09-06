@@ -2,6 +2,10 @@ import type { ReactNode } from 'react';
 import type { Viewport } from 'next';
 import { getSiteSettings, themeCss } from '../shared/site/settings';
 import { SiteEffects } from '../shared/site/site-effects';
+import { SiteFrame } from '../shared/site/site-frame';
+import { getJson } from '../shared/http/json';
+import { internalApiOrigin } from '../shared/site/settings';
+import type { MusicTrack } from '../shared/site/music-player';
 // Transitional shared visual contract: no replacement theme or component-library reset.
 import '../../../../frontend-astro/src/styles/global.scss';
 import '../features/manga/styles/MangaSiteHeader.css';
@@ -12,6 +16,8 @@ import '../features/manga/styles/SourceDetail.css';
 import '../features/manga/styles/MangaRank.css';
 import '../features/manga/styles/MangaLibrary.css';
 import '../features/manga/styles/MangaDetail.css';
+import '../features/manga/styles/SourceReader.css';
+import '../features/manga/styles/LocalReader.css';
 
 export const dynamic = 'force-dynamic';
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f4f2ea' };
@@ -20,11 +26,16 @@ const bootstrap = `try{var t=localStorage.getItem('theme')||'boke-green';documen
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const { settings, theme } = await getSiteSettings();
+  const music = await getJson<MusicTrack[]>(
+    `${internalApiOrigin()}/api/music`,
+    AbortSignal.timeout(10000),
+  ).catch(() => []);
   return (
     <html
       lang={settings.site_language || 'zh-CN'}
       data-theme="boke-green"
       data-theme-type="light"
+      data-scroll-behavior="smooth"
       data-personal-season={theme.season || 'custom'}
       suppressHydrationWarning
     >
@@ -37,11 +48,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         data-site-start-date={settings.site_start_date || '2026-01-01'}
       >
         <div className="site-bg-grid" />
-        <div className="page-content-animate mx-auto w-full flex-grow max-w-none mt-0">
-          <div className="grid grid-cols-1 gap-0 px-0 pb-0">
-            <main className="order-1 flex flex-col gap-4 ">{children}</main>
-          </div>
-        </div>
+        <SiteFrame
+          settings={settings}
+          tracks={music.length ? music : settings.music_playlist || []}
+        >
+          {children}
+        </SiteFrame>
         <SiteEffects />
       </body>
     </html>
