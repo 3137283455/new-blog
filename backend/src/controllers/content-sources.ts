@@ -52,7 +52,7 @@ export function config(req: Request, res: Response) {
 }
 
 export async function search(req: Request, res: Response) {
-  const requestedKind = kind(req.query.kind), query = clean(req.query.q, 120), requestedSource = clean(req.query.source, 40)
+  const requestedKind = kind(req.query.kind), query = clean(req.query.q, 120), requestedSource = clean(req.query.source, 180)
   if (!requestedKind) return error(res, 'kind 必须是 book、bangumi 或 manga', 'INVALID_SOURCE_KIND', 400)
   if (!query) return error(res, '请输入搜索关键词', 'QUERY_REQUIRED', 400)
   try {
@@ -83,7 +83,7 @@ export async function search(req: Request, res: Response) {
 }
 
 export async function explore(req: Request, res: Response) {
-  const requestedKind = kind(req.query.kind), requestedSource = clean(req.query.source, 40)
+  const requestedKind = kind(req.query.kind), requestedSource = clean(req.query.source, 180)
   if (!requestedKind) return error(res, 'kind 必须是 book、bangumi 或 manga', 'INVALID_SOURCE_KIND', 400)
   try {
     if (requestedKind === 'manga' && requestedSource.startsWith('venera:')) {
@@ -98,7 +98,7 @@ export async function explore(req: Request, res: Response) {
 }
 
 export async function detail(req: Request, res: Response) {
-  const requestedKind = kind(req.params.kind), id = clean(req.params.id, 160), requestedSource = clean(req.params.source, 40)
+  const requestedKind = kind(req.params.kind), id = clean(req.params.id, 300), requestedSource = clean(req.params.source, 180)
   if (!requestedKind) return error(res, '内容源类型无效', 'INVALID_SOURCE_KIND', 400)
   if (!id) return error(res, '内容源 ID 不能为空', 'SOURCE_ID_REQUIRED', 400)
   try {
@@ -115,7 +115,7 @@ export async function detail(req: Request, res: Response) {
 }
 
 export async function chapter(req: Request, res: Response) {
-  const requestedKind = kind(req.params.kind), id = clean(req.params.id, 160), chapterId = clean(req.params.chapterId, 160), requestedSource = clean(req.params.source, 40)
+  const requestedKind = kind(req.params.kind), id = clean(req.params.id, 300), chapterId = clean(req.params.chapterId, 300), requestedSource = clean(req.params.source, 180)
   if (!requestedKind) return error(res, '内容源类型无效', 'INVALID_SOURCE_KIND', 400)
   if (!id || !chapterId) return error(res, '内容源章节 ID 不能为空', 'CHAPTER_ID_REQUIRED', 400)
   try {
@@ -132,18 +132,29 @@ export async function chapter(req: Request, res: Response) {
 }
 
 export async function media(req: Request, res: Response) {
-  const sourceId = clean(req.query.source, 40), targetValue = clean(req.query.url, 2000), requestedKind = kind(req.query.kind) || undefined
+  const sourceId = clean(req.query.source, 180), targetValue = clean(req.query.url, 3000), requestedKind = kind(req.query.kind) || undefined
   if (!sourceId || !targetValue) return error(res, 'source 和 url 不能为空', 'SOURCE_MEDIA_REQUIRED', 400)
   try {
     if (sourceId.startsWith('venera:')) {
-      const response = await fetchVeneraImage(sourceId, targetValue)
+      const purpose = clean(req.query.purpose, 20)
+      if (purpose && !['page', 'thumbnail'].includes(purpose)) return error(res, '图片用途无效', 'SOURCE_MEDIA_CONTEXT_INVALID', 400)
+      const comicId = clean(req.query.comic_id, 300), chapterId = clean(req.query.chapter_id, 300)
+      if (purpose === 'page' && (!comicId || !chapterId)) return error(res, '阅读图片必须包含漫画和章节 ID', 'SOURCE_MEDIA_CONTEXT_REQUIRED', 400)
+      const controller = new AbortController()
+      const abort = () => controller.abort()
+      res.once('close', abort)
+      let response: globalThis.Response
+      try {
+        response = await fetchVeneraImage(sourceId, targetValue, { purpose: purpose === 'page' ? 'page' : 'thumbnail', comicId, chapterId, signal: controller.signal })
+      } finally { res.off('close', abort) }
       if (!response.ok) return error(res, `Venera 源图片 HTTP ${response.status}`, 'SOURCE_MEDIA_FAILED', 502)
       const contentType = response.headers.get('content-type') || 'application/octet-stream'
       if (!contentType.toLowerCase().startsWith('image/')) return error(res, 'Venera 源返回的不是图片', 'SOURCE_MEDIA_INVALID', 502)
       const body = Buffer.from(await response.arrayBuffer())
       if (body.length > 20 * 1024 * 1024) return error(res, 'Venera 源图片超过 20MB 限制', 'SOURCE_MEDIA_TOO_LARGE', 413)
       res.setHeader('Content-Type', contentType)
-      res.setHeader('Cache-Control', 'public, max-age=3600')
+      res.setHeader('Cache-Control', 'private, no-store')
+      res.setHeader('X-Content-Type-Options', 'nosniff')
       return res.send(body)
     }
     const rule = getContentSourceRuleById(sourceId, requestedKind)

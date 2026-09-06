@@ -2,6 +2,7 @@ import { readdir, readFile, mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeDataAdapters, adapters } from "./ui-data-adapters.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 async function files(directory) {
@@ -32,10 +33,11 @@ const tracked = (
 const entries = await Promise.all(
   tracked.map(async (path) => {
     const content = await readFile(path, "utf8");
+    const file = relative(root, path).replaceAll("\\", "/");
     return {
       file: relative(root, path).replaceAll("\\", "/"),
       sha256: createHash("sha256")
-        .update(content.replaceAll("\r\n", "\n"))
+        .update(normalizeDataAdapters(file, content.replaceAll("\r\n", "\n")))
         .digest("hex"),
       ...(path.replaceAll("\\", "/").includes("/pages/")
         ? {
@@ -80,6 +82,10 @@ if (process.argv.includes("--capture")) {
       {
         changedOrRemoved: changes.map((entry) => entry.file),
         added: added.map((entry) => entry.file),
+        reviewedDataAdapters: adapters.map(({ file, reason }) => ({
+          file,
+          reason,
+        })),
       },
       null,
       2,

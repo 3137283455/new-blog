@@ -2,6 +2,9 @@ import crypto from 'crypto'
 import vm from 'vm'
 import { load } from 'cheerio'
 import db from '../config/database'
+import { invokeSource } from '../modules/manga/runtime/invocation'
+import { loadExactChapter } from '../modules/manga/runtime/chapter'
+import { loadSourceImage, type ImageContext } from '../modules/manga/images/pipeline'
 
 export const DEFAULT_VENERA_REPOSITORY = 'https://cdn.jsdelivr.net/gh/venera-app/venera-configs@main/index.json'
 
@@ -29,6 +32,8 @@ type Runtime = { source: any; context: vm.Context; record: VeneraSourceRecord }
 
 const SETTING_KEY = 'venera_source_repositories'
 const runtimeCache = new Map<string, Runtime>()
+const runtimeLoads = new Map<string, Promise<Runtime>>()
+let runtimeGeneration = 0
 const sourceData = new Map<string, Map<string, unknown>>()
 const sourceCookies = new Map<string, Map<string, Array<{ name: string; value: string; domain?: string }>>>()
 
@@ -77,6 +82,8 @@ function saveConfig(config: VeneraRepositoryConfig) {
   const normalized = normalizeConfig(config)
   db.prepare("INSERT OR REPLACE INTO settings (key,value,type,description) VALUES (?,?,'json','Venera JavaScript 漫画源仓库')").run(SETTING_KEY, JSON.stringify(normalized))
   runtimeCache.clear()
+  runtimeLoads.clear()
+  runtimeGeneration++
   return normalized
 }
 async function fetchLimited(url: string, maxBytes: number, timeout = 20000) {
@@ -216,6 +223,19 @@ function modelClass() { return class { constructor(value: any) { if (value && ty
 async function loadRuntime(record: VeneraSourceRecord): Promise<Runtime> {
   const cached = runtimeCache.get(record.id)
   if (cached) return cached
+  const pending = runtimeLoads.get(record.id)
+  if (pending) return pending
+  const generation = runtimeGeneration
+  const loading = buildRuntime(record).then(runtime => {
+    if (generation === runtimeGeneration) runtimeCache.set(record.id, runtime)
+    return runtime
+  }).finally(() => {
+    if (runtimeLoads.get(record.id) === loading) runtimeLoads.delete(record.id)
+  })
+  runtimeLoads.set(record.id, loading)
+  return loading
+}
+async function buildRuntime(record: VeneraSourceRecord): Promise<Runtime> {
   const code = await fetchLimited(record.script_url, 2 * 1024 * 1024)
   const className = code.match(/class\s+([A-Za-z_$][\w$]*)\s+extends\s+ComicSource\b/)?.[1]
   if (!className) throw new Error(`${record.name} 没有找到 ComicSource 子类`)
@@ -256,9 +276,7 @@ async function loadRuntime(record: VeneraSourceRecord): Promise<Runtime> {
   })
   const context = vm.createContext(contextObject, { name: record.id, codeGeneration: { strings: false, wasm: false } })
   contextObject.compute = async (source: unknown, ...args: unknown[]) => {
-    ;(context as any).__venera_compute_args__ = args
-    try { return await Promise.resolve(new vm.Script(`(${String(source)})(...__venera_compute_args__)`).runInContext(context, { timeout: 3000 })) }
-    finally { delete (context as any).__venera_compute_args__ }
+    return invokeSource(context, `(${String(source)})(...__venera_compute_args__)`, args, record.name, 30000, '__venera_compute_args__')
   }
   new vm.Script(`${code}\n;globalThis.__venera_source__ = new ${className}();`, { filename: record.file_name }).runInContext(context, { timeout: 2000 })
   const source = (context as any).__venera_source__
@@ -267,14 +285,11 @@ async function loadRuntime(record: VeneraSourceRecord): Promise<Runtime> {
     if (definition && typeof definition === 'object' && 'default' in definition) settingValues.set(key, (definition as any).default)
   }
   const runtime = { source, context, record }
-  runtimeCache.set(record.id, runtime)
-  if (typeof source.init === 'function') await invoke(runtime, '__venera_source__.init()', [], 10000).catch(() => undefined)
+  if (typeof source.init === 'function') await invoke(runtime, '__venera_source__.init()', [], 10000)
   return runtime
 }
 async function invoke(runtime: Runtime, expression: string, args: unknown[], timeout = 30000) {
-  ;(runtime.context as any).__venera_args__ = args
-  const promise = new vm.Script(expression).runInContext(runtime.context, { timeout: 3000 })
-  try { return await Promise.race([Promise.resolve(promise), new Promise((_, reject) => setTimeout(() => reject(new Error(`${runtime.record.name} 执行超时`)), timeout))]) } finally { delete (runtime.context as any).__venera_args__ }
+  return invokeSource(runtime.context, expression, args, runtime.record.name, timeout)
 }
 function sourceOptions(source: any) {
   const list = Array.isArray(source?.search?.optionList) ? source.search.optionList : []
@@ -325,130 +340,16 @@ export async function detailVeneraSource(id: unknown, comicId: string) {
 }
 export async function readVeneraSource(id: unknown, comicId: string, chapterId: string) {
   const record = getVeneraSource(id), runtime = await loadRuntime(record)
-  const readOne = async (candidateId: string) => {
-    try {
-      const result: any = await invoke(runtime, '__venera_source__.comic.loadEp(__venera_args__[0], __venera_args__[1])', [comicId, candidateId])
-      const pages = (Array.isArray(result?.images) ? result.images : Array.isArray(result?.pages) ? result.pages : []).map((item: any) => clean(typeof item === 'string' ? item : item?.url, 3000)).filter(Boolean)
-      return { result, pages }
-    } catch {
-      return { result: null, pages: [] as string[] }
-    }
-  }
-  const first = await readOne(chapterId)
-  let selectedId = chapterId, selectedTitle = '', result = first.result, pages = first.pages
-  if (!pages.length) {
-    try {
-      const info: any = await invoke(runtime, '__venera_source__.comic.loadInfo(__venera_args__[0])', [comicId])
-      const chapters = normalizeChapters(info?.chapters)
-      const selectedIndex = Math.max(0, chapters.findIndex((chapter) => chapter.external_id === chapterId))
-      const candidates: number[] = []
-      for (let offset = 0; candidates.length < 16; offset += 1) {
-        const forward = selectedIndex + offset
-        const backward = selectedIndex - offset
-        if (chapters[forward] && !candidates.includes(forward)) candidates.push(forward)
-        if (backward >= 0 && !candidates.includes(backward)) candidates.push(backward)
-        if (forward >= chapters.length && backward < 0) break
-      }
-      for (const index of candidates) {
-        const candidate = chapters[index]
-        if (!candidate || candidate.external_id === chapterId) continue
-        const attempt = await readOne(candidate.external_id)
-        if (attempt.pages.length) {
-          selectedId = candidate.external_id
-          selectedTitle = candidate.title
-          result = attempt.result
-          pages = attempt.pages
-          break
-        }
-      }
-    } catch {
-      // Keep the original empty result and show a useful reader error below.
-    }
-  }
-  const title = clean(result?.title, 300) || selectedTitle || '漫画阅读'
-  return {
-    record,
-    reader: {
-      title,
-      content: '',
-      content_html: '',
-      pages,
-      source_url: clean(result?.url, 2000),
-      chapter_id: selectedId,
-      chapter_title: selectedTitle || title,
-      error: pages.length ? '' : '源站暂时没有返回本章图片，可能是章节语言或版权区域不可用。请返回目录选择其他章节。',
-    },
-  }
-}
-type VeneraImageConfig = {
-  url?: unknown
-  method?: unknown
-  data?: unknown
-  headers?: unknown
-  onResponse?: unknown
-  onLoadFailed?: unknown
+  const reader = await loadExactChapter(comicId, chapterId, (work, chapter) =>
+    invoke(runtime, '__venera_source__.comic.loadEp(__venera_args__[0], __venera_args__[1])', [work, chapter]))
+  return { record, reader }
 }
 
-function imageHeaders(value: unknown) {
-  if (!value || typeof value !== 'object') return {}
-  return Object.fromEntries(Object.entries(value).slice(0, 40).map(([key, item]) => [clean(key, 100), clean(item, 2000)]).filter(([key, item]) => key && item))
-}
-
-function imageMethod(value: unknown) {
-  const method = clean(value || 'GET', 12).toUpperCase()
-  return ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].includes(method) ? method : 'GET'
-}
-
-function imageBody(value: unknown) {
-  if (value == null) return undefined
-  if (typeof value === 'string' || value instanceof ArrayBuffer || ArrayBuffer.isView(value) || Object.prototype.toString.call(value) === '[object ArrayBuffer]') return buffer(value)
-  return JSON.stringify(value)
-}
-
-async function invokeImageCallback(runtime: Runtime, callback: unknown, body?: unknown) {
-  if (typeof callback !== 'function') return undefined
-  const args = body === undefined ? [callback] : [callback, body]
-  return invoke(runtime, body === undefined ? '__venera_args__[0]()' : '__venera_args__[0](__venera_args__[1])', args, 30000)
-}
-
-export async function fetchVeneraImage(id: unknown, targetValue: unknown) {
+export async function fetchVeneraImage(id: unknown, targetValue: unknown, context: ImageContext = {}) {
   const record = getVeneraSource(id), runtime = await loadRuntime(record)
-  const initialUrl = remoteUrl(targetValue)
-  const handler = runtime.source?.comic?.onImageLoad || runtime.source?.comic?.onThumbnailLoad
-  const handlerName = runtime.source?.comic?.onImageLoad === handler ? 'onImageLoad' : 'onThumbnailLoad'
-  const initialConfig: VeneraImageConfig = typeof handler === 'function'
-    ? await invoke(runtime, `__venera_source__.comic.${handlerName}(__venera_args__[0], '', '')`, [initialUrl]).catch(() => null) || { url: initialUrl }
-    : { url: initialUrl }
-
-  async function request(config: VeneraImageConfig, depth = 0): Promise<Response> {
-    const url = remoteUrl(config.url || initialUrl)
-    const method = imageMethod(config.method)
-    const headers = imageHeaders(config.headers)
-    const body = ['GET', 'HEAD'].includes(method) ? undefined : imageBody(config.data)
-    const response = await fetch(url, { method, headers, body, redirect: 'follow', signal: AbortSignal.timeout(25000) })
-    if (!response.ok && depth < 2 && typeof config.onLoadFailed === 'function') {
-      const fallback = await invokeImageCallback(runtime, config.onLoadFailed).catch(() => undefined)
-      if (fallback && typeof fallback === 'object' && (fallback as any).url) return request(fallback as VeneraImageConfig, depth + 1)
-    }
-    if (!response.ok) return response
-
-    // Venera sources may decrypt or otherwise transform the response bytes
-    // before the image decoder sees them.  Preserve that contract by
-    // replacing the response body with the callback result when provided.
-    if (typeof config.onResponse === 'function') {
-      const raw = Buffer.from(await response.arrayBuffer())
-      const transformed = await invokeImageCallback(runtime, config.onResponse, arrayBuffer(raw)).catch(() => undefined)
-      if (transformed != null) {
-        const bodyBuffer = buffer(transformed)
-        const responseHeaders = new Headers(response.headers)
-        responseHeaders.delete('content-length')
-        responseHeaders.delete('content-encoding')
-        responseHeaders.delete('transfer-encoding')
-        return new Response(bodyBuffer, { status: response.status, headers: responseHeaders })
-      }
-    }
-    return response
-  }
-
-  return request(initialConfig)
+  const result = await loadSourceImage(targetValue, context, {
+    comic: runtime.source.comic, validateUrl: remoteUrl,
+    invoke: (callback, args, receiver) => invoke(runtime, '__venera_args__[0].apply(__venera_args__[2], __venera_args__[1])', [callback, args, receiver]),
+  })
+  return new Response(new Uint8Array(result.bytes), { headers: { 'Content-Type': result.contentType, 'Cache-Control': 'private, no-store' } })
 }

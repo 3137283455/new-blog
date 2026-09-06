@@ -46,6 +46,21 @@ export function fixtureResponse(url) {
   if (path === '/api/content-sources/search')
     return { items: results(url.searchParams.get('q') || ''), source: sources[0] };
   if (path === '/api/content-sources/explore') return { items: results(), source: sources[0] };
+  if (
+    path.startsWith('/api/content-sources/manga/fixture%3Aalpha/') &&
+    path.includes('/chapter/')
+  ) {
+    const failed = path.endsWith('/failed');
+    return {
+      source: sources[0],
+      reader: {
+        title: '阅读测试',
+        chapter_id: failed ? 'failed' : 'ep-42',
+        pages: failed ? [] : ['https://fixture.invalid/one.svg', 'https://fixture.invalid/two.svg'],
+        error: failed ? '测试：本章暂时不可用' : '',
+      },
+    };
+  }
   if (path === '/api/visitors/count') return { today: 1, total: 1 };
   return [];
 }

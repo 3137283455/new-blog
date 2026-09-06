@@ -1,4 +1,8 @@
-# 第一批迁移验收记录
+# 迁移验收记录
+
+第二批（2026-09-06）图片与章节引擎验收见 [MANGA-ENGINE.md](MANGA-ENGINE.md)：17 项引擎/接线测试、29 项浏览器测试通过，真实 MangaDex 指定章节首图加载成功。下文保留第一批记录，不将阶段性结果改写成全站已迁移。
+
+## 第一批
 
 验证日期：2026-09-06（Asia/Shanghai）。环境：Windows、Node.js 24.14.0、Next.js 16.3.4、React 19.2.8、Playwright Chromium。
 

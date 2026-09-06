@@ -13,7 +13,7 @@ if (!data?.reader) return Astro.redirect('/404')
 const reader = { ...data.reader, title: requestedTitle || data.reader.title || '漫画阅读' }
 if (reader.chapter_id && reader.chapter_id !== chapterId) return Astro.redirect(`/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/chapter/${encodeURIComponent(reader.chapter_id)}?id=${encodeURIComponent(workId)}&title=${encodeURIComponent(reader.chapter_title || reader.title || '')}`)
 const backUrl = `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/${encodeURIComponent(workId)}`
-const mediaUrl = (url: string) => `/api/content-sources/media?source=${encodeURIComponent(source)}&kind=${encodeURIComponent(kind)}&url=${encodeURIComponent(url)}`
+const mediaUrl = (url: string) => `/api/content-sources/media?source=${encodeURIComponent(source)}&kind=${encodeURIComponent(kind)}&url=${encodeURIComponent(url)}&purpose=page&comic_id=${encodeURIComponent(workId)}&chapter_id=${encodeURIComponent(chapterId)}`
 ---
 
 <BaseLayout title={reader.title || '漫画阅读'} subtitle={`${data.source?.label || source} · 源阅读`} showSidebar={false} showBanner={false} hideFooter wide>
