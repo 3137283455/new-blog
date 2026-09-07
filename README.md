@@ -4,9 +4,9 @@
 
 ## UI 保持不变的架构重构
 
-新版位于 `apps/web`，Next.js 已接管全部前台、漫画、书库、阅读器、后台和写作台路由。Express API 与 SQLite 数据保持兼容，生产只启动 `boke-backend` 和 `boke-web` 两个 PM2 进程。旧 Astro 源码仅作为迁移归档保留，不参与构建、测试或生产启动。
+新版位于 `apps/web`，Next.js 已接管全部前台、漫画、书库、阅读器、后台和写作台路由。Express API 与 SQLite 数据保持兼容，生产只启动 `boke-backend` 和 `boke-web` 两个 PM2 进程。
 
-安装依赖后可使用 `npm run dev:refactor` 启动 API 与 Next 开发服务，新版预览端口为 3100。服务器更新仍使用 `bash scripts/deploy.sh --pull`。
+安装依赖后可使用 `npm run dev:local` 启动 API 与 Next 开发服务，预览端口为 3100。服务器更新仍使用 `bash scripts/deploy.sh --pull`。
 
 ## ✨ 功能特性
 

@@ -13,14 +13,13 @@
 - 原页面结构、文案、类名、布局尺寸、源弹窗、主题设置、搜索参数和链接保留。
 - 请求逻辑独立于 UI：过期请求取消、旧结果隔离、卸载清理。
 - 生产部署不再启动旧站，PM2 只启动 API 与 Next。
-- `ui-inventory.json` 冻结 64 个旧 UI 源文件的内容哈希，阻止无意修改旧站。
 - 单元测试和新旧页面截图/交互回归测试。
 
 第二批已实现：漫画图片请求/响应转换/解码/规则重排模块、保留上下文的图片接口、精确章节加载和并发调用隔离。详细范围、限制与测试见 [漫画引擎第二阶段](MANGA-ENGINE.md)。
 
 漫画详情、阅读器、漫画架/收藏、排行榜、阅读中心与离线章节、书库链路、后台面板和写作台已迁移；当前完整生产浏览器回归 87/87。
 
-数据库仍为 SQLite，源执行仍由现有 Express 服务负责；这两项是有意保持的兼容边界，不影响本次前端重构和服务器部署。旧 Astro 目录仅作为本地迁移归档，不参与任何脚本。
+数据库仍为 SQLite，源执行仍由现有 Express 服务负责；这两项是有意保持的兼容边界，不影响本次前端重构和服务器部署。
 
 ## 目录职责
 
@@ -33,13 +32,13 @@
 | `apps/web/tests` | 不依赖真实漫画源/数据库的可重复回归 |
 | `backend/src/modules/manga/images` | 图片请求、字节转换、Worker 解码与重排；不依赖 Express/数据库 |
 | `backend/src/modules/manga/runtime` | 调用参数隔离、精确章节读取；不依赖 Express/数据库 |
-| `scripts/refactor` | 基线核查、样式机械提取、并行开发启动 |
+| `scripts/dev.mjs` | 本地启动 API 与 Next 开发服务 |
 
 当前 `contracts.ts` 是旧接口的边界 DTO，不把它当作新数据库模型。新源引擎通过适配层接入，避免页面直接依赖脚本运行时。
 
 ## 本地启动
 
-服务器主分支部署与验证见 [服务器验证说明](SERVER-VERIFY.md)。部署入口保持不变：服务器执行 `bash scripts/deploy.sh --pull` 即可；脚本只启动 Next 和 API，不再启动 Astro。
+服务器主分支部署与验证见 [服务器验证说明](SERVER-VERIFY.md)。部署入口保持不变：服务器执行 `bash scripts/deploy.sh --pull` 即可；脚本只启动 Next 和 API。
 
 需要 Node.js 22+。首次安装和准备，在仓库根目录执行：
 
@@ -47,7 +46,7 @@
 npm ci --prefix backend
 npm ci --prefix apps/web
 npm run build --prefix backend
-npm run dev:refactor
+npm run dev:local
 ```
 
 - Next 预览：`http://127.0.0.1:3100/manga`
@@ -62,7 +61,6 @@ npm run dev:refactor
 ## UI 验收
 
 ```powershell
-npm run refactor:inventory
 npm run typecheck --prefix apps/web
 npm run test:web
 cd apps/web
@@ -70,13 +68,13 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-测试自动启动独立的只读样例 API（4301）和 Next（3111）；4311 仅是同一 Next 构建的兼容对照别名，不启动 Astro，不写真实收藏/源配置。
+测试自动启动独立的只读样例 API（4301）和 Next（3111）；4311 仅是同一 Next 构建的兼容对照别名，不写真实收藏/源配置。
 
 视觉用例：1440×1000 与 390×844，两种尺寸各覆盖首页、初始搜索、搜索结果、最新发现、空结果、错误状态、源弹窗、夜间主题、朋克主题，共 18 组。每组保存 `legacy.png`、`next.png`、`diff.png` 和差异统计到 `apps/web/test-results`；不把本地截图与 trace 提交到 Git。
 
 要求页面尺寸相同；像素比较阈值 0.1，差异像素占比不超过 0.1%。不遮蔽任何业务区域；只统一动画/光标和测试数据。截图通过不替代真实源、阅读器、登录和数据迁移测试。
 
-第二批新增 6 项阅读页浏览器测试（两套入口、桌面/手机、分页/连续、错误状态），完整集现在为 29 项。原 UI 哈希基线没有覆盖更新：仅允许 `ui-data-adapters.mjs` 中精确的一行 frontmatter 数据接线变更，归一化后仍须匹配原哈希；页面模板、CSS、客户端脚本不豁免。
+第二批新增 6 项阅读页浏览器测试（两套入口、桌面/手机、分页/连续、错误状态），完整集现在为 29 项。页面结构、CSS 与客户端交互均以 Next 页面和浏览器回归作为验收基线。
 
 生产模式再验收：
 
@@ -93,9 +91,9 @@ npm run test:ui
 
 ## 已发现、刻意不混入重构的 UI 缺陷
 
-旧漫画页面用 `innerHTML` 插入搜索卡片、源列表和后续空状态；插入元素没有 Astro scope 属性，导致对应 scoped CSS 实际不生效。直接把这些 CSS 变成全局样式，会改变用户现有界面。
+漫画页面曾用命令式 HTML 插入搜索卡片、源列表和后续空状态，导致局部样式边界不稳定。现在动态内容由 React 组件渲染，样式按功能模块隔离。
 
-因此机械提取工具只迁移当前生效的规则，并保留初始占位与动态状态的差异；React 不再使用 `innerHTML`。这不是新设计，也不是永久建议：要恢复旧代码中未生效的卡片/列表设计，需用户单独批准 UI 修复，并更新视觉基线。不可通过修改测试样例掩盖变化。
+React 组件保留原有视觉契约，同时避免通过 `innerHTML` 注入动态内容。
 
 旧站全局样式和 Tailwind 主题暂时直接复用，页面 CSS 按路由隔离，防止同名类相互覆盖。后续样式拆分也必须通过同样的视觉验收。
 

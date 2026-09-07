@@ -65,9 +65,9 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
-# Remove the old Astro PM2 process if this server still has one from a previous deployment.
+# Remove the legacy frontend PM2 process if this server still has one from a previous deployment.
 if pm2 describe boke-frontend >/dev/null 2>&1; then
-  echo "[deploy] removing legacy Astro process"
+  echo "[deploy] removing legacy frontend process"
   pm2 delete boke-frontend
 fi
 pm2 startOrReload ecosystem.config.cjs --update-env

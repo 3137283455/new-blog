@@ -108,32 +108,6 @@ test("GIF bytes and frames remain untouched without modifyImage", async () => {
   assert.deepEqual(result.bytes, gif);
 });
 
-test("UI baseline exception only normalizes the exact reviewed frontmatter line", async () => {
-  const { adapters, normalizeDataAdapters } =
-    await import("../../scripts/refactor/ui-data-adapters.mjs");
-  const adapter = adapters[0];
-  const baseline = `---\n${adapter.before}\n---\n<p>unchanged</p>`;
-  const candidate = baseline.replace(adapter.before, adapter.after);
-  assert.equal(normalizeDataAdapters(adapter.file, candidate), baseline);
-  assert.notEqual(
-    normalizeDataAdapters(
-      adapter.file,
-      candidate.replace("unchanged", "changed"),
-    ),
-    baseline,
-  );
-  assert.notEqual(
-    normalizeDataAdapters(
-      adapter.file,
-      candidate.replace("purpose=page", "purpose=thumbnail"),
-    ),
-    baseline,
-  );
-  assert.equal(normalizeDataAdapters("different.astro", candidate), candidate);
-  const outside = `---\n---\n${adapter.after}`;
-  assert.equal(normalizeDataAdapters(adapter.file, outside), outside);
-});
-
 test("Image copy/rotate match coordinate semantics, bounds are enforced", () => {
   const { Image, dataOf } = createImageApi();
   const image = new Image(

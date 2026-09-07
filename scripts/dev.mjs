@@ -28,7 +28,7 @@ async function ready(url, marker) {
 
 async function start({ name, cwd, args, url, marker, env = {} }) {
   if (await ready(url, marker)) {
-    console.log(`[refactor] Reusing ${name}: ${url}`);
+    console.log(`[dev] Reusing ${name}: ${url}`);
     return;
   }
   const target = new URL(url);
@@ -52,7 +52,7 @@ async function start({ name, cwd, args, url, marker, env = {} }) {
     // Give that existing process time; do not start a competing server on its port.
     for (let attempt = 0; attempt < 20; attempt++) {
       if (await ready(url, marker)) {
-        console.log(`[refactor] Reusing ${name}: ${url}`);
+        console.log(`[dev] Reusing ${name}: ${url}`);
         return;
       }
       await delay(500);
@@ -73,13 +73,13 @@ async function start({ name, cwd, args, url, marker, env = {} }) {
   });
   owned.push(child);
   child.on("error", (error) => {
-    console.error(`[refactor] ${name}: ${error.message}`);
+    console.error(`[dev] ${name}: ${error.message}`);
     stop(1);
   });
   child.on("exit", (code) => {
     if (!stopping) {
       console.error(
-        `[refactor] ${name} exited (${code}). Check its port and dependencies.`,
+        `[dev] ${name} exited (${code}). Check its port and dependencies.`,
       );
       stop(1);
     }
@@ -95,7 +95,7 @@ try {
   await access(`${repo}/backend/dist/app.js`);
   await access(`${repo}/apps/web/node_modules/next/dist/bin/next`);
   await start({
-    name: "legacy API",
+    name: "Express API",
     cwd: "backend",
     args: ["dist/app.js"],
     url: "http://127.0.0.1:3001/api/health",
@@ -120,11 +120,11 @@ try {
     },
   });
   console.log(
-    "\n[refactor] Preview: http://127.0.0.1:3100/manga\n[refactor] Next.js is the only frontend runtime; no database cutover.",
+    "\n[dev] Preview: http://127.0.0.1:3100/manga\n[dev] Next.js + Express API are running.",
   );
 } catch (error) {
   console.error(
-    `[refactor] ${error.message}\nInstall dependencies and build backend first; see docs/refactor/README.md.`,
+    `[dev] ${error.message}\nInstall dependencies and build backend first; see README.md.`,
   );
   stop(1);
 }

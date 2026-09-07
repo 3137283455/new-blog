@@ -17,9 +17,9 @@
 
 ## UI 与数据不变的边界
 
-唯一旧页面源码变化是阅读页 frontmatter 的 `mediaUrl` 增加参数；原 HTML、CSS、客户端分页脚本完全保留。`ui-inventory.json` 原 64 文件基线未覆盖。`scripts/refactor/ui-data-adapters.mjs` 只精确反向归一化这一行，再核对原哈希；改动其他字符/模板/样式仍会失败，并有反例测试。
+漫画阅读页保留原有 URL、结构、CSS 和客户端分页契约；现在由 Next 原生路由提供，页面变化通过浏览器回归测试覆盖。
 
-失败时文案会明确告知本章失败，这是错误行为修正，并未重新设计错误页面。漫画详情、阅读器、漫画架和后台当前仍由原实现提供，Next 通过同源代理衔接。
+失败时文案会明确告知本章失败，这是错误行为修正，并未重新设计错误页面。漫画详情、阅读器、漫画架和后台均由 Next 提供，并通过同源 API 代理衔接。
 
 测试数据使用独立内存库或临时库，正式数据不做清理或迁移。本地 API 重启后使用新构建；源会话此前就是进程内状态，仍未持久化。
 
@@ -28,7 +28,6 @@
 ```powershell
 npm run test:manga-engine --prefix backend
 npm run test:search-sources --prefix backend
-npm run refactor:inventory
 npm run build --prefix apps/web
 npm run typecheck --prefix apps/web
 npm run test:web

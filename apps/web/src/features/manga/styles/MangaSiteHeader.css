@@ -1,4 +1,4 @@
-/* Preserved from MangaSiteHeader.astro. Values frozen by UI parity tests.
+/* Preserved visual contract. Values frozen by UI parity tests.
  * Inactive dynamic-node rules intentionally excluded; see docs/refactor/README.md. */
 .manga-site-header {
   display: flex;

@@ -5,8 +5,7 @@ export default {
   distDir: process.env.NEXT_BUILD_DIR || '.next',
   poweredByHeader: false,
   devIndicators: false,
-  // Keep API and upload URLs same-origin. The production server runs only Next;
-  // there is intentionally no fallback to the removed Astro process.
+  // Keep API and upload URLs same-origin. The production server runs only Next.
   async rewrites() {
     return {
       beforeFiles: [

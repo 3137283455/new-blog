@@ -1,4 +1,4 @@
-/* Preserved from MangaPortal.astro. Values frozen by UI parity tests.
+/* Preserved visual contract. Values frozen by UI parity tests.
  * Inactive dynamic-node rules intentionally excluded; see docs/refactor/README.md. */
 .manga-home:not(:where(.manga-source-picker *, .manga-site-header *)) {
   --manga-ink: #172018;
