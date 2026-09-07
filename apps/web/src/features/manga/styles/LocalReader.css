@@ -31,7 +31,7 @@ html.comic-page body {
   z-index: 30;
   inset: 0 0 auto;
   display: grid;
-  grid-template-columns: 2.5rem 1fr auto;
+  grid-template-columns: max-content minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.7rem;
   height: 3.7rem;
@@ -42,7 +42,18 @@ html.comic-page body {
 }
 :where(.comic) .top > a {
   color: inherit;
-  font-size: 2rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+:where(.comic) .top > a.reader-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+:where(.comic) .top > a.reader-back:first-letter {
+  font-size: 1.4rem;
 }
 :where(.comic) .top div {
   min-width: 0;

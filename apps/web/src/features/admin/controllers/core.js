@@ -159,13 +159,19 @@ export function mount(scope) {
       const user = await context.login(data.get('username'), data.get('password'));
       context.$('#login-message').textContent = '';
       context.setStatus(`已登录：${user.nickname || user.username}`);
-      await Promise.all([
+      const results = await Promise.allSettled([
         context.loadTaxonomy(),
         context.loadDashboard(),
         context.loadArticles(),
         context.loadMedia(),
         context.loadSettings(),
       ]);
+      const failed = results.filter((result) => result.status === 'rejected').length;
+      context.setStatus(
+        failed
+          ? `已登录：${user.nickname || user.username}，${failed} 个后台模块加载失败`
+          : `已登录：${user.nickname || user.username}`,
+      );
       const hashPanel = location.hash.replace(/^#/, '').split('?')[0];
       context.switchPanel(context.resolveHashPanel(hashPanel));
     } catch (error) {

@@ -9,8 +9,10 @@ export function SearchIcon() {
 
 export function MangaSiteHeader({
   active = 'discover',
+  backHref,
 }: {
   active?: 'discover' | 'latest' | 'rank' | 'library';
+  backHref?: string;
 }) {
   const links = [
     { key: 'discover', label: '发现', href: '/manga' },
@@ -20,6 +22,11 @@ export function MangaSiteHeader({
   ];
   return (
     <header className="manga-site-header">
+      {backHref && (
+        <a className="manga-site-back" href={backHref} aria-label="返回上一层">
+          ← 返回
+        </a>
+      )}
       <a className="manga-site-brand" href="/manga" aria-label="返回漫画站首页">
         <span>漫</span>
         <strong>漫画站</strong>

@@ -26,7 +26,7 @@ export function MangaBrowsePage({
       data-query={query}
       data-source={source}
     >
-      <MangaSiteHeader active={isSearch ? 'discover' : 'latest'} />
+      <MangaSiteHeader active={isSearch ? 'discover' : 'latest'} backHref="/manga" />
       <section className="manga-browse-head">
         <div>
           <p className="manga-eyebrow">

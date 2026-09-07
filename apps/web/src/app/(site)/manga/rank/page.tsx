@@ -5,7 +5,7 @@ export default function Page() {
   return (
     <>
       <main className="manga-rank-page">
-        <MangaSiteHeader active="rank" />
+        <MangaSiteHeader active="rank" backHref="/manga" />
         <section className="manga-rank-empty">
           <p>RANKING IS SOURCE-DEPENDENT</p>
           <h1>排行榜正在准备中。</h1>

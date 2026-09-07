@@ -71,7 +71,12 @@ export function register(context) {
     if (context.state.token) headers.Authorization = `Bearer ${context.state.token}`;
     let res;
     try {
-      res = await context.scope.fetch(`${context.API_BASE}${path}`, { ...options, headers });
+      res = await context.scope.fetch(`${context.API_BASE}${path}`, {
+        ...options,
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers,
+      });
     } catch {
       if (context.scope.disposed) return;
       throw new Error(`无法连接后端 API（${context.API_BASE}），请确认 Express 服务已启动`);

@@ -10,7 +10,7 @@
   z-index: 5;
   top: 0;
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.7rem;
   border-bottom: 1px solid var(--line);
@@ -20,8 +20,18 @@
 }
 :where(.source-reader-page) .source-reader-topbar > a {
   color: inherit;
-  font-size: 1.8rem;
+  font-size: 0.68rem;
+  font-weight: 800;
   text-decoration: none;
+}
+:where(.source-reader-page) .source-reader-topbar > a.reader-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+:where(.source-reader-page) .source-reader-topbar > a.reader-back:first-letter {
+  font-size: 1.4rem;
 }
 :where(.source-reader-page) .source-reader-topbar div {
   min-width: 0;

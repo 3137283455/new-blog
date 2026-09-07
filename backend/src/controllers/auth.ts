@@ -19,6 +19,7 @@ function cleanText(value: unknown, max: number) {
 }
 
 export function login(req: AuthRequest, res: Response) {
+  res.setHeader('Cache-Control', 'no-store')
   const { username, password } = req.body
   const safeUsername = cleanText(username, AUTH_LIMITS.username)
   const safePassword = String(password || '')
@@ -58,6 +59,7 @@ export function login(req: AuthRequest, res: Response) {
 }
 
 export function me(req: AuthRequest, res: Response) {
+  res.setHeader('Cache-Control', 'no-store')
   const user = db.prepare('SELECT id, username, nickname, avatar, role FROM users WHERE id = ?').get(req.userId!) as any
   if (!user) {
     return error(res, '用户不存在', 'NOT_FOUND', 404)

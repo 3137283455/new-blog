@@ -36,7 +36,9 @@ export function SourceReaderPage({
       }}
     >
       <header className="source-reader-topbar">
-        <a href={backUrl}>‹</a>
+        <a className="reader-back" href={backUrl} aria-label="返回章节目录">
+          ← <span>返回目录</span>
+        </a>
         <div>
           <small>{sourceLabel}</small>
           <strong>{reader.title || '漫画阅读'}</strong>

@@ -13,6 +13,8 @@ const app = express()
 
 const allowedOrigins = new Set([
   ...config.corsOrigin.split(',').map((origin) => origin.trim()).filter(Boolean),
+  'http://localhost:3002',
+  'http://127.0.0.1:3002',
   'http://localhost:3100',
   'http://127.0.0.1:3100',
 ])

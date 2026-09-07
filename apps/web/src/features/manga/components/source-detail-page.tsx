@@ -22,7 +22,7 @@ export function SourceDetailPage({
     sourceChapterHref(kind, source, id, chapter, data.can_read);
   return (
     <>
-      {kind === 'manga' && <MangaSiteHeader active="discover" />}
+      {kind === 'manga' && <MangaSiteHeader active="discover" backHref="/manga" />}
       <main className="source-detail-page">
         <a className="source-back" href={home}>
           ← 返回{titleLabel}架

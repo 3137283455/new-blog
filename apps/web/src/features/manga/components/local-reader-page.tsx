@@ -29,7 +29,9 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
       data-cid={chapter.id}
     >
       <header className="top">
-        <a href={`/manga/${manga.slug}`}>‹</a>
+        <a className="reader-back" href={`/manga/${manga.slug}`} aria-label="返回漫画目录">
+          ← <span>返回目录</span>
+        </a>
         <div>
           <small>{chapter.volume_title}</small>
           <b>{chapter.title}</b>
