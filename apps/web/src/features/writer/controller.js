@@ -59,6 +59,10 @@ export function mount(scope) {
       status: $('#status')?.value || 'draft',
       visibility: $('#visibility')?.value || 'public',
       category: $('#category')?.value || '',
+      tags: Array.from($('#tags').selectedOptions).map((option) => option.value),
+      series: $('#series').value,
+      seriesOrder: $('#series-order').value,
+      musicTrack: $('#music-track').value,
       titleFont: $('#title-font-select')?.value || '',
       bodyFont: $('#body-font-select')?.value || '',
       isPinned: !!$('#is-pinned')?.checked,
@@ -76,6 +80,15 @@ export function mount(scope) {
     $('#quick-status').value = draft.status || 'draft';
     $('#visibility').value = draft.visibility || 'public';
     $('#category').value = draft.category || '';
+    if (Array.isArray(draft.tags)) {
+      const selected = new Set(draft.tags.map(String));
+      Array.from($('#tags').options).forEach((option) => {
+        option.selected = selected.has(option.value);
+      });
+    }
+    if ('series' in draft) $('#series').value = draft.series || '';
+    if ('seriesOrder' in draft) $('#series-order').value = draft.seriesOrder || 0;
+    if ('musicTrack' in draft) $('#music-track').value = draft.musicTrack || '';
     $('#title-font-select').value = draft.titleFont || '';
     $('#body-font-select').value = draft.bodyFont || '';
     $('#is-pinned').checked = !!draft.isPinned;
@@ -87,8 +100,14 @@ export function mount(scope) {
     isDirty = true;
     window.clearTimeout(autosaveTimer);
     autosaveTimer = scope.timeout(() => {
+      if (!isDirty) return;
       const draft = collectLocalDraft();
-      localStorage.setItem(autosaveKey(), JSON.stringify(draft));
+      try {
+        localStorage.setItem(autosaveKey(), JSON.stringify(draft));
+      } catch {
+        setMessage('本地自动保存失败，请手动保存文章');
+        return;
+      }
       setMessage(
         `已本地自动保存 ${new Date(draft.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`,
       );
@@ -314,6 +333,7 @@ export function mount(scope) {
     };
   }
   function fillArticle(post) {
+    window.clearTimeout(autosaveTimer);
     articleId = post?.id ? String(post.id) : '';
     $('#writer-mode').textContent = articleId ? '编辑文章' : '新文章';
     $('#title').value = post?.title || '';
@@ -367,6 +387,7 @@ export function mount(scope) {
       clearLocalDraft(oldArticleId);
       clearLocalDraft(articleId);
       isDirty = false;
+      window.clearTimeout(autosaveTimer);
       setMessage(payload.status === 'published' ? '已发布' : '已保存草稿');
       await loadArticles();
     } catch (error) {

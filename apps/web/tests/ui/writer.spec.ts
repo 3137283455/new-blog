@@ -115,9 +115,27 @@ test('writer recovers an unsaved draft after reloading before the autosave delay
   await expect(page.locator('#save-status')).toHaveText('已载入文章');
   await page.locator('#title').fill('立即刷新前的标题');
   await page.locator('#content').fill('不能因为尚未满五秒而丢失的正文');
+  await page.locator('#series-order').fill('7');
   await page.reload();
   await expect(page.locator('#title')).toHaveValue('立即刷新前的标题');
   await expect(page.locator('#content')).toHaveValue('不能因为尚未满五秒而丢失的正文');
+  await expect(page.locator('#series-order')).toHaveValue('7');
   expect(dialogs.some((message) => message.includes('本地临时稿'))).toBe(true);
+  await context.close();
+});
+
+test('manual save cancels the pending local autosave', async ({ browser }) => {
+  const context = await browser.newContext({ serviceWorkers: 'block' });
+  await mock(context);
+  const page = await context.newPage();
+  await page.goto('http://127.0.0.1:3111/admin/write?id=1');
+  await expect(page.locator('#save-status')).toHaveText('已载入文章');
+  await page.clock.install();
+  await page.locator('#title').fill('在自动保存之前提交');
+  await page.locator('#save-draft').click();
+  await expect(page.locator('#save-status')).toHaveText('已保存草稿');
+  await page.clock.fastForward(6000);
+  expect(await page.evaluate(() => localStorage.getItem('boke_writer_autosave_1'))).toBeNull();
+  await expect(page.locator('#save-status')).toHaveText('已保存草稿');
   await context.close();
 });
