@@ -39,6 +39,8 @@
 
 ## 本地启动
 
+服务器主分支部署、PM2 新版入口、SSH 验证与 Nginx 回退见 [服务器验证说明](SERVER-VERIFY.md)。原部署脚本不会自动启动 Next。
+
 需要 Node.js 22+（本轮使用 Node.js 24）。首次安装和准备，在仓库根目录执行：
 
 ```powershell
