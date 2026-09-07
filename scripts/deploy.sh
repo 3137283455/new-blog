@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
-FRONTEND_DIR="$ROOT_DIR/frontend-astro"
+WEB_DIR="$ROOT_DIR/apps/web"
 ENV_FILE="$BACKEND_DIR/.env"
 
 command -v node >/dev/null 2>&1 || { echo "[deploy] Node.js 20+ is required"; exit 1; }
@@ -11,8 +11,8 @@ command -v npm >/dev/null 2>&1 || { echo "[deploy] npm is required"; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "[deploy] curl is required"; exit 1; }
 
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
-if (( NODE_MAJOR < 20 )); then
-  echo "[deploy] Node.js 20+ is required; current version: $(node -v)"
+if (( NODE_MAJOR < 22 )); then
+  echo "[deploy] Node.js 22+ is required; current version: $(node -v)"
   exit 1
 fi
 
@@ -42,7 +42,7 @@ fi
 
 if [[ "${1:-}" == "--pull" ]]; then
   echo "[deploy] pulling latest source"
-  git -C "$ROOT_DIR" pull --ff-only
+  git -C "$ROOT_DIR" pull --ff-only origin main
 fi
 
 mkdir -p "$ROOT_DIR/logs" "$BACKEND_DIR/data" "$BACKEND_DIR/uploads" "$BACKEND_DIR/backups"
@@ -50,14 +50,14 @@ mkdir -p "$ROOT_DIR/logs" "$BACKEND_DIR/data" "$BACKEND_DIR/uploads" "$BACKEND_D
 echo "[deploy] installing backend dependencies"
 npm ci --prefix "$BACKEND_DIR"
 
-echo "[deploy] installing frontend dependencies"
-npm ci --prefix "$FRONTEND_DIR"
+echo "[deploy] installing Next frontend dependencies"
+npm ci --prefix "$WEB_DIR"
 
 echo "[deploy] building backend"
 npm run build --prefix "$BACKEND_DIR"
 
-echo "[deploy] building frontend"
-npm run build --prefix "$FRONTEND_DIR"
+echo "[deploy] building Next frontend"
+API_BASE_INTERNAL="http://127.0.0.1:3001" npm run build --prefix "$WEB_DIR"
 
 if ! command -v pm2 >/dev/null 2>&1; then
   echo "[deploy] installing PM2"
@@ -65,12 +65,19 @@ if ! command -v pm2 >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
+# Remove the old Astro PM2 process if this server still has one from a previous deployment.
+if pm2 describe boke-frontend >/dev/null 2>&1; then
+  echo "[deploy] removing legacy Astro process"
+  pm2 delete boke-frontend
+fi
 pm2 startOrReload ecosystem.config.cjs --update-env
 pm2 save
 
 for attempt in {1..20}; do
-  if curl --fail --silent http://127.0.0.1:3002/api/health >/dev/null; then
-    echo "[deploy] success: http://SERVER_PUBLIC_IP:3002"
+  if curl --fail --silent http://127.0.0.1:3001/api/health >/dev/null \
+    && curl --fail --silent http://127.0.0.1:3002/api/health >/dev/null \
+    && curl --fail --silent http://127.0.0.1:3002/manga >/dev/null; then
+    echo "[deploy] success: Next frontend + API are healthy"
     exit 0
   fi
   sleep 1

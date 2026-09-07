@@ -1,7 +1,9 @@
 export const serviceWorker = String.raw`
 const CACHE_NAME = 'boke-shell-v2';
 const READING_CACHE = 'boke-reading-v1';
-const SHELL_URLS = ['/', '/archive', '/search', '/nav', '/manifest.webmanifest'];
+// Only pre-cache routes served by the standalone Next deployment. The former
+// Astro shell routes are intentionally not part of the production service.
+const SHELL_URLS = ['/manga', '/manga/search', '/reading'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => Promise.allSettled(SHELL_URLS.map((url) => cache.add(url)))));

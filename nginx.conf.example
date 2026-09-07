@@ -11,8 +11,8 @@ server {
     gzip_min_length 1000;
 
     # 静态资源缓存
-    location /_astro/ {
-        proxy_pass http://127.0.0.1:3000;
+    location /_next/ {
+        proxy_pass http://127.0.0.1:3002;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -36,9 +36,9 @@ server {
         client_max_body_size 120M;
     }
 
-    # Astro 前端服务
+    # Next.js 前端服务
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3002;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
