@@ -22,6 +22,34 @@ export const shelf = [
   },
 ];
 
+export const books = [
+  {
+    id: 31,
+    slug: 'book-fixture',
+    title: '星海漫游：书库样例',
+    author: '测试作者',
+    description: '用于验证书库筛选、列表视图和源探索的小说样例。',
+    cover: '',
+    reading_status: 'reading',
+    reading_mode: 'chapters',
+    volume_count: 2,
+    chapter_count: 8,
+    updated_at: '2026-01-02',
+  },
+  {
+    id: 32,
+    slug: 'external-book-fixture',
+    title: '站外阅读样例',
+    author: '外部作者',
+    reading_status: 'planned',
+    reading_mode: 'external',
+    reading_url: 'https://fixture.invalid/book',
+    volume_count: 0,
+    chapter_count: 0,
+    updated_at: '2026-01-01',
+  },
+];
+
 export function results(query = '星海漫游') {
   return Array.from({ length: 7 }, (_, index) => ({
     source: 'fixture:alpha',
@@ -42,6 +70,7 @@ export function fixtureResponse(url) {
   if (path === '/api/themes/active') return { config: {} };
   if (path === '/api/music') return [];
   if (path === '/api/manga') return shelf;
+  if (path === '/api/books') return books;
   if (path === '/api/manga/local-fixture/volume-1/chapter-1')
     return {
       manga: shelf[0],

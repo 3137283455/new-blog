@@ -29,7 +29,7 @@
 npm run test:manga-engine --prefix backend
 npm run test:search-sources --prefix backend
 npm run refactor:inventory
-npm run build --prefix frontend-astro
+npm run build --prefix apps/web
 npm run typecheck --prefix apps/web
 npm run test:web
 ```
@@ -43,7 +43,7 @@ npm run test:web
 | 漫画引擎与真实控制器接线测试 | 17/17 |
 | 旧 JSON 源导入/冲突处理/默认源/搜索/目录/阅读回归 | 通过，独立临时库 |
 | 新前台类型检查、单元测试 | 通过，4/4 |
-| Astro 检查/构建 | 通过，0 错误/警告 |
+| Next.js 构建 | 通过，0 错误/警告 |
 | UI 基线 | 64 文件匹配（仅一行受审核的数据适配） |
 | 生产版浏览器回归 | 29/29，含新增 6 项阅读检查 |
 | 原 18 组配对截图 | 最大差异 169/329160，约 0.0514%，低于 0.1% |

@@ -1,1 +1,1 @@
-export const writerScopeAttribute = 'data-astro-cid-he2mkkt2';
+export const writerScopeAttribute = 'data-writer-scope';

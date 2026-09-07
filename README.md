@@ -2,11 +2,11 @@
 
 一个功能完整的个人博客系统，前后端分离架构，支持 Markdown 写作、评论、搜索、主题切换、媒体管理等功能。
 
-## UI 保持不变的架构重构（进行中）
+## UI 保持不变的架构重构
 
-新版位于 `apps/web`，首批迁移漫画首页、搜索和最新发现页面，其余功能暂由旧站同源承接。旧站和数据未被替换。启动、视觉回归、当前限制及后续迁移步骤见 [重构说明](docs/refactor/README.md)。
+新版位于 `apps/web`，Next.js 已接管全部前台、漫画、书库、阅读器、后台和写作台路由。Express API 与 SQLite 数据保持兼容，生产只启动 `boke-backend` 和 `boke-web` 两个 PM2 进程。旧 Astro 源码仅作为迁移归档保留，不参与构建、测试或生产启动。
 
-安装新版依赖并完成原后端构建后，可使用 `npm run dev:refactor` 并行启动，新版预览端口为 3100。下文技术栈与原有部署说明仍描述当前旧站，不代表全站已经完成迁移。
+安装依赖后可使用 `npm run dev:refactor` 启动 API 与 Next 开发服务，新版预览端口为 3100。服务器更新仍使用 `bash scripts/deploy.sh --pull`。
 
 ## ✨ 功能特性
 
@@ -41,7 +41,7 @@
 
 | 层级 | 技术 |
 |------|------|
-| 前端 | Astro + TypeScript + Tailwind CSS + DaisyUI |
+| 前端 | Next.js + React + TypeScript + Tailwind CSS + DaisyUI |
 | 后端 | Node.js + Express + TypeScript |
 | 数据库 | SQLite (better-sqlite3) |
 | Markdown | markdown-it + highlight.js |
@@ -51,12 +51,11 @@
 
 ```
 boke/
-├── frontend-astro/    # Astro 前台与独立写作/后台界面
+├── apps/web/          # Next.js 前台、漫画、阅读器、后台与写作台
 │   └── src/
-│       ├── pages/         # 前台页面、后台、写作台
-│       ├── components/    # 公共组件
-│       ├── layouts/       # 页面布局
-│       └── styles/        # 主题样式
+│       ├── app/           # App Router 页面与路由处理器
+│       ├── features/      # 漫画、书库、站点、后台业务组件
+│       └── shared/        # 主题、导航、API 与通用副作用
 ├── backend/           # Express 后端 API
 │   └── src/
 │       ├── controllers/   # 控制器
@@ -81,8 +80,8 @@ boke/
 cd backend
 npm install
 
-# 前端
-cd ../frontend-astro
+# Next 前端
+cd ../apps/web
 npm install
 ```
 
@@ -111,12 +110,12 @@ MAX_FONT_FILE_SIZE=104857600
 cd backend
 npm run dev
 
-# 终端 2：启动前端（端口 3000，自动代理 API 到 3001）
-cd frontend-astro
+# 终端 2：启动 Next 前端（端口 3100，自动代理 API 到 3001）
+cd apps/web
 npm run dev
 ```
 
-访问 http://localhost:3000 查看博客，http://localhost:3000/admin 访问后台。
+访问 http://localhost:3100 查看博客，http://localhost:3100/admin 访问后台。
 
 > 本地开发时必须同时启动后端和前端。前端开发服务器会把 `/api` 和 `/uploads` 代理到 `http://localhost:3001`；如果只启动前端，导航、追番、相册、写作台等动态数据会显示“API 读取失败”或无法保存。
 
@@ -164,12 +163,12 @@ npm run dev
 
 ## 🏗️ 生产部署
 
-### 1. 构建前端
+### 1. 构建 Next 前端
 
 ```bash
-cd frontend-astro
+cd apps/web
 npm run build
-# 当前 Astro 前端产物在 frontend-astro/dist/
+# 当前 Next 前端产物在 apps/web/.next/
 ```
 
 ### 2. 编译后端
@@ -220,13 +219,13 @@ PM2 自带进程崩溃自动重启。配合健康检查端点 `/api/health` 可�
 
 ## 🎨 主题与字体
 
-- 主题通过 CSS 变量和 `data-theme` 实现，当前前台样式集中在 `frontend-astro/src/styles/global.scss`
+- 主题通过 CSS 变量和 `data-theme` 实现，当前前台样式集中在 `apps/web/src/styles/global.scss`
 - 字体库由后台独立管理，写作台可为文章标题/正文选择全局文章字体，也可对局部文字插入字体标记
 
 ## 📝 开发说明
 
 - 后端开发：`npm run dev`（tsx watch 热重载）
-- 前端开发：在 `frontend-astro` 下运行 `npm run dev`（Astro/Vite HMR）
+- 前端开发：在 `apps/web` 下运行 `npm run dev`（Next/Webpack HMR）
 - 数据库迁移：`npm run db:migrate`
 - 重置种子数据：删除 `backend/data/blog.db` 后重启
 

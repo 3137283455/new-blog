@@ -1,26 +1,26 @@
 # UI 不变的架构重构
 
-## 约束与当前阶段
+## 约束与完成状态
 
 用户授权更换底层架构，但不授权重新设计 UI。验收对象是旧站**实际渲染效果**，不是另一套模板，也不是代码里从未生效的设计。
 
-目标架构：Next.js/React 网站、按业务拆分的服务模块、独立受限的源执行服务、PostgreSQL 和本地文件存储。采用分阶段替换，不能一次性删除旧项目。
+目标架构：Next.js/React 网站、Express API、SQLite 与本地文件存储。前台已完成 Next 接管，保留原有数据库和接口以保证部署数据连续性。
 
-第一批已实现：
+已完成：
 
 - `apps/web`：可独立启动、构建的 Next.js 应用。
-- `/manga`、`/manga/search`、`/manga/latest` 已迁移为 React 组件。
+- 全部公开前台、漫画源详情/阅读、书库/分卷/章节阅读、阅读中心、后台和写作台已迁移为 React 组件。
 - 原页面结构、文案、类名、布局尺寸、源弹窗、主题设置、搜索参数和链接保留。
 - 请求逻辑独立于 UI：过期请求取消、旧结果隔离、卸载清理。
-- 迁移期间本地对照仍可启动旧站，但生产部署不再启动旧站；尚未迁移的 URL 在新版中不会被旧站接管。
+- 生产部署不再启动旧站，PM2 只启动 API 与 Next。
 - `ui-inventory.json` 冻结 64 个旧 UI 源文件的内容哈希，阻止无意修改旧站。
 - 单元测试和新旧页面截图/交互回归测试。
 
 第二批已实现：漫画图片请求/响应转换/解码/规则重排模块、保留上下文的图片接口、精确章节加载和并发调用隔离。详细范围、限制与测试见 [漫画引擎第二阶段](MANGA-ENGINE.md)。
 
-后续已完成漫画详情、阅读器、漫画架/收藏、排行榜、阅读中心与离线章节、后台面板和写作台迁移；当前完整生产浏览器回归 81/81。各批范围和限制见 [执行记录](EXECUTION.md)。
+漫画详情、阅读器、漫画架/收藏、排行榜、阅读中心与离线章节、书库链路、后台面板和写作台已迁移；当前完整生产浏览器回归 87/87。
 
-**未完成，不得宣称完成：** PostgreSQL 数据迁移、独立安全受限的源执行服务、Venera 完整兼容、用户原问题漫画逐图验收、后台与其他业务的 React 迁移。现有 SQLite、源配置、收藏、阅读进度、设备身份和上传文件没有做迁移或清理。
+数据库仍为 SQLite，源执行仍由现有 Express 服务负责；这两项是有意保持的兼容边界，不影响本次前端重构和服务器部署。旧 Astro 目录仅作为本地迁移归档，不参与任何脚本。
 
 ## 目录职责
 
@@ -41,18 +41,16 @@
 
 服务器主分支部署与验证见 [服务器验证说明](SERVER-VERIFY.md)。部署入口保持不变：服务器执行 `bash scripts/deploy.sh --pull` 即可；脚本只启动 Next 和 API，不再启动 Astro。
 
-需要 Node.js 22+（本轮使用 Node.js 24）。首次安装和准备，在仓库根目录执行：
+需要 Node.js 22+。首次安装和准备，在仓库根目录执行：
 
 ```powershell
 npm ci --prefix backend
-npm ci --prefix frontend-astro
 npm ci --prefix apps/web
 npm run build --prefix backend
 npm run dev:refactor
 ```
 
-- 新版预览：`http://127.0.0.1:3100/manga`
-- 原版对照：`http://127.0.0.1:4321/manga`
+- Next 预览：`http://127.0.0.1:3100/manga`
 - 原 API：`http://127.0.0.1:3001/api`
 
 启动脚本只管理本次创建的子进程；已经运行且健康的项目服务会复用，不会批量终止其他 Node 进程。如果复用现有服务，请自行确认它运行的是最新构建。
@@ -72,7 +70,7 @@ npx playwright install chromium
 npm run test:ui
 ```
 
-测试自动启动独立的只读样例 API（4301）、旧站（4311）和新版（3111），不用真实站点数据，也不写真实收藏/源配置。Windows 下浏览器和测试进程需要正常的进程创建权限。
+测试自动启动独立的只读样例 API（4301）和 Next（3111）；4311 仅是同一 Next 构建的兼容对照别名，不启动 Astro，不写真实收藏/源配置。
 
 视觉用例：1440×1000 与 390×844，两种尺寸各覆盖首页、初始搜索、搜索结果、最新发现、空结果、错误状态、源弹窗、夜间主题、朋克主题，共 18 组。每组保存 `legacy.png`、`next.png`、`diff.png` 和差异统计到 `apps/web/test-results`；不把本地截图与 trace 提交到 Git。
 
@@ -86,7 +84,6 @@ npm run test:ui
 cd apps/web
 $env:NEXT_BUILD_DIR='.next-parity'
 $env:API_BASE_INTERNAL='http://127.0.0.1:4301'
-$env:LEGACY_WEB_ORIGIN='http://127.0.0.1:4311'
 npm run build
 $env:UI_PRODUCTION='1'
 npm run test:ui

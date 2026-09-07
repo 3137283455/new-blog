@@ -1,4 +1,4 @@
-/* Dynamic legacy records did not carry Astro scopes. */
+/* Dynamic records do not carry component scopes. */
 
 .reading-hub {
   display: grid;

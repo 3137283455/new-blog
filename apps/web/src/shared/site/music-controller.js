@@ -213,7 +213,7 @@ export function mountController() {
       scope.listen(audio, 'ended', () => move(1));
       const persistState = () => save();
       scope.listen(window, 'pagehide', persistState);
-      scope.listen(document, 'astro:before-swap', persistState);
+      scope.listen(window, 'pagehide', persistState);
       scope.listen(window, 'boke:play-track', (event) => {
         const trackId = Number(event.detail?.trackId || 0);
         const index = tracks.findIndex((track) => Number(track.id) === trackId);

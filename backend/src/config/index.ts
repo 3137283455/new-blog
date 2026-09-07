@@ -12,6 +12,6 @@ export const config = {
   uploadDir: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB
   maxFontFileSize: parseInt(process.env.MAX_FONT_FILE_SIZE || '104857600', 10), // 100MB
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3100',
   nodeEnv: process.env.NODE_ENV || 'development',
 }

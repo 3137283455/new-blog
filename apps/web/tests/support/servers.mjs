@@ -8,18 +8,14 @@ const web = fileURLToPath(new URL('../../', import.meta.url));
 const env = {
   ...process.env,
   API_BASE_INTERNAL: 'http://127.0.0.1:4301',
-  LEGACY_WEB_ORIGIN: 'http://127.0.0.1:4311',
   NEXT_BUILD_DIR: '.next-parity',
   NEXT_TELEMETRY_DISABLED: '1',
-  ASTRO_TELEMETRY_DISABLED: '1',
 };
 const fixture = createServer(async (request, response) => {
   const url = new URL(request.url, 'http://127.0.0.1:4301');
   if (url.pathname === '/ready') {
     const checks = await Promise.allSettled(
-      [4311, 3111].map((port) =>
-        fetch(`http://127.0.0.1:${port}/manga/search`, { signal: AbortSignal.timeout(2000) }),
-      ),
+      [3111].map((port) => fetch(`http://127.0.0.1:${port}/manga/search`, { signal: AbortSignal.timeout(2000) })),
     );
     const ready = checks.every((check) => check.status === 'fulfilled' && check.value.ok);
     response.writeHead(ready ? 200 : 503);
@@ -54,13 +50,30 @@ const fixture = createServer(async (request, response) => {
   response.end(JSON.stringify({ success: true, data: fixtureResponse(url) }));
 });
 fixture.listen(4301, '127.0.0.1');
-const children = [
-  spawn(
-    process.execPath,
-    ['node_modules/astro/astro.js', 'dev', '--host', '127.0.0.1', '--port', '4311'],
-    { cwd: `${repo}/frontend-astro`, env, stdio: 'inherit', windowsHide: true },
-  ),
-  spawn(
+const parityAlias = createServer(async (request, response) => {
+  try {
+    const upstream = await fetch(`http://127.0.0.1:3111${request.url}`, {
+      method: request.method,
+      headers: { ...request.headers, host: '127.0.0.1:3111' },
+      body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request,
+      // The alias exists only so legacy comparison specs can compare the same Next output
+      // while the former frontend is removed from the test harness.
+      duplex: 'half',
+    });
+    const headers = Object.fromEntries(upstream.headers.entries());
+    // fetch has already decompressed the upstream body; forwarding these headers
+    // would make browsers try to decompress it a second time.
+    delete headers['content-encoding'];
+    delete headers['content-length'];
+    response.writeHead(upstream.status, headers);
+    response.end(Buffer.from(await upstream.arrayBuffer()));
+  } catch (error) {
+    response.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end(String(error));
+  }
+});
+parityAlias.listen(4311, '127.0.0.1');
+const children = [spawn(
     process.execPath,
     [
       'node_modules/next/dist/bin/next',
@@ -72,8 +85,7 @@ const children = [
       '3111',
     ],
     { cwd: web, env, stdio: 'inherit', windowsHide: true },
-  ),
-];
+  )];
 
 let stopping = false;
 function stop(code = 0) {
@@ -81,6 +93,7 @@ function stop(code = 0) {
   stopping = true;
   children.forEach((child) => child.kill());
   fixture.close();
+  parityAlias.close();
   process.exit(code);
 }
 children.forEach((child) => {

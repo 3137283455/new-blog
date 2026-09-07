@@ -29,11 +29,11 @@ bash scripts/deploy.sh
 
 1. 生成 `backend/.env`、随机 JWT 密钥和初始管理员密码。
 2. 安装前后端依赖。
-3. 构建 Express 和 Astro。
+3. 构建 Express 和 Next.js。
 4. 安装并启动 PM2。
-5. 通过前端 `/api/health` 检查内部代理。
+5. 通过 API 和 Next 前台健康检查。
 
-只需在云服务器安全组和系统防火墙开放 TCP `3000`。后端 `3001` 只监听服务器内部，不需要对公网开放。
+只需按 Nginx 配置开放公网入口。Next 使用内部端口 `3002`，后端 `3001` 只监听服务器内部，不需要对公网开放。
 
 首次运行时终端会输出随机管理员密码，请立即保存。也可以指定密码：
 
@@ -81,6 +81,7 @@ scp -r backend/uploads/* user@SERVER_PUBLIC_IP:/opt/boke/backend/uploads/
 pm2 status
 pm2 logs
 pm2 restart boke-backend
-pm2 restart boke-frontend
-curl http://127.0.0.1:3000/api/health
+pm2 restart boke-web
+curl http://127.0.0.1:3001/api/health
+curl http://127.0.0.1:3002/manga
 ```

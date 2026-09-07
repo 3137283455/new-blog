@@ -463,7 +463,7 @@ export function SettingsPanel() {
             <dl>
               <div>
                 <dt>前端</dt>
-                <dd>Astro</dd>
+                <dd>Next.js</dd>
               </div>
               <div>
                 <dt>后端</dt>

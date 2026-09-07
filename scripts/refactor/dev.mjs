@@ -48,7 +48,7 @@ async function start({ name, cwd, args, url, marker, env = {} }) {
     });
   });
   if (listening) {
-    // A cold Next/Astro route can compile longer than a health-check timeout.
+    // A cold Next route can compile longer than a health-check timeout.
     // Give that existing process time; do not start a competing server on its port.
     for (let attempt = 0; attempt < 20; attempt++) {
       if (await ready(url, marker)) {
@@ -67,7 +67,6 @@ async function start({ name, cwd, args, url, marker, env = {} }) {
       ...process.env,
       ...env,
       NEXT_TELEMETRY_DISABLED: "1",
-      ASTRO_TELEMETRY_DISABLED: "1",
     },
     stdio: "inherit",
     windowsHide: true,
@@ -94,7 +93,6 @@ async function start({ name, cwd, args, url, marker, env = {} }) {
 
 try {
   await access(`${repo}/backend/dist/app.js`);
-  await access(`${repo}/frontend-astro/node_modules/astro/astro.js`);
   await access(`${repo}/apps/web/node_modules/next/dist/bin/next`);
   await start({
     name: "legacy API",
@@ -104,21 +102,7 @@ try {
     marker: '"status":"ok"',
   });
   await start({
-    name: "legacy pages",
-    cwd: "frontend-astro",
-    args: [
-      "node_modules/astro/astro.js",
-      "dev",
-      "--host",
-      "127.0.0.1",
-      "--port",
-      "4321",
-    ],
-    url: "http://127.0.0.1:4321/manga/search",
-    marker: "data-manga-experience",
-  });
-  await start({
-    name: "Next preview",
+    name: "Next web",
     cwd: "apps/web",
     args: [
       "node_modules/next/dist/bin/next",
@@ -133,11 +117,10 @@ try {
     marker: "_next/",
     env: {
       API_BASE_INTERNAL: "http://127.0.0.1:3001",
-      LEGACY_WEB_ORIGIN: "http://127.0.0.1:4321",
     },
   });
   console.log(
-    "\n[refactor] Preview: http://127.0.0.1:3100/manga\n[refactor] Original: http://127.0.0.1:4321/manga\n[refactor] No database cutover; no production port change.",
+    "\n[refactor] Preview: http://127.0.0.1:3100/manga\n[refactor] Next.js is the only frontend runtime; no database cutover.",
   );
 } catch (error) {
   console.error(
