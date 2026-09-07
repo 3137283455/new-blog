@@ -1,0 +1,4 @@
+/* The original standalone writer receives this reset from Astro's Tailwind integration. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

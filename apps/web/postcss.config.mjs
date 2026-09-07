@@ -4,7 +4,10 @@ export default {
   plugins: {
     tailwindcss: {
       ...legacy,
-      content: ['../../frontend-astro/src/**/*.{astro,html,js,md,mdx,ts}', './src/**/*.{ts,tsx}'],
+      content: [
+        '../../frontend-astro/src/**/*.{astro,html,js,md,mdx,ts}',
+        './src/**/*.{ts,tsx,js}',
+      ],
     },
   },
 };
