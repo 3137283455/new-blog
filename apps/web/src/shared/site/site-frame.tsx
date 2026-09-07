@@ -15,13 +15,18 @@ export function SiteFrame({
   tracks: MusicTrack[];
 }) {
   const path = usePathname();
+  const admin = path === '/admin' || path.startsWith('/admin/');
   const sourceReader = /^\/source\/[^/]+\/[^/]+\/chapter\/[^/]+\/?$/.test(path);
   const localReader = /^\/manga\/[^/]+\/[^/]+\/[^/]+\/?$/.test(path);
   const readingHub = path === '/reading';
   const fullBleed = !sourceReader && !readingHub;
   useEffect(() => {
-    document.body.classList.toggle('layout-full-bleed', fullBleed);
-  }, [fullBleed]);
+    document.documentElement.dataset.siteLayout = admin ? 'admin' : 'public';
+    document.body.className = admin
+      ? 'admin-body min-h-screen text-base-content'
+      : `flex min-h-screen flex-col bg-[var(--banner-wave-bg)]${fullBleed ? ' layout-full-bleed' : ''}`;
+  }, [fullBleed, admin]);
+  if (admin) return children;
   return (
     <>
       {(sourceReader || readingHub) && <SiteNavigation settings={settings} />}

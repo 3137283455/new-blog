@@ -41,7 +41,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       suppressHydrationWarning
     >
       <head>
-        <style dangerouslySetInnerHTML={{ __html: themeCss(theme) }} />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: themeCss(theme).replace(':root{', ':root:not([data-site-layout="admin"]){'),
+          }}
+        />
         <script dangerouslySetInnerHTML={{ __html: bootstrap }} />
       </head>
       <body
