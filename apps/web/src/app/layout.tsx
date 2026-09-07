@@ -1,9 +1,13 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import type { Viewport } from 'next';
 import { getSiteSettings, themeCss } from '../shared/site/settings';
 
 export const dynamic = 'force-dynamic';
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f4f2ea' };
+export const metadata: Metadata = {
+  icons: { icon: '/logo.png', apple: '/logo.png' },
+};
 
 const bootstrap = `try{var t=localStorage.getItem('theme')||'boke-green';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-theme-type',({'boke-night':'dark','boke-punk':'dark','boke-green':'light'})[t]||'light')}catch{}window.__PUBLIC_API_BASE__='/api';`;
 
