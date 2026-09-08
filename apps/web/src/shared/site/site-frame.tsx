@@ -21,6 +21,13 @@ export function SiteFrame({
   const readingHub = path === '/reading';
   const bookPage = path === '/books' || path.startsWith('/books/');
   const mangaPage = path === '/manga' || path.startsWith('/manga/') || path === '/source' || path.startsWith('/source/');
+  const pageWithSidebar =
+    path === '/' ||
+    path === '/archive' ||
+    path === '/bangumi' ||
+    path === '/search' ||
+    path === '/albums' ||
+    /^\/albums\/[^/]+\/?$/.test(path);
   const publicPage = !admin && !sourceReader && !localReader && !mangaPage;
   const fullBleed = mangaPage && !readingHub && !bookPage;
   useEffect(() => {
@@ -34,7 +41,7 @@ export function SiteFrame({
     <>
       {(publicPage || sourceReader || readingHub || bookPage) && <SiteNavigation settings={settings} />}
       <div
-        className={`page-content-animate mx-auto w-full flex-grow ${fullBleed ? 'max-w-none mt-0' : bookPage ? 'max-w-blog mt-24' : 'max-w-wide mt-24'}`}
+        className={`page-content-animate mx-auto w-full flex-grow ${fullBleed ? 'max-w-none mt-0' : bookPage || pageWithSidebar ? 'max-w-blog mt-24' : 'max-w-wide mt-24'}`}
       >
         <div className={`grid grid-cols-1 ${fullBleed ? 'gap-0 px-0 pb-0' : 'gap-4 px-4 pb-4'}`}>
           <main className="order-1 flex flex-col gap-4 ">{children}</main>
