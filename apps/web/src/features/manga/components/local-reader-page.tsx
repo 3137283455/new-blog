@@ -21,6 +21,7 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
           '--width': `${state.settings.width}px`,
           '--gap': `${state.settings.gap}px`,
           '--comic-direction': state.settings.direction,
+          '--reader-progress': `${pages.length ? ((state.current + 1) / pages.length) * 100 : 0}%`,
         } as CSSProperties
       }
       data-comic=""
@@ -28,16 +29,28 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
       data-vid={chapter.volume_id}
       data-cid={chapter.id}
     >
-      <header className="top">
+      <header className="top" aria-label="漫画阅读工具栏">
         <a className="reader-back" href={`/manga/${manga.slug}`} aria-label="返回漫画目录">
-          ← <span>返回目录</span>
+          <span className="reader-back-icon" aria-hidden="true">
+            ‹
+          </span>
+          <span>返回目录</span>
         </a>
-        <div>
-          <small>{chapter.volume_title}</small>
+        <div className="reader-heading">
+          <small>
+            {manga.title} · {chapter.volume_title}
+          </small>
           <b>{chapter.title}</b>
         </div>
-        <span>
-          <i data-page-label="">{state.current + 1}</i> / {pages.length}
+        <div
+          className="reader-status"
+          aria-label={`第 ${state.current + 1} 页，共 ${pages.length} 页`}
+        >
+          <i data-page-label="">{state.current + 1}</i>
+          <span>/ {String(pages.length).padStart(2, '0')}</span>
+        </div>
+        <span className="reader-progress" aria-hidden="true">
+          <span />
         </span>
       </header>
       <main
@@ -88,7 +101,7 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
           )}
         </nav>
       </main>
-      <aside className="tools">
+      <aside className="tools" aria-label="阅读工具">
         <button data-action="catalog" onClick={() => state.action('catalog')}>
           ☷<small>目录</small>
         </button>

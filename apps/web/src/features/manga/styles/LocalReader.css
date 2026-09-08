@@ -480,3 +480,236 @@ html.comic-page body {
 .comic-toast[hidden] {
   display: none !important;
 }
+
+/* Reference-reader visual pass: compact Tencent-style chrome around the
+   existing reader engine. The page, chapter and progress contracts stay the
+   same so saved positions and keyboard navigation remain untouched. */
+html.comic-page body {
+  background: #111315;
+}
+
+.comic:not([data-theme='light']):not([data-theme='paper']) {
+  --bg: #17191c;
+  --panel: #22262b;
+  --text: #f0f2f3;
+  --page: #fff;
+}
+
+.comic {
+  position: relative;
+  isolation: isolate;
+  padding-top: 4.35rem;
+}
+
+:where(.comic) .top {
+  height: 4.05rem;
+  border-bottom-color: #ffffff12;
+  background: #17191cf2;
+  box-shadow: 0 8px 28px #0003;
+}
+
+:where(.comic) .top > a.reader-back {
+  color: #dfe4e7;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+:where(.comic) .reader-back-icon {
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border: 1px solid #ffffff24;
+  border-radius: 50%;
+  color: #f2f4f5;
+  font-size: 1.45rem;
+  line-height: 1;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+
+:where(.comic) .reader-back:hover .reader-back-icon {
+  border-color: #d7f64b66;
+  background: #d7f64b16;
+}
+
+:where(.comic) .reader-heading {
+  display: grid;
+  gap: 0.16rem;
+  align-content: center;
+}
+
+:where(.comic) .reader-heading small {
+  color: #aeb6bc;
+  font-size: 0.58rem;
+  letter-spacing: 0.02em;
+}
+
+:where(.comic) .reader-heading b {
+  color: #f8fafb;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+:where(.comic) .reader-status {
+  display: flex;
+  align-items: baseline;
+  gap: 0.18rem;
+  color: #aeb6bc;
+  font:
+    0.62rem ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  white-space: nowrap;
+}
+
+:where(.comic) .reader-status i {
+  color: #d7f64b;
+  font-size: 0.85rem;
+  font-style: normal;
+  font-weight: 800;
+}
+
+:where(.comic) .reader-progress {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #ffffff12;
+}
+
+:where(.comic) .reader-progress > span {
+  display: block;
+  width: var(--reader-progress, 0%);
+  height: 100%;
+  background: #d7f64b;
+  box-shadow: 0 0 12px #d7f64b88;
+  transition: width 0.2s ease;
+}
+
+.comic main {
+  width: min(var(--width), calc(100vw - 9rem));
+  padding-top: 1.15rem;
+}
+
+.comic figure {
+  border-radius: 2px;
+  box-shadow: 0 12px 38px #0005;
+}
+
+:where(.comic) .tools {
+  right: max(0.9rem, calc((100vw - min(var(--width), 100vw)) / 2 - 4.5rem));
+  overflow: hidden;
+  border-color: #ffffff16;
+  border-radius: 1.15rem;
+  background: #25292df2;
+  box-shadow: 0 16px 46px #0008;
+}
+
+:where(.comic) .tools button {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-bottom-color: #ffffff12;
+  color: #dce1e4;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+
+:where(.comic) .tools button:hover,
+:where(.comic) .tools button.active {
+  background: #d7f64b;
+  color: #192019;
+}
+
+:where(.comic) .tools button:hover small,
+:where(.comic) .tools button.active small {
+  color: #192019;
+  opacity: 0.75;
+}
+
+:where(.comic) .tools button > b {
+  font-size: 0.82rem;
+  letter-spacing: -0.08em;
+}
+
+:where(.comic) .chapter-nav {
+  margin-top: 1.5rem;
+  border-top: 1px solid #ffffff12;
+  padding: 2.5rem 0 4rem;
+}
+
+:where(.comic) .chapter-nav a {
+  border: 1px solid #ffffff1c;
+  border-radius: 0.7rem;
+  background: #202429;
+  padding: 0.75rem 0.9rem;
+  color: #e4e8ea;
+  text-decoration: none;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+
+:where(.comic) .chapter-nav a:hover {
+  border-color: #d7f64b88;
+  background: #d7f64b18;
+}
+
+@media (max-width: 760px) {
+  .comic {
+    padding-top: 3.65rem;
+  }
+
+  :where(.comic) .top {
+    height: 3.65rem;
+    padding: 0 0.75rem;
+  }
+
+  :where(.comic) .top > a.reader-back {
+    gap: 0.35rem;
+  }
+
+  :where(.comic) .reader-back-icon {
+    width: 1.55rem;
+    height: 1.55rem;
+  }
+
+  :where(.comic) .reader-back > span:last-child {
+    display: none;
+  }
+
+  :where(.comic) .reader-heading small {
+    max-width: 12rem;
+  }
+
+  :where(.comic) .reader-heading b {
+    font-size: 0.7rem;
+  }
+
+  :where(.comic) .reader-status {
+    font-size: 0.56rem;
+  }
+
+  :where(.comic) .reader-status i {
+    font-size: 0.72rem;
+  }
+
+  .comic main {
+    width: 100%;
+    padding-top: 0.6rem;
+  }
+
+  .comic figure {
+    border-radius: 0;
+  }
+
+  :where(.comic) .chapter-nav {
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+}

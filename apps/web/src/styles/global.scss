@@ -6340,3 +6340,80 @@ select {
   .admin-media-browser-footer { display: none; }
   .admin-media-preview { width: 2.5rem; height: 2.5rem; }
 }
+
+/* Recreate the legacy page-level sidebar grid. Each page supplies its own data. */
+.public-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.public-page-main {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.public-page-layout > .public-sidebar {
+  display: none;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .public-page-layout {
+    grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .public-page-layout > .public-sidebar {
+    display: flex;
+  }
+}
+
+/* Keep the original public-page rail on the migrated Bangumi screen. */
+.bangumi-page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.bangumi-page-main {
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+}
+
+.bangumi-page-layout .public-sidebar {
+  display: none;
+  min-width: 0;
+}
+
+.bangumi-filterbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+}
+
+.bangumi-filterbar input,
+.bangumi-filterbar select {
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .bangumi-page-layout {
+    grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .bangumi-page-layout .public-sidebar {
+    display: flex;
+  }
+}
+
+@media (max-width: 620px) {
+  .bangumi-filterbar {
+    grid-template-columns: 1fr;
+  }
+}

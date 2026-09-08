@@ -274,3 +274,151 @@
     scroll-margin-top: 6.9rem;
   }
 }
+
+/* Keep remote-source chapters visually aligned with the local reader. The
+   source reader still owns its own loading/proxy contract; this only changes
+   the surrounding reading chrome. */
+.source-reader-manga {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  padding: 4.35rem 1rem 5rem;
+  background: #17191c;
+  color: #f0f2f3;
+}
+
+.source-reader-manga .source-reader-topbar {
+  position: fixed;
+  z-index: 30;
+  inset: 0 0 auto;
+  min-height: 4.05rem;
+  border-color: #ffffff12;
+  background: #17191cf2;
+  box-shadow: 0 8px 28px #0003;
+  padding: 0 max(1rem, calc((100vw - 1180px) / 2));
+}
+
+.source-reader-manga .source-reader-topbar > a {
+  color: #dfe4e7;
+}
+
+.source-reader-manga .source-reader-topbar strong {
+  color: #f8fafb;
+}
+
+.source-reader-manga .source-reader-controls {
+  position: fixed;
+  z-index: 32;
+  top: 50%;
+  right: max(0.9rem, calc((100vw - 1100px) / 2 - 4.5rem));
+  display: grid;
+  min-width: 4rem;
+  margin: 0;
+  border: 1px solid #ffffff16;
+  border-radius: 1.15rem;
+  background: #25292df2;
+  box-shadow: 0 16px 46px #0008;
+  padding: 0.35rem;
+  transform: translateY(-50%);
+  backdrop-filter: blur(18px);
+}
+
+.source-reader-manga .source-reader-mode,
+.source-reader-manga .source-reader-pagination {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.source-reader-manga .source-reader-pagination {
+  border-top: 1px solid #ffffff12;
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.source-reader-manga .source-reader-controls button {
+  min-height: 2.45rem;
+  border: 0;
+  border-radius: 0.7rem;
+  color: #dce1e4;
+  padding: 0.45rem 0.55rem;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+
+.source-reader-manga .source-reader-controls button:hover,
+.source-reader-manga .source-reader-controls button.is-active {
+  border-color: transparent;
+  background: #d7f64b;
+  color: #192019;
+}
+
+.source-reader-manga .source-reader-pagination span {
+  min-width: auto;
+  color: #d7f64b;
+  font-size: 0.55rem;
+  white-space: nowrap;
+}
+
+.source-reader-manga .source-reader-pages {
+  width: min(980px, calc(100vw - 9rem));
+  max-width: 980px;
+  padding-top: 1.15rem;
+}
+
+.source-reader-manga .source-reader-pages figure {
+  border-radius: 2px;
+  box-shadow: 0 12px 38px #0005;
+}
+
+@media (max-width: 760px) {
+  .source-reader-manga {
+    padding: 3.65rem 0 4.8rem;
+  }
+
+  .source-reader-manga .source-reader-topbar {
+    min-height: 3.65rem;
+    padding: 0 0.75rem;
+  }
+
+  .source-reader-manga .source-reader-controls {
+    top: auto;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    left: 0.6rem;
+    display: flex;
+    min-width: 0;
+    justify-content: space-between;
+    margin: 0;
+    border-radius: 1rem;
+    padding: 0.35rem;
+    transform: none;
+  }
+
+  .source-reader-manga .source-reader-mode,
+  .source-reader-manga .source-reader-pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .source-reader-manga .source-reader-pagination {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .source-reader-manga .source-reader-controls button {
+    min-height: 2.8rem;
+  }
+
+  .source-reader-manga .source-reader-pages {
+    width: 100%;
+    padding-top: 0.6rem;
+  }
+
+  .source-reader-manga .source-reader-pages figure {
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
