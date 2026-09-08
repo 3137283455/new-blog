@@ -21,13 +21,22 @@ export function SiteFrame({
   const readingHub = path === '/reading';
   const bookPage = path === '/books' || path.startsWith('/books/');
   const mangaPage = path === '/manga' || path.startsWith('/manga/') || path === '/source' || path.startsWith('/source/');
-  const pageWithSidebar =
+  const bannerPage =
     path === '/' ||
     path === '/archive' ||
-    path === '/bangumi' ||
     path === '/search' ||
+    path === '/series' ||
+    /^\/series\/[^/]+\/?$/.test(path) ||
     path === '/albums' ||
-    /^\/albums\/[^/]+\/?$/.test(path);
+    /^\/albums\/[^/]+\/?$/.test(path) ||
+    path === '/memories' ||
+    /^\/article\/[^/]+\/?$/.test(path) ||
+    /^\/page\/[^/]+\/?$/.test(path);
+  const widePage =
+    /^\/article\/[^/]+\/?$/.test(path) ||
+    path === '/nav' ||
+    path === '/reading' ||
+    /^\/books\/[^/]+\/?$/.test(path);
   const publicPage = !admin && !sourceReader && !localReader && !mangaPage;
   const fullBleed = mangaPage && !readingHub && !bookPage;
   useEffect(() => {
@@ -39,12 +48,21 @@ export function SiteFrame({
   if (admin) return children;
   return (
     <>
-      {(publicPage || sourceReader || readingHub || bookPage) && <SiteNavigation settings={settings} />}
+      <div className="site-bg-grid" aria-hidden="true" />
+      {(publicPage || sourceReader || readingHub || bookPage) && (
+        <SiteNavigation settings={settings} immersive={bannerPage} />
+      )}
       <div
-        className={`page-content-animate mx-auto w-full flex-grow ${fullBleed ? 'max-w-none mt-0' : bookPage || pageWithSidebar ? 'max-w-blog mt-24' : 'max-w-wide mt-24'}`}
+        className={`page-content-animate mx-auto w-full flex-grow ${fullBleed || bannerPage ? 'max-w-none mt-0' : widePage ? 'max-w-wide mt-24' : 'max-w-blog mt-24'}`}
       >
-        <div className={`grid grid-cols-1 ${fullBleed ? 'gap-0 px-0 pb-0' : 'gap-4 px-4 pb-4'}`}>
-          <main className="order-1 flex flex-col gap-4 ">{children}</main>
+        <div
+          className={`grid grid-cols-1 ${fullBleed || bannerPage ? 'gap-0 px-0 pb-0' : 'gap-4 px-4 pb-4'}`}
+        >
+          <main
+            className={`order-1 flex flex-col ${fullBleed || bannerPage ? 'gap-0' : 'gap-4'}`}
+          >
+            {children}
+          </main>
         </div>
       </div>
       {(publicPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
