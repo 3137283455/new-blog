@@ -21,6 +21,8 @@ export function SiteFrame({
   const readingHub = path === '/reading';
   const bookPage = path === '/books' || path.startsWith('/books/');
   const mangaPage = path === '/manga' || path.startsWith('/manga/') || path === '/source' || path.startsWith('/source/');
+  const mangaReader = sourceReader || localReader;
+  const mangaPortalPage = mangaPage && !mangaReader;
   const bannerPage =
     path === '/' ||
     path === '/archive' ||
@@ -38,7 +40,8 @@ export function SiteFrame({
     path === '/reading' ||
     /^\/books\/[^/]+\/?$/.test(path);
   const publicPage = !admin && !sourceReader && !localReader && !mangaPage;
-  const fullBleed = mangaPage && !readingHub && !bookPage;
+  const fullBleed = mangaReader;
+  const showSiteNavigation = publicPage || mangaPortalPage || readingHub || bookPage;
   useEffect(() => {
     document.documentElement.dataset.siteLayout = admin ? 'admin' : 'public';
     document.body.className = admin
@@ -49,11 +52,11 @@ export function SiteFrame({
   return (
     <>
       <div className="site-bg-grid" aria-hidden="true" />
-      {(publicPage || sourceReader || readingHub || bookPage) && (
+      {showSiteNavigation && (
         <SiteNavigation settings={settings} immersive={bannerPage} />
       )}
       <div
-        className={`page-content-animate mx-auto w-full flex-grow ${fullBleed || bannerPage ? 'max-w-none mt-0' : widePage ? 'max-w-wide mt-24' : 'max-w-blog mt-24'}`}
+        className={`page-content-animate mx-auto w-full flex-grow ${fullBleed || bannerPage ? 'max-w-none mt-0' : widePage || mangaPortalPage ? 'max-w-wide mt-24' : 'max-w-blog mt-24'}`}
       >
         <div
           className={`grid grid-cols-1 ${fullBleed || bannerPage ? 'gap-0 px-0 pb-0' : 'gap-4 px-4 pb-4'}`}
@@ -65,8 +68,8 @@ export function SiteFrame({
           </main>
         </div>
       </div>
-      {(publicPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
-      {(publicPage || sourceReader || localReader || readingHub || bookPage) && <MusicPlayer tracks={tracks} />}
+      {(publicPage || mangaPortalPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
+      {(publicPage || mangaPage || readingHub || bookPage) && <MusicPlayer tracks={tracks} />}
     </>
   );
 }
