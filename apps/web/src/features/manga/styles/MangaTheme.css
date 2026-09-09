@@ -20,8 +20,7 @@
   color: var(--ink);
 }
 
-.manga-home-hero,
-.manga-rank-empty {
+.manga-home-hero {
   border-color: var(--line) !important;
   background: linear-gradient(
     135deg,
@@ -36,7 +35,6 @@
 .manga-browse-search,
 .manga-collection-card,
 .manga-collection-page .rail-card,
-.source-detail-hero,
 .source-chapter-panel,
 .detail-panel {
   border-color: var(--line) !important;
@@ -61,7 +59,6 @@
 
 .manga-home .manga-search-bar > button,
 .manga-browse-search > button,
-.manga-rank-empty a,
 .manga-collection-page .filter-tabs button.is-active {
   background: var(--ink) !important;
   color: var(--paper) !important;
