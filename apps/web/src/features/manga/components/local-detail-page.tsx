@@ -34,7 +34,7 @@ export function LocalDetailPage({ item }: { item: LocalManga }) {
       ),
   );
   return (
-    <div className="manga-detail-shell">
+    <div className="manga-detail-shell manga-redesign">
       <MangaSiteHeader active="library" backHref="/manga/library" />
       <main className="manga-detail-page" data-manga-detail-refactor="" data-id={item.id}>
         <nav className="detail-breadcrumb" aria-label="当前位置">

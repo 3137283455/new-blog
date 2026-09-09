@@ -21,9 +21,30 @@ export function SourceDetailPage({
   const chapterHref = (chapter: SourceDetail['chapters'][number]) =>
     sourceChapterHref(kind, source, id, chapter, data.can_read);
   return (
-    <>
+    <div className={`manga-source-shell manga-redesign manga-source-shell-${kind}`}>
       {kind === 'manga' && <MangaSiteHeader active="discover" backHref="/manga" />}
-      <main className="source-detail-page">
+      <div className="manga-source-layout">
+        <aside className="manga-context-rail manga-source-context" aria-label={`${titleLabel}来源信息`}>
+          <div className="manga-context-intro">
+            <p>{sourceMeta.label} · SOURCE</p>
+            <h2>作品<br />档案</h2>
+            <span>从来源详情进入章节，或返回你的{titleLabel}空间。</span>
+          </div>
+          <nav className="manga-context-nav" aria-label="返回入口">
+            <a href={home}><span>01</span>返回{titleLabel}架</a>
+            {kind === 'manga' && <a href="/manga/search"><span>02</span>搜索漫画</a>}
+            {kind === 'manga' && <a href="/manga/library"><span>03</span>我的书架</a>}
+          </nav>
+          <section className="manga-context-status">
+            <p>READING ACCESS</p>
+            <strong>{data.can_read ? '站内阅读' : '源站阅读'}</strong>
+            <span>{chapters.length ? `${chapters.length} 个章节可用` : '等待来源提供目录接口'}</span>
+          </section>
+          <a className="manga-context-footer" href={item.source_url || home} target={item.source_url ? '_blank' : undefined} rel={item.source_url ? 'noopener noreferrer' : undefined}>
+            <span>来源页面</span><small>{item.source_url ? '打开源站 ↗' : '返回架上'}</small>
+          </a>
+        </aside>
+        <main className={`source-detail-page source-detail-page-${kind}`}>
         <a className="source-back" href={home}>
           ← 返回{titleLabel}架
         </a>
@@ -118,7 +139,8 @@ export function SourceDetailPage({
             </p>
           )}
         </section>
-      </main>
-    </>
+        </main>
+      </div>
+    </div>
   );
 }

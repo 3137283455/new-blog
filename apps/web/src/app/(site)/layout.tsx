@@ -17,6 +17,7 @@ import '../../features/manga/styles/MangaDetail.css';
 import '../../features/manga/styles/SourceReader.css';
 import '../../features/manga/styles/LocalReader.css';
 import '../../features/manga/styles/MangaTheme.css';
+import '../../features/manga/styles/MangaRedesign.css';
 import '../../features/reading/reading-hub.css';
 import '../../features/books/BookLibrary.css';
 import '../../features/books/ContentSourceExplorer.css';

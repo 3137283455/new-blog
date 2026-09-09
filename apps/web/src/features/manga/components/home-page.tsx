@@ -19,10 +19,34 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
   }, [state.setSelected]);
 
   return (
-    <main className="manga-home" data-manga-experience="" data-mode="home">
+    <main className="manga-home manga-redesign" data-manga-experience="" data-mode="home">
       <MangaSiteHeader active="discover" />
-      <section className="manga-home-hero">
-        <div className="manga-home-hero-copy">
+      <div className="manga-home-layout">
+        <aside className="manga-context-rail manga-home-context" aria-label="漫画站导航">
+          <div className="manga-context-intro">
+            <p>YOUR MANGA DESK</p>
+            <h2>漫画<br />桌面</h2>
+            <span>把发现、收藏与阅读放在同一个安静的角落。</span>
+          </div>
+          <nav className="manga-context-nav" aria-label="漫画站页面">
+            <a className="is-active" href="/manga"><span>01</span>发现</a>
+            <a href="/manga/latest"><span>02</span>最新</a>
+            <a href="/manga/rank"><span>03</span>排行</a>
+            <a href="/manga/library"><span>04</span>书架</a>
+          </nav>
+          <section className="manga-context-stats">
+            <p>COLLECTION</p>
+            <div><strong>{manga.length}</strong><span>部收藏</span></div>
+            <div><strong>{local.length}</strong><span>本地作品</span></div>
+            <div><strong>{network.length}</strong><span>网络来源</span></div>
+          </section>
+          <a className="manga-context-footer" href="/reading">
+            <span>阅读记录</span><small>打开阅读中心 ↗</small>
+          </a>
+        </aside>
+        <div className="manga-home-stage">
+          <section className="manga-home-hero">
+            <div className="manga-home-hero-copy">
           <p className="manga-eyebrow">DISCOVER · SEARCH · READ</p>
           <h1>
             在前台找到
@@ -71,15 +95,15 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
           >
             {state.status}
           </p>
-        </div>
-        <div className="manga-hero-art" aria-hidden="true">
-          <div className="hero-orbit hero-orbit-one" />
-          <div className="hero-orbit hero-orbit-two" />
-          <div className="hero-orbit hero-orbit-three" />
-          <span>漫</span>
-        </div>
-      </section>
-      <section className="manga-shortcuts" aria-label="漫画站快捷入口">
+            </div>
+            <div className="manga-hero-art" aria-hidden="true">
+              <div className="hero-orbit hero-orbit-one" />
+              <div className="hero-orbit hero-orbit-two" />
+              <div className="hero-orbit hero-orbit-three" />
+              <span>漫</span>
+            </div>
+          </section>
+          <section className="manga-shortcuts" aria-label="漫画站快捷入口">
         <a href="/manga/latest">
           <span className="shortcut-icon">↗</span>
           <span>
@@ -104,8 +128,8 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
           </span>
           <b>后台 →</b>
         </a>
-      </section>
-      <div className="manga-home-grid">
+          </section>
+          <div className="manga-home-grid">
         <section className="manga-home-main">
           <header className="manga-section-head">
             <div>
@@ -168,6 +192,8 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
             <p>源选择藏在搜索框里，需要时打开即可，不会占据首页空间。</p>
           </section>
         </aside>
+          </div>
+        </div>
       </div>
     </main>
   );

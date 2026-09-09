@@ -24,7 +24,7 @@ export function MangaLibraryPage({ initial }: { initial: LibraryItem[] }) {
   };
   const latestCover = manga.find((item) => item.id === library.latest?.id);
   return (
-    <div className="manga-library-shell">
+    <div className="manga-library-shell manga-redesign">
       <MangaSiteHeader active="library" backHref="/manga" />
       <section className="manga-collection-page" data-manga-library-refactor="">
         <header className="manga-intro">
