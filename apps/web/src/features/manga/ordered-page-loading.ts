@@ -7,7 +7,8 @@ export interface OrderedPageLoadingState {
   statuses: OrderedPageStatus[];
 }
 
-const LOAD_AHEAD = 2;
+const INITIAL_CONCURRENCY = 2;
+const FULL_CONCURRENCY = 6;
 
 export function createOrderedPageLoadingState(
   count: number,
@@ -15,7 +16,7 @@ export function createOrderedPageLoadingState(
 ): OrderedPageLoadingState {
   return {
     identity,
-    requestedThrough: count > 0 ? Math.min(count - 1, LOAD_AHEAD - 1) : -1,
+    requestedThrough: count > 0 ? Math.min(count - 1, INITIAL_CONCURRENCY - 1) : -1,
     revealedThrough: -1,
     statuses: Array.from({ length: count }, () => 'idle' as const),
   };
@@ -34,13 +35,19 @@ export function settleOrderedPage(
   while (revealedThrough + 1 < statuses.length && statuses[revealedThrough + 1] !== 'idle')
     revealedThrough += 1;
 
+  const settledCount = statuses.reduce(
+    (total, pageStatus) => total + Number(pageStatus !== 'idle'),
+    0,
+  );
+  const concurrency = statuses[0] === 'idle' ? INITIAL_CONCURRENCY : FULL_CONCURRENCY;
+
   return {
     ...state,
     statuses,
     revealedThrough,
     requestedThrough: Math.min(
       statuses.length - 1,
-      Math.max(state.requestedThrough, revealedThrough + LOAD_AHEAD),
+      Math.max(state.requestedThrough, settledCount + concurrency - 1),
     ),
   };
 }

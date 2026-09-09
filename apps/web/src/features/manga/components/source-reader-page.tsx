@@ -127,7 +127,9 @@ export function SourceReaderPage({
                     alt={`${reader.title} 第 ${index + 1} 页`}
                     loading="eager"
                     decoding="async"
-                    fetchPriority={index === 0 || index === state.current ? 'high' : 'auto'}
+                    fetchPriority={
+                      index === 0 || index === state.current ? 'high' : index === 1 ? 'auto' : 'low'
+                    }
                     onLoad={() => pageLoading.settle(index, 'loaded')}
                     onError={() => pageLoading.settle(index, 'error')}
                   />

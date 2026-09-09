@@ -59,3 +59,59 @@ for (const origin of ['http://127.0.0.1:4311', 'http://127.0.0.1:3111']) {
     );
   });
 }
+
+test('reader gives the first page priority, then fills a six-request pipeline', async ({
+  page,
+}) => {
+  const started: string[] = [];
+  const releases = new Map<string, () => void>();
+  await page.route('**/api/content-sources/media?**', async (route) => {
+    const target = new URL(route.request().url()).searchParams.get('url') || '';
+    const name = target.match(/page-(\d+)\.svg$/)?.[1] || target;
+    started.push(name);
+    await new Promise<void>((resolve) => releases.set(name, resolve));
+    await route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="360" />',
+    });
+  });
+
+  await page.goto(
+    'http://127.0.0.1:3111/source/manga/fixture%3Aalpha/chapter/sequence?id=book%2F42',
+    { waitUntil: 'domcontentloaded' },
+  );
+  await expect.poll(() => started).toEqual(['01', '02']);
+
+  releases.get('02')?.();
+  await expect(page.locator('[data-reader-figure][data-index="1"]')).toHaveAttribute(
+    'data-load-state',
+    'waiting',
+  );
+  await expect.poll(() => started).toEqual(['01', '02', '03']);
+
+  releases.get('01')?.();
+  await expect.poll(() => started.length).toBe(8);
+  expect(started).toEqual(['01', '02', '03', '04', '05', '06', '07', '08']);
+  await expect(page.locator('[data-reader-figure][data-index="0"]')).toHaveAttribute(
+    'data-load-state',
+    'ready',
+  );
+  await expect(page.locator('[data-reader-figure][data-index="1"]')).toHaveAttribute(
+    'data-load-state',
+    'ready',
+  );
+
+  for (const name of ['03', '04', '05', '06', '07', '08']) releases.get(name)?.();
+  await expect.poll(() => started.length).toBe(10);
+  releases.get('09')?.();
+  releases.get('10')?.();
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-reader-figure]')
+        .evaluateAll((nodes) =>
+          nodes.every((node) => node.getAttribute('data-load-state') === 'ready'),
+        ),
+    )
+    .toBe(true);
+});

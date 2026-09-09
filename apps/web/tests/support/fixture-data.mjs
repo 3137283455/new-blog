@@ -171,12 +171,21 @@ export function fixtureResponse(url) {
     path.includes('/chapter/')
   ) {
     const failed = path.endsWith('/failed');
+    const sequence = path.endsWith('/sequence');
     return {
       source: sources[0],
       reader: {
         title: '阅读测试',
-        chapter_id: failed ? 'failed' : 'ep-42',
-        pages: failed ? [] : ['https://fixture.invalid/one.svg', 'https://fixture.invalid/two.svg'],
+        chapter_id: failed ? 'failed' : sequence ? 'sequence' : 'ep-42',
+        pages: failed
+          ? []
+          : sequence
+            ? Array.from(
+                { length: 10 },
+                (_, index) =>
+                  `https://fixture.invalid/page-${String(index + 1).padStart(2, '0')}.svg`,
+              )
+            : ['https://fixture.invalid/one.svg', 'https://fixture.invalid/two.svg'],
         error: failed ? '测试：本章暂时不可用' : '',
       },
     };
