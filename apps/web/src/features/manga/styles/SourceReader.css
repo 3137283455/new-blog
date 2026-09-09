@@ -131,7 +131,10 @@
   padding: 2rem 0;
 }
 .source-reader-pages figure {
+  position: relative;
+  min-height: clamp(22rem, 72vh, 48rem);
   margin: 0 auto 1rem;
+  overflow: hidden;
   background: #fff;
   box-shadow: 0 5px 20px #0002;
 }
@@ -141,13 +144,68 @@
   height: auto;
   max-width: 100%;
   object-fit: contain;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.source-reader-pages figure.is-page-ready {
+  min-height: 0;
+}
+.source-reader-pages figure.is-page-ready img {
+  opacity: 1;
+}
+.source-reader-page-placeholder {
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 1.65rem;
+  display: grid;
+  place-content: center;
+  gap: 0.4rem;
+  background: linear-gradient(110deg, transparent 32%, #ffffff0b 46%, transparent 60%), #202326;
+  background-size: 220% 100%;
+  color: #d7f64b;
+  text-align: center;
+}
+.source-reader-pages figure.is-page-loading .source-reader-page-placeholder {
+  animation: source-page-loading 1.8s ease-in-out infinite;
+}
+.source-reader-page-placeholder b {
+  font: 600 1.35rem/1 var(--theme-title-font, Georgia, serif);
+}
+.source-reader-page-placeholder small {
+  color: #aeb5b1;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+}
+.source-reader-pages figure.is-page-error {
+  min-height: min(54vh, 34rem);
+}
+@keyframes source-page-loading {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
 }
 .source-reader-pages figcaption {
+  position: relative;
+  z-index: 2;
   padding: 0.35rem;
   background: #171917;
   color: #fff8;
   text-align: center;
   font-size: 0.58rem;
+}
+.source-reader-pages figure:not(.is-page-ready) figcaption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-reader-page-placeholder {
+    animation: none;
+  }
 }
 :where(.source-reader-page) .source-reader-error {
   display: grid;

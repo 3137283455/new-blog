@@ -19,7 +19,13 @@ export function MangaResults({ state }: { state: MangaExperience }) {
       <article className="manga-result-card" key={`${item.source}\0${item.external_id}\0${index}`}>
         <a className="manga-result-cover" href={href}>
           {cover ? (
-            <img src={cover} alt={`${item.title}封面`} loading="lazy" decoding="async" />
+            <img
+              src={cover}
+              alt={`${item.title}封面`}
+              loading={index < 4 ? 'eager' : 'lazy'}
+              decoding="async"
+              fetchPriority={index < 2 ? 'high' : index < 4 ? 'auto' : 'low'}
+            />
           ) : (
             <span>{String(item.title || '漫').slice(0, 1)}</span>
           )}
