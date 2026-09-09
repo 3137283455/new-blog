@@ -23,40 +23,47 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
       <MangaSiteHeader active="discover" />
       <div className="manga-home-layout">
         <aside className="manga-context-rail manga-home-context" aria-label="漫画站导航">
-          <div className="manga-context-intro">
-            <p>YOUR MANGA DESK</p>
-            <h2>漫画<br />桌面</h2>
-            <span>把发现、收藏与阅读放在同一个安静的角落。</span>
-          </div>
           <nav className="manga-context-nav" aria-label="漫画站页面">
-            <a className="is-active" href="/manga"><span>01</span>发现</a>
-            <a href="/manga/latest"><span>02</span>最新</a>
-            <a href="/manga/rank"><span>03</span>排行</a>
-            <a href="/manga/library"><span>04</span>书架</a>
+            <a className="is-active" href="/manga">
+              <span>01</span>发现
+            </a>
+            <a href="/manga/latest">
+              <span>02</span>最新
+            </a>
+            <a href="/manga/rank">
+              <span>03</span>排行
+            </a>
+            <a href="/manga/library">
+              <span>04</span>书架
+            </a>
           </nav>
           <section className="manga-context-stats">
             <p>COLLECTION</p>
-            <div><strong>{manga.length}</strong><span>部收藏</span></div>
-            <div><strong>{local.length}</strong><span>本地作品</span></div>
-            <div><strong>{network.length}</strong><span>网络来源</span></div>
+            <div>
+              <strong>{manga.length}</strong>
+              <span>部收藏</span>
+            </div>
+            <div>
+              <strong>{local.length}</strong>
+              <span>本地作品</span>
+            </div>
+            <div>
+              <strong>{network.length}</strong>
+              <span>网络来源</span>
+            </div>
           </section>
           <a className="manga-context-footer" href="/reading">
-            <span>阅读记录</span><small>打开阅读中心 ↗</small>
+            <span>阅读记录</span>
+            <small>打开阅读中心 ↗</small>
           </a>
         </aside>
         <div className="manga-home-stage">
-          <section className="manga-home-hero">
-            <div className="manga-home-hero-copy">
-          <p className="manga-eyebrow">DISCOVER · SEARCH · READ</p>
-          <h1>
-            在前台找到
-            <br />
-            <em>下一部漫画。</em>
-          </h1>
-          <p>
-            从已导入的 Venera
-            兼容源中搜索作品，打开详情、章节和阅读。这里负责发现，后台只负责维护来源。
-          </p>
+          <section className="manga-simple-search">
+            <div className="manga-simple-search-copy">
+              <p className="manga-eyebrow">DISCOVER · SEARCH · READ</p>
+              <h1>找点漫画</h1>
+              <p>从已启用的来源中搜索作品，打开详情、章节和阅读。</p>
+            </div>
           <form
             className="manga-search-bar"
             data-manga-search-form=""
@@ -95,104 +102,45 @@ export function MangaHomePage({ manga }: { manga: MangaShelfItem[] }) {
           >
             {state.status}
           </p>
-            </div>
-            <div className="manga-hero-art" aria-hidden="true">
-              <div className="hero-orbit hero-orbit-one" />
-              <div className="hero-orbit hero-orbit-two" />
-              <div className="hero-orbit hero-orbit-three" />
-              <span>漫</span>
-            </div>
           </section>
           <section className="manga-shortcuts" aria-label="漫画站快捷入口">
-        <a href="/manga/latest">
-          <span className="shortcut-icon">↗</span>
-          <span>
-            <small>KEEP EXPLORING</small>
-            <strong>最新发现</strong>
-          </span>
-          <b>打开 →</b>
-        </a>
-        <a href="/manga/library">
-          <span className="shortcut-icon">▦</span>
-          <span>
-            <small>YOUR COLLECTION</small>
-            <strong>我的书架</strong>
-          </span>
-          <b>{manga.length} 部 →</b>
-        </a>
-        <a href="/admin#manga-sources">
-          <span className="shortcut-icon">◈</span>
-          <span>
-            <small>SOURCE CONTROL</small>
-            <strong>管理漫画源</strong>
-          </span>
-          <b>后台 →</b>
-        </a>
+            <a href="/manga/latest">
+              <span className="shortcut-icon">↗</span>
+              <span>
+                <small>KEEP EXPLORING</small>
+                <strong>最新发现</strong>
+              </span>
+              <b>打开 →</b>
+            </a>
+            <a href="/manga/library">
+              <span className="shortcut-icon">▦</span>
+              <span>
+                <small>YOUR COLLECTION</small>
+                <strong>我的书架</strong>
+              </span>
+              <b>{manga.length} 部 →</b>
+            </a>
+            <a href="/admin#manga-sources">
+              <span className="shortcut-icon">◈</span>
+              <span>
+                <small>SOURCE CONTROL</small>
+                <strong>管理漫画源</strong>
+              </span>
+              <b>后台 →</b>
+            </a>
           </section>
-          <div className="manga-home-grid">
-        <section className="manga-home-main">
-          <header className="manga-section-head">
-            <div>
-              <p className="manga-eyebrow">SOURCE DISCOVERY</p>
-              <h2>源站发现</h2>
-            </div>
-            <span data-explore-source="">{state.exploreLabel}</span>
-          </header>
-          <div className="manga-result-grid" data-manga-explore="">
-            <MangaResults state={state} />
-          </div>
-        </section>
-        <aside className="manga-home-rail">
-          <section className="manga-rail-card manga-library-preview">
-            <header>
+          <section className="manga-home-results">
+            <header className="manga-section-head">
               <div>
-                <p className="manga-eyebrow">MY SHELF</p>
-                <h3>我的书架</h3>
+                <p className="manga-eyebrow">SOURCE DISCOVERY</p>
+                <h2>发现作品</h2>
               </div>
-              <a href="/manga/library">查看全部 ↗</a>
+              <span data-explore-source="">{state.exploreLabel}</span>
             </header>
-            <div className="manga-shelf-stats">
-              <div>
-                <strong>{manga.length}</strong>
-                <span>全部</span>
-              </div>
-              <div>
-                <strong>{local.length}</strong>
-                <span>本地</span>
-              </div>
-              <div>
-                <strong>{network.length}</strong>
-                <span>网络</span>
-              </div>
-            </div>
-            <div className="manga-preview-list">
-              {manga.slice(0, 4).map((item) => (
-                <a key={item.id} href={`/manga/${item.slug}`}>
-                  <span className="preview-cover">
-                    {item.cover ? (
-                      <img src={item.cover} alt="" loading="lazy" />
-                    ) : (
-                      item.title.slice(0, 1)
-                    )}
-                  </span>
-                  <span>
-                    <strong>{item.title}</strong>
-                    <small>
-                      {item.author || (item.library_type === 'local' ? '本地漫画' : '网络收藏')}
-                    </small>
-                  </span>
-                  <b>→</b>
-                </a>
-              ))}
-              {!manga.length && <p>书架还是空的。搜索到喜欢的作品后再收藏。</p>}
+            <div className="manga-result-grid" data-manga-explore="">
+              <MangaResults state={state} />
             </div>
           </section>
-          <section className="manga-rail-note">
-            <span>TIP</span>
-            <p>源选择藏在搜索框里，需要时打开即可，不会占据首页空间。</p>
-          </section>
-        </aside>
-          </div>
         </div>
       </div>
     </main>
