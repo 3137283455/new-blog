@@ -257,11 +257,15 @@ export async function readVeneraSource(id: unknown, comicId: string, chapterId: 
   return { record, reader }
 }
 
-export async function fetchVeneraImage(id: unknown, targetValue: unknown, context: ImageContext = {}) {
+export async function loadVeneraImage(id: unknown, targetValue: unknown, context: ImageContext = {}) {
   const record = getVeneraSource(id), runtime = await loadRuntime(record)
-  const result = await loadSourceImage(targetValue, context, {
+  return loadSourceImage(targetValue, context, {
     comic: runtime.source.comic, validateUrl: remoteUrl,
     invoke: (callback, args, receiver) => invoke(runtime, '__venera_args__[0].apply(__venera_args__[2], __venera_args__[1])', [callback, args, receiver]),
   })
+}
+
+export async function fetchVeneraImage(id: unknown, targetValue: unknown, context: ImageContext = {}) {
+  const result = await loadVeneraImage(id, targetValue, context)
   return new Response(new Uint8Array(result.bytes), { headers: { 'Content-Type': result.contentType, 'Cache-Control': 'private, no-store' } })
 }

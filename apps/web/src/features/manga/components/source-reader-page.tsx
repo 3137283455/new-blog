@@ -1,8 +1,52 @@
 'use client';
+import { useState } from 'react';
 import type { SourceKind } from '../source-detail';
 import type { SourceReader } from '../source-reader';
-import { useOrderedPageLoading } from '../use-ordered-page-loading';
 import { useSourceReader } from '../use-source-reader';
+
+function SourceReaderPageImage({
+  src,
+  title,
+  index,
+  current,
+}: {
+  src: string;
+  title: string;
+  index: number;
+  current: boolean;
+}) {
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  return (
+    <figure
+      data-reader-figure=""
+      data-index={index}
+      data-load-state={loadState}
+      aria-busy={loadState === 'loading'}
+      className={current ? 'is-current' : ''}
+    >
+      <img
+        ref={(image) => {
+          if (image?.complete) setLoadState(image.naturalWidth ? 'ready' : 'error');
+        }}
+        src={src}
+        alt={`${title} 第 ${index + 1} 页`}
+        loading={index < 6 ? 'eager' : 'lazy'}
+        decoding="async"
+        fetchPriority={index === 0 || current ? 'high' : 'low'}
+        onLoad={() => setLoadState('ready')}
+        onError={() => setLoadState('error')}
+      />
+      <span className="source-reader-page-placeholder">
+        <b>{String(index + 1).padStart(2, '0')}</b>
+        <small>
+          {loadState === 'error' ? '本页加载失败' : index < 6 ? '正在加载本页' : '等待接近本页'}
+        </small>
+      </span>
+      <figcaption>第 {index + 1} 页</figcaption>
+    </figure>
+  );
+}
+
 export function SourceReaderPage({
   kind,
   source,
@@ -20,10 +64,6 @@ export function SourceReaderPage({
 }) {
   const pages = reader.pages || [];
   const state = useSourceReader(kind === 'manga' ? pages.length : 0);
-  const pageLoading = useOrderedPageLoading(
-    kind === 'manga' ? pages.length : 0,
-    `${source}\0${workId}\0${chapterId}`,
-  );
   const backUrl = `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/${encodeURIComponent(workId)}`;
   const mediaUrl = (url: string) =>
     `/api/content-sources/media?source=${encodeURIComponent(source)}&kind=${encodeURIComponent(kind)}&url=${encodeURIComponent(url)}&purpose=page&comic_id=${encodeURIComponent(workId)}&chapter_id=${encodeURIComponent(chapterId)}`;
@@ -106,54 +146,15 @@ export function SourceReaderPage({
             </div>
           </nav>
           <section className="source-reader-pages" data-reader-stage="" ref={state.stage}>
-            {pages.map((url, index) => {
-              const shouldRequest = pageLoading.shouldRequest(index, state.current, state.mode);
-              const loadState = pageLoading.pageState(index, state.current, state.mode);
-              return (
-                <figure
-                  key={`${index}:${url}`}
-                  data-reader-figure=""
-                  data-index={index}
-                  data-load-state={loadState}
-                  aria-busy={['queued', 'loading', 'waiting'].includes(loadState)}
-                  className={`${index === state.current ? 'is-current ' : ''}is-page-${loadState}`}
-                >
-                  <img
-                    ref={(image) => {
-                      if (!image?.complete || !shouldRequest) return;
-                      pageLoading.settle(index, image.naturalWidth ? 'loaded' : 'error');
-                    }}
-                    src={shouldRequest ? mediaUrl(url) : undefined}
-                    alt={`${reader.title} 第 ${index + 1} 页`}
-                    loading="eager"
-                    decoding="async"
-                    fetchPriority={
-                      index === 0 || index === state.current ? 'high' : index === 1 ? 'auto' : 'low'
-                    }
-                    onLoad={() => pageLoading.settle(index, 'loaded')}
-                    onError={() => pageLoading.settle(index, 'error')}
-                  />
-                  {loadState !== 'ready' && (
-                    <span
-                      className="source-reader-page-placeholder"
-                      aria-live={loadState === 'error' ? 'polite' : undefined}
-                    >
-                      <b>{String(index + 1).padStart(2, '0')}</b>
-                      <small>
-                        {loadState === 'error'
-                          ? '本页加载失败'
-                          : loadState === 'waiting'
-                            ? '等待前页显示'
-                            : loadState === 'loading'
-                              ? '正在加载本页'
-                              : '等待前页加载'}
-                      </small>
-                    </span>
-                  )}
-                  <figcaption>第 {index + 1} 页</figcaption>
-                </figure>
-              );
-            })}
+            {pages.map((url, index) => (
+              <SourceReaderPageImage
+                key={`${index}:${url}`}
+                src={mediaUrl(url)}
+                title={reader.title || '漫画'}
+                index={index}
+                current={index === state.current}
+              />
+            ))}
           </section>
         </>
       ) : reader.content_html ? (

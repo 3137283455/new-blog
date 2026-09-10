@@ -1,4 +1,8 @@
-import { parentPort, workerData } from "node:worker_threads";
+import {
+  isMarkedAsUntransferable,
+  parentPort,
+  workerData,
+} from "node:worker_threads";
 import vm from "node:vm";
 import sharp from "sharp";
 import { assertImageSize, MAX_IMAGE_PIXELS } from "./binary";
@@ -13,7 +17,12 @@ const mime: Record<string, string> = {
 };
 
 async function processImage() {
-  const input = Buffer.from(workerData.bytes);
+  const inputView = workerData.bytes as Uint8Array;
+  const input = Buffer.from(
+    inputView.buffer,
+    inputView.byteOffset,
+    inputView.byteLength,
+  );
   assertImageSize(input.length);
   sharp.cache(false);
   sharp.concurrency(1);
@@ -27,19 +36,19 @@ async function processImage() {
       ? "image/avif"
       : mime[metadata.format || ""];
   if (!contentType) throw new Error("源站返回的不是支持的光栅图片");
-  // Decode even with no transform, so corrupt/HTML responses can trigger onLoadFailed.
+  if (!workerData.script)
+    return {
+      bytes: input,
+      contentType,
+      width: metadata.width || 0,
+      height: metadata.height || 0,
+    };
+  // Rules that rearrange pixels need a raw RGBA buffer; ordinary images stay compressed.
   const decoded = await decoder
     .toColourspace("srgb")
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  if (!workerData.script)
-    return {
-      bytes: input,
-      contentType,
-      width: decoded.info.width,
-      height: decoded.info.height,
-    };
   const { Image, dataOf } = createImageApi();
   const image = new Image(
     decoded.info.width,
@@ -70,7 +79,16 @@ async function processImage() {
 }
 
 void processImage().then(
-  (result) => parentPort?.postMessage({ ok: true, ...result }),
+  (result) => {
+    const bytes =
+      result.bytes.byteOffset === 0 &&
+      result.bytes.buffer instanceof ArrayBuffer &&
+      !isMarkedAsUntransferable(result.bytes.buffer) &&
+      result.bytes.byteLength === result.bytes.buffer.byteLength
+        ? new Uint8Array(result.bytes.buffer)
+        : Uint8Array.from(result.bytes);
+    parentPort?.postMessage({ ok: true, ...result, bytes }, [bytes.buffer]);
+  },
   (error) =>
     parentPort?.postMessage({
       ok: false,

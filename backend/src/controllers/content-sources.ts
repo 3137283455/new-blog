@@ -12,7 +12,7 @@ import { error, success } from '../utils/response'
 import {
   detailVeneraSource,
   exploreVeneraSource,
-  fetchVeneraImage,
+  loadVeneraImage,
   getVeneraSources,
   publicVeneraSource,
   readVeneraSource,
@@ -143,14 +143,13 @@ export async function media(req: Request, res: Response) {
       const controller = new AbortController()
       const abort = () => controller.abort()
       res.once('close', abort)
-      let response: globalThis.Response
+      let image: Awaited<ReturnType<typeof loadVeneraImage>>
       try {
-        response = await fetchVeneraImage(sourceId, targetValue, { purpose: purpose === 'page' ? 'page' : 'thumbnail', comicId, chapterId, signal: controller.signal })
+        image = await loadVeneraImage(sourceId, targetValue, { purpose: purpose === 'page' ? 'page' : 'thumbnail', comicId, chapterId, signal: controller.signal })
       } finally { res.off('close', abort) }
-      if (!response.ok) return error(res, `Venera 源图片 HTTP ${response.status}`, 'SOURCE_MEDIA_FAILED', 502)
-      const contentType = response.headers.get('content-type') || 'application/octet-stream'
+      const contentType = image.contentType || 'application/octet-stream'
       if (!contentType.toLowerCase().startsWith('image/')) return error(res, 'Venera 源返回的不是图片', 'SOURCE_MEDIA_INVALID', 502)
-      const body = Buffer.from(await response.arrayBuffer())
+      const body = image.bytes
       if (body.length > 20 * 1024 * 1024) return error(res, 'Venera 源图片超过 20MB 限制', 'SOURCE_MEDIA_TOO_LARGE', 413)
       res.setHeader('Content-Type', contentType)
       res.setHeader('Cache-Control', 'private, no-store')

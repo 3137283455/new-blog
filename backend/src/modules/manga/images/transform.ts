@@ -1,5 +1,5 @@
 import path from "node:path";
-import { Worker } from "node:worker_threads";
+import { isMarkedAsUntransferable, Worker } from "node:worker_threads";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { assertImageSize } from "./binary";
@@ -61,9 +61,17 @@ export function transformImage(
           const entry = development
             ? `require(${JSON.stringify(require.resolve("tsx/cjs"))}); require(${JSON.stringify(path.join(__dirname, "transform-worker.ts"))});`
             : compiled;
+          const workerBytes =
+            bytes.byteOffset === 0 &&
+            bytes.buffer instanceof ArrayBuffer &&
+            !isMarkedAsUntransferable(bytes.buffer) &&
+            bytes.byteLength === bytes.buffer.byteLength
+              ? new Uint8Array(bytes.buffer)
+              : Uint8Array.from(bytes);
           worker = new Worker(entry, {
             eval: development,
-            workerData: { bytes, script },
+            workerData: { bytes: workerBytes, script },
+            transferList: [workerBytes.buffer],
             // No inherited application secrets. Windows needs an explicit temp path.
             env: { TMP: tmpdir(), TEMP: tmpdir(), TSX_DISABLE_CACHE: "1" },
             resourceLimits: {
@@ -107,7 +115,11 @@ export function transformImage(
           else
             finish(undefined, {
               ...message,
-              bytes: Buffer.from(message.bytes),
+              bytes: Buffer.from(
+                message.bytes.buffer,
+                message.bytes.byteOffset,
+                message.bytes.byteLength,
+              ),
             });
         });
       },

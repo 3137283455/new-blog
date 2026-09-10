@@ -71,6 +71,30 @@ export function createImageApi() {
       image.checkRect(srcX, srcY, width, height);
       const source = dataOf(image);
       const target = dataOf(this);
+      if (source !== target) {
+        const sourceStride = image.width * 4;
+        const targetStride = this.width * 4;
+        if (
+          x === 0 &&
+          srcX === 0 &&
+          width === image.width &&
+          width === this.width
+        ) {
+          source.copy(
+            target,
+            y * targetStride,
+            srcY * sourceStride,
+            (srcY + height) * sourceStride,
+          );
+          return;
+        }
+        for (let row = 0; row < height; row++) {
+          const from = (srcY + row) * sourceStride + srcX * 4;
+          const to = (y + row) * targetStride + x * 4;
+          source.copy(target, to, from, from + width * 4);
+        }
+        return;
+      }
       // Match Venera's forward copy order, including self-overlapping ranges.
       for (let row = 0; row < height; row++) {
         for (let col = 0; col < width; col++) {
