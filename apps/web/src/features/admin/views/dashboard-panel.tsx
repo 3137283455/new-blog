@@ -19,6 +19,27 @@ export function DashboardPanel() {
           </article>
         ))}
       </div>
+      <section className="admin-storage-card ryu-card mt-4 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-base-content/45">全站存储配额</p>
+            <h2 className="mt-1 text-2xl font-black">资源库 + 相册原图</h2>
+            <p id="storage-summary" className="mt-1 text-sm text-base-content/55">正在读取空间使用情况…</p>
+          </div>
+          <a className="ryu-btn" href="#albums" id="storage-open-albums">管理相册导出</a>
+        </div>
+        <div className="admin-storage-layout mt-5">
+          <div id="storage-pie" className="admin-storage-pie" aria-label="存储空间使用占比"><span>--</span></div>
+          <div id="storage-breakdown" className="admin-storage-breakdown"></div>
+          <form id="storage-settings-form" className="admin-storage-settings">
+            <label>配额（GB）<input id="storage-quota-gb" className="input input-bordered" type="number" min="1" max="1024" step="0.1" /></label>
+            <label>普通告警（%）<input id="storage-warn-percent" className="input input-bordered" type="number" min="1" max="98" /></label>
+            <label>严重告警（%）<input id="storage-critical-percent" className="input input-bordered" type="number" min="2" max="100" /></label>
+            <button className="ryu-btn-primary" type="submit">保存配额设置</button>
+            <p id="storage-settings-message" className="min-h-5 text-sm"></p>
+          </form>
+        </div>
+      </section>
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <div className="ryu-card p-5">
           <h3 className="font-black">最近发布</h3>

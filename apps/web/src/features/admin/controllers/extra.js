@@ -1089,12 +1089,76 @@ export function mount(scope) {
       renderAlbumCollection();
       if (state.activeAlbumId) renderAlbumPhotos();
     }
+    async function loadAlbumStorage() {
+      const json = await api('/admin/storage');
+      const storage = json.data || {};
+      const summary = $('#album-export-storage-summary');
+      const formatBytes = (bytes) => {
+        const value = Number(bytes || 0);
+        if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
+        if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toFixed(1)} MB`;
+        return `${Math.round(value / 1024)} KB`;
+      };
+      if (summary) summary.textContent = `${formatBytes(storage.usedBytes)} / ${formatBytes(storage.quotaBytes)} · ${storage.percent || 0}% 已使用`;
+      const list = $('#album-export-list');
+      if (list) {
+        list.innerHTML = state.albums.map((album) => `<label class="flex cursor-pointer items-start gap-3 rounded-xl border border-base-content/10 bg-base-100/60 p-3"><input class="checkbox checkbox-sm mt-1" type="checkbox" value="${album.id}" data-album-export-select /><span class="min-w-0"><strong class="block truncate">${html(album.title)}</strong><small class="text-base-content/50">${html(album.album_time || album.latest_photo_at || album.event_date || album.created_at || '未标日期')} · ${(album.photos || []).length} 张原图</small></span></label>`).join('') || '<p class="text-sm text-base-content/45">暂无可导出的相册</p>';
+      }
+      const latest = storage.latestExport;
+      const message = $('#album-export-message');
+      if (message && latest) message.textContent = latest.cleaned_at ? `上次导出的相册已清理，释放 ${formatBytes(latest.released_bytes)}` : `上次导出：${(latest.album_names || []).join('、')}，下载确认后可清理`;
+      if (message && !latest) message.textContent = '';
+      const cleanup = $('#album-export-cleanup');
+      if (cleanup) cleanup.disabled = !latest || Boolean(latest.cleaned_at);
+    }
+    async function downloadAlbumExport() {
+      const ids = Array.from($('#album-export-list')?.querySelectorAll('[data-album-export-select]:checked') || []).map((input) => Number(input.value)).filter(Boolean);
+      if (!ids.length) return setPanelMessage('album-export-message', '请先选择要完整导出的相册', true);
+      const button = $('#album-export-download');
+      if (button) button.disabled = true;
+      try {
+        const response = await scope.fetch(`${apiBase}/admin/storage/export`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` }, body: JSON.stringify({ album_ids: ids }) });
+        if (!response.ok) {
+          const json = await response.json().catch(() => ({}));
+          throw new Error(json.message || '导出失败');
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `相册原图-${new Date().toISOString().slice(0, 10)}.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setPanelMessage('album-export-message', '导出已下载。确认文件无误后，可以清理这次导出的完整相册。');
+        await loadAlbumStorage();
+      } catch (error) {
+        if (scope.disposed) return;
+        setPanelMessage('album-export-message', error.message || '导出失败', true);
+      } finally { if (button) button.disabled = false; }
+    }
+    async function cleanupAlbumExport() {
+      const storage = (await api('/admin/storage')).data || {};
+      const latest = storage.latestExport;
+      if (!latest || latest.cleaned_at) return setPanelMessage('album-export-message', '没有可清理的最新导出记录', true);
+      if (!window.confirm(`确认已保存 ${(latest.album_names || []).join('、')} 的完整原图，并删除相册与文件吗？此操作不可撤销。`)) return;
+      try {
+        const result = await api('/admin/storage/cleanup', { method: 'POST', body: JSON.stringify({ export_id: latest.id }) });
+        const released = Number(result.data?.releasedBytes || 0);
+        const releasedText = released >= 1024 ** 3 ? `${(released / 1024 ** 3).toFixed(2)} GB` : released >= 1024 ** 2 ? `${(released / 1024 ** 2).toFixed(1)} MB` : `${Math.round(released / 1024)} KB`;
+        setPanelMessage('album-export-message', `清理完成，释放 ${releasedText}`);
+        await loadAlbums();
+        await loadAlbumStorage();
+      } catch (error) {
+        if (scope.disposed) return;
+        setPanelMessage('album-export-message', error.message || '清理失败', true);
+      }
+    }
     async function loadPanel(panel) {
       if (!token()) return;
       try {
         if (panel === 'navigation') await Promise.all([loadNavigation(), loadSearchEngines()]);
         if (panel === 'bangumi') await loadBangumi();
-        if (panel === 'albums') await loadAlbums();
+        if (panel === 'albums') { await loadAlbums(); await loadAlbumStorage(); }
       } catch (error) {
         if (scope.disposed) return;
         console.warn(error);
@@ -1502,6 +1566,8 @@ export function mount(scope) {
     scope.listen($('#album-photos-close'), 'click', () => $('#album-photos-dialog')?.close());
     scope.listen($('#album-photo-dialog-close'), 'click', () => $('#album-photo-dialog')?.close());
     scope.listen($('#album-photo-create'), 'click', () => openPhotoDialog());
+    scope.listen($('#album-export-download'), 'click', downloadAlbumExport);
+    scope.listen($('#album-export-cleanup'), 'click', cleanupAlbumExport);
     scope.listen($('#bangumi-play-source-create'), 'click', () => openBangumiPlaySourceDialog());
     scope.listen($('#bangumi-play-source-close'), 'click', () =>
       $('#bangumi-play-source-dialog')?.close(),

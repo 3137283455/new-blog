@@ -5,7 +5,7 @@ import { error, success } from '../utils/response'
 
 type HubResult = {
   id: string
-  kind: 'article' | 'page' | 'navigation' | 'bangumi' | 'album' | 'music' | 'book' | 'manga' | 'series'
+  kind: 'article' | 'page' | 'navigation' | 'bangumi' | 'album' | 'album-photo' | 'music' | 'book' | 'manga' | 'series'
   kind_label: string
   title: string
   subtitle: string
@@ -112,11 +112,12 @@ export function searchAll(req: AuthRequest, res: Response) {
   })))
 
   const albums = db.prepare(`
-    SELECT id, title, description, cover, event_date, location
+    SELECT id, title, description, cover, event_date, location,
+      COALESCE(NULLIF(latest_photo_at, ''), NULLIF(event_date, ''), created_at) AS album_time
     FROM albums
     WHERE is_active = 1
       AND (title LIKE ? OR description LIKE ? OR location LIKE ?)
-    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, event_date DESC, sort_order ASC
+    ORDER BY CASE WHEN title LIKE ? THEN 0 ELSE 1 END, album_time DESC, sort_order ASC
     LIMIT ?
   `).all(like, like, like, prefix, limit) as any[]
   results.push(...albums.map((item) => ({
@@ -128,6 +129,30 @@ export function searchAll(req: AuthRequest, res: Response) {
     href: `/albums/${item.id}`,
     image: item.cover || '',
     meta: [item.event_date, item.location].filter(Boolean).join(' · '),
+  })))
+
+  const albumPhotos = db.prepare(`
+    SELECT p.id, p.album_id, p.title, p.display_name, p.original_name, p.description,
+      p.preview_image, p.image, p.captured_at, p.created_at, p.photo_location,
+      a.title AS album_title, a.location AS album_location
+    FROM album_photos p
+    JOIN albums a ON a.id = p.album_id AND a.is_active = 1
+    WHERE p.title LIKE ? OR p.display_name LIKE ? OR p.original_name LIKE ?
+      OR p.description LIKE ? OR p.photo_location LIKE ? OR a.title LIKE ?
+    ORDER BY CASE
+      WHEN p.title LIKE ? OR p.display_name LIKE ? OR a.title LIKE ? THEN 0 ELSE 1 END,
+      COALESCE(NULLIF(p.captured_at, ''), p.created_at) DESC
+    LIMIT ?
+  `).all(like, like, like, like, like, like, prefix, prefix, prefix, limit) as any[]
+  results.push(...albumPhotos.map((item) => ({
+    id: `album-photo-${item.id}`,
+    kind: 'album-photo' as const,
+    kind_label: '照片',
+    title: item.display_name || item.title || item.original_name || '照片',
+    subtitle: [item.album_title, item.description || item.album_location || item.photo_location].filter(Boolean).join(' · ') || '相册照片',
+    href: `/albums/${item.album_id}#photo-${item.id}`,
+    image: item.preview_image || item.image || '',
+    meta: item.captured_at || item.created_at,
   })))
 
   const music = db.prepare(`

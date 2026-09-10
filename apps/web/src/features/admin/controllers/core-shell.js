@@ -271,6 +271,44 @@ export function register(context) {
   `,
         )
         .join('') || '<p class="text-base-content/45">暂无热门文章</p>';
+    const storage = stats.storage || {};
+    const storageBytes = Number(storage.usedBytes || 0);
+    const quotaBytes = Math.max(1, Number(storage.quotaBytes || 1));
+    const storagePercent = Math.min(100, Number(storage.percent || 0));
+    const formatBytes = (bytes) => {
+      const value = Number(bytes || 0);
+      if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
+      if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toFixed(1)} MB`;
+      return `${Math.round(value / 1024)} KB`;
+    };
+    const categoryItems = [
+      ['相册原图', storage.categories?.album_originals || 0, '#84cc16'],
+      ['相册预览', storage.categories?.album_previews || 0, '#38bdf8'],
+      ['资源库', storage.categories?.resource || 0, '#a78bfa'],
+      ['其他文件', storage.categories?.other || 0, '#f59e0b'],
+    ];
+    const pie = context.$('#storage-pie');
+    if (pie) {
+      let cursor = 0;
+      const slices = categoryItems.map(([, bytes, color]) => {
+        const start = cursor;
+        cursor += (Number(bytes) / quotaBytes) * 100;
+        return `${color} ${start}% ${Math.min(cursor, 100)}%`;
+      });
+      slices.push(`color-mix(in srgb, var(--line) 55%, transparent) ${Math.min(cursor, 100)}% 100%`);
+      pie.style.background = `conic-gradient(${slices.join(', ')})`;
+      pie.querySelector('span').textContent = `${storagePercent.toFixed(1)}%`;
+    }
+    const storageSummary = context.$('#storage-summary');
+    if (storageSummary) storageSummary.textContent = `${formatBytes(storageBytes)} / ${formatBytes(quotaBytes)} · ${storage.fileCount || 0} 个文件 · ${storage.photoCount || 0} 张相册照片`;
+    const breakdown = context.$('#storage-breakdown');
+    if (breakdown) breakdown.innerHTML = categoryItems.map(([label, bytes, color]) => `<div class="admin-storage-row"><span><i style="background:${color}"></i>${label}</span><strong>${formatBytes(bytes)}</strong></div>`).join('');
+    const quotaInput = context.$('#storage-quota-gb');
+    const warnInput = context.$('#storage-warn-percent');
+    const criticalInput = context.$('#storage-critical-percent');
+    if (quotaInput && document.activeElement !== quotaInput) quotaInput.value = (quotaBytes / 1024 ** 3).toFixed(1);
+    if (warnInput && document.activeElement !== warnInput) warnInput.value = storage.warnPercent || 80;
+    if (criticalInput && document.activeElement !== criticalInput) criticalInput.value = storage.criticalPercent || 90;
     context.renderBarChart('#visit-chart', charts.visitTrend || [], 'count');
     context.renderBarChart('#publish-chart', charts.publishingTrend || [], 'count');
     context.renderRankChart('#category-chart', charts.categoryDistribution || []);

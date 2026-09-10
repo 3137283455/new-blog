@@ -76,6 +76,18 @@ export function seed() {
     INSERT OR IGNORE INTO settings (key, value, type, description)
     VALUES ('bangumi_search_source', 'bangumi_lol', 'string', '番剧检索数据源')
   `).run()
+  db.prepare(`
+    INSERT OR IGNORE INTO settings (key, value, type, description)
+    VALUES ('storage_quota_bytes', ?, 'number', '全站资源存储配额（字节）')
+  `).run(String(15 * 1024 * 1024 * 1024))
+  db.prepare(`
+    INSERT OR IGNORE INTO settings (key, value, type, description)
+    VALUES ('storage_warn_percent', '80', 'number', '存储空间普通告警阈值')
+  `).run()
+  db.prepare(`
+    INSERT OR IGNORE INTO settings (key, value, type, description)
+    VALUES ('storage_critical_percent', '90', 'number', '存储空间严重告警阈值')
+  `).run()
   // 主题与插件始终确保存在（INSERT OR IGNORE，支持增量补充）
   seedThemes()
   seedPlugins()

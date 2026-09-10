@@ -2,6 +2,7 @@ import { Response } from 'express'
 import db from '../config/database'
 import { success } from '../utils/response'
 import { AuthRequest } from '../middleware/auth'
+import { storageStats } from './storage'
 
 export function stats(_req: AuthRequest, res: Response) {
   const totalPosts = (db.prepare("SELECT COUNT(*) as cnt FROM articles WHERE status = 'published' AND deleted_at IS NULL").get() as any).cnt
@@ -25,11 +26,14 @@ export function stats(_req: AuthRequest, res: Response) {
   const memUsage = process.memoryUsage()
   const anomalies: { type: string; message: string; level: string }[] = []
   const rssMB = Math.round(memUsage.rss / 1024 / 1024)
+  const storage = storageStats()
   if (rssMB > 200) anomalies.push({ type: 'memory', message: `内存占用过高：${rssMB}MB`, level: 'warning' })
   if (rssMB > 300) anomalies.push({ type: 'memory', message: `内存严重不足：${rssMB}MB`, level: 'danger' })
   if (pendingComments > 10) anomalies.push({ type: 'comments', message: `${pendingComments} 条评论待审核`, level: 'info' })
   if (totalAll === 0) anomalies.push({ type: 'content', message: '还没有任何文章', level: 'info' })
   if (trashedMedia > 20) anomalies.push({ type: 'media', message: `媒体回收站有 ${trashedMedia} 个文件，可定期确认后永久删除`, level: 'info' })
+  if (storage.level === 'warning') anomalies.push({ type: 'storage', message: `存储空间已使用 ${storage.percent}%，接近配额上限`, level: 'warning' })
+  if (storage.level === 'critical' || storage.level === 'full') anomalies.push({ type: 'storage', message: `存储空间已使用 ${storage.percent}%，请先导出并清理相册`, level: 'danger' })
 
   return success(res, {
     totalPosts, draftPosts, trashedPosts,
@@ -40,6 +44,7 @@ export function stats(_req: AuthRequest, res: Response) {
     todayVisitors,
     recentPosts, popularPosts,
     anomalies,
+    storage,
     systemInfo: {
       memoryMB: rssMB,
       uptime: Math.round(process.uptime()),

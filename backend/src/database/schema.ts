@@ -332,6 +332,7 @@ export function migrate() {
       icon TEXT DEFAULT '',
       sort_order INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
+      latest_photo_at TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -345,8 +346,29 @@ export function migrate() {
       description TEXT DEFAULT '',
       variant TEXT DEFAULT '1x1',
       sort_order INTEGER DEFAULT 0,
+      original_name TEXT DEFAULT '',
+      display_name TEXT DEFAULT '',
+      preview_image TEXT DEFAULT '',
+      file_hash TEXT DEFAULT '',
+      file_size INTEGER DEFAULT 0,
+      mime_type TEXT DEFAULT '',
+      width INTEGER DEFAULT 0,
+      height INTEGER DEFAULT 0,
+      upload_device_id INTEGER REFERENCES private_devices(id) ON DELETE SET NULL,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS album_export_records (
+      id TEXT PRIMARY KEY,
+      album_ids TEXT NOT NULL DEFAULT '[]',
+      album_names TEXT NOT NULL DEFAULT '[]',
+      exported_at TEXT NOT NULL DEFAULT (datetime('now')),
+      photo_count INTEGER DEFAULT 0,
+      total_bytes INTEGER DEFAULT 0,
+      released_bytes INTEGER DEFAULT 0,
+      cleaned_at TEXT,
+      checksum TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS music_playlists (
@@ -740,10 +762,20 @@ export function migrate() {
   addColumn('articles', 'music_track_id', 'INTEGER REFERENCES music_tracks(id) ON DELETE SET NULL')
   addColumn('navigation_links', 'workspace', "TEXT DEFAULT 'general'")
   addColumn('albums', 'story_mode', 'INTEGER DEFAULT 0')
+  addColumn('albums', 'latest_photo_at', "TEXT DEFAULT ''")
   addColumn('album_photos', 'captured_at', "TEXT DEFAULT ''")
   addColumn('album_photos', 'camera', "TEXT DEFAULT ''")
   addColumn('album_photos', 'photo_location', "TEXT DEFAULT ''")
   addColumn('album_photos', 'story_text', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'original_name', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'display_name', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'preview_image', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'file_hash', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'file_size', 'INTEGER DEFAULT 0')
+  addColumn('album_photos', 'mime_type', "TEXT DEFAULT ''")
+  addColumn('album_photos', 'width', 'INTEGER DEFAULT 0')
+  addColumn('album_photos', 'height', 'INTEGER DEFAULT 0')
+  addColumn('album_photos', 'upload_device_id', 'INTEGER REFERENCES private_devices(id) ON DELETE SET NULL')
   addColumn('bangumi_items', 'watched_episodes', 'INTEGER DEFAULT 0')
   addColumn('bangumi_items', 'episode_duration', 'INTEGER DEFAULT 24')
   addColumn('bangumi_items', 'update_weekday', 'INTEGER DEFAULT 0')
@@ -759,6 +791,29 @@ export function migrate() {
   addColumn('books', 'reading_url', "TEXT DEFAULT ''")
   addColumn('books', 'source_format', "TEXT DEFAULT 'epub'")
   addColumn('manga_items', 'library_type', "TEXT DEFAULT 'network'")
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS album_export_records (
+      id TEXT PRIMARY KEY,
+      album_ids TEXT NOT NULL DEFAULT '[]',
+      album_names TEXT NOT NULL DEFAULT '[]',
+      exported_at TEXT NOT NULL DEFAULT (datetime('now')),
+      photo_count INTEGER DEFAULT 0,
+      total_bytes INTEGER DEFAULT 0,
+      released_bytes INTEGER DEFAULT 0,
+      cleaned_at TEXT,
+      checksum TEXT DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_album_photos_time
+      ON album_photos(album_id, captured_at DESC, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_album_photos_hash
+      ON album_photos(file_hash);
+    UPDATE albums
+    SET latest_photo_at = COALESCE((
+      SELECT MAX(COALESCE(NULLIF(captured_at, ''), created_at))
+      FROM album_photos WHERE album_id = albums.id
+    ), latest_photo_at, '');
+  `)
 
   try {
     db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_private_devices_user_client ON private_devices(user_id, client_id) WHERE client_id != ''")

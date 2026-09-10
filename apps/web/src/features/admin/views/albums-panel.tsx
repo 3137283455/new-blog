@@ -172,6 +172,21 @@ export function AlbumsPanel() {
           <div id="albums-list" className="mt-4 grid gap-3"></div>
         </div>
       </div>
+      <section className="ryu-card mt-4 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-black">原图归档与空间释放</h2>
+            <p className="text-sm text-base-content/50">只能按完整相册导出。确认下载无误后，再清理所选相册；导出文件保持上传原图质量。</p>
+          </div>
+          <span id="album-export-storage-summary" className="text-sm text-base-content/50">正在读取空间…</span>
+        </div>
+        <div id="album-export-list" className="mt-4 grid gap-2 md:grid-cols-2"></div>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button id="album-export-download" className="ryu-btn-primary" type="button">导出所选完整相册</button>
+          <button id="album-export-cleanup" className="btn btn-error rounded-xl" type="button">清理已导出的相册</button>
+          <span id="album-export-message" className="text-sm"></span>
+        </div>
+      </section>
     </section>
   );
 }

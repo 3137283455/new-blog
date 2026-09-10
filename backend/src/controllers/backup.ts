@@ -45,6 +45,7 @@ const APP_TABLES = [
   'manga_reading_states',
   'albums',
   'album_photos',
+  'album_export_records',
   'music_playlists',
   'music_tracks',
   'music_play_logs',

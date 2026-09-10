@@ -69,6 +69,25 @@ export const upload = multer({
   },
 })
 
+export const albumUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 50 * 1024 * 1024,
+    files: 1,
+  },
+  fileFilter(_req, file, cb) {
+    const ext = path.extname(file.originalname).toLowerCase()
+    if (
+      /^image\/(?:jpeg|png|gif|webp|bmp|heic|heif)$/i.test(file.mimetype) ||
+      ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.heif'].includes(ext)
+    ) {
+      cb(null, true)
+      return
+    }
+    cb(new Error('相册只支持 JPG、PNG、GIF、WebP、BMP 或 HEIC 图片'))
+  },
+})
+
 export const backupUpload = multer({
   storage: multer.memoryStorage(),
   limits: {

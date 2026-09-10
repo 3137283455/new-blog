@@ -28,7 +28,8 @@ import * as searchSourceCtrl from '../controllers/search-sources'
 import * as contentSourceCtrl from '../controllers/content-sources'
 import * as veneraSourceCtrl from '../controllers/venera-sources'
 import * as contentCenterCtrl from '../controllers/content-center'
-import { upload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
+import * as storageCtrl from '../controllers/storage'
+import { upload, albumUpload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
 
 const router = Router()
 
@@ -79,6 +80,10 @@ router.get('/private/manga/:mangaId/progress', deviceAuth, mangaCtrl.getReadingS
 router.put('/private/manga/:mangaId/progress', deviceAuth, mangaCtrl.putReadingState)
 router.get('/albums', albumCtrl.publicList)
 router.get('/albums/:id', albumCtrl.publicDetail)
+router.post('/private/albums', deviceAuth, albumCtrl.createDeviceAlbum)
+router.put('/private/albums/:id', deviceAuth, albumCtrl.updateDeviceAlbum)
+router.post('/private/albums/:id/photos', deviceAuth, albumUpload.single('file'), albumCtrl.createDevicePhoto)
+router.put('/private/album-photos/:photoId', deviceAuth, albumCtrl.updateDevicePhoto)
 router.get('/music', musicCtrl.publicList)
 router.get('/music/stats', musicCtrl.stats)
 router.post('/music/:id/play', musicCtrl.recordPlay)
@@ -228,6 +233,10 @@ router.delete('/admin/albums/:id', auth, albumCtrl.remove)
 router.post('/admin/album-photos', auth, albumCtrl.createPhoto)
 router.put('/admin/album-photos/:photoId', auth, albumCtrl.updatePhoto)
 router.delete('/admin/album-photos/:photoId', auth, albumCtrl.removePhoto)
+router.get('/admin/storage', auth, storageCtrl.stats)
+router.put('/admin/storage/settings', auth, storageCtrl.updateSettings)
+router.post('/admin/storage/export', auth, storageCtrl.exportAlbumsZip)
+router.post('/admin/storage/cleanup', auth, storageCtrl.cleanupExport)
 
 router.get('/admin/music', auth, musicCtrl.list)
 router.get('/admin/music/playlists', auth, musicCtrl.playlists)

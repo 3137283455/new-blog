@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { EditorialHero } from '../../shared/site/editorial-hero';
 import { ArticleReader } from './article-reader';
 import { MusicRoom } from './music-room';
+import { ensurePrivateDeviceToken } from '../../shared/device/private-device';
 
 const href = (value: string) => encodeURIComponent(value);
 const date = (value?: string) => value ? new Date(value).toLocaleDateString('zh-CN') : '未标注日期';
@@ -322,19 +323,148 @@ export function ArticlePage({ article, settings = {} }: { article: any; settings
   return <BannerPage title={article.title} subtitle={article.excerpt || ''} settings={settings} wide><ArticleReader article={article} /></BannerPage>;
 }
 
+type PendingAlbumPhoto = {
+  id: string;
+  file: File;
+  preview: string;
+  title: string;
+  captured_at: string;
+  description: string;
+  photo_location: string;
+};
+
+async function albumRequest(url: string, init: RequestInit = {}) {
+  const response = await fetch(url, init);
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(json.message || json.error || '请求失败');
+  return json.data;
+}
+
+function AlbumUploadPanel({
+  albums,
+  albumId,
+  onUploaded,
+  onAlbumCreated,
+}: {
+  albums: any[];
+  albumId?: number;
+  onUploaded?: (photo: any) => void;
+  onAlbumCreated?: (album: any) => void;
+}) {
+  const [token, setToken] = useState('');
+  const [selectedAlbumId, setSelectedAlbumId] = useState(String(albumId || albums[0]?.id || ''));
+  const [pending, setPending] = useState<PendingAlbumPhoto[]>([]);
+  const [newAlbumTitle, setNewAlbumTitle] = useState('');
+  const [creatingAlbum, setCreatingAlbum] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    ensurePrivateDeviceToken('/api').then((value) => { if (active) setToken(value); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (albumId) setSelectedAlbumId(String(albumId));
+  }, [albumId]);
+
+  const addFiles = (files: File[]) => {
+    const imageFiles = files.filter((file) => file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name));
+    if (!imageFiles.length) { setMessage('这里只接受图片文件'); return; }
+    setMessage('');
+    setPending((current) => [...current, ...imageFiles.map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      file,
+      preview: URL.createObjectURL(file),
+      title: file.name.replace(/\.[^.]+$/, '').slice(0, 100),
+      captured_at: '',
+      description: '',
+      photo_location: '',
+    }))]);
+  };
+
+  const removePending = (id: string) => setPending((current) => {
+    const target = current.find((item) => item.id === id);
+    if (target) URL.revokeObjectURL(target.preview);
+    return current.filter((item) => item.id !== id);
+  });
+
+  const updatePending = (id: string, field: keyof PendingAlbumPhoto, value: string) => setPending((current) => current.map((item) => item.id === id ? { ...item, [field]: value } : item));
+
+  const createAlbum = async () => {
+    if (!token) { setMessage('请先在“个人与同步”中登录此设备'); return; }
+    if (!newAlbumTitle.trim()) { setMessage('请先填写相册名'); return; }
+    setCreatingAlbum(true);
+    try {
+      const created = await albumRequest('/api/private/albums', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Device-Token': token }, body: JSON.stringify({ title: newAlbumTitle.trim() }) });
+      setSelectedAlbumId(String(created.id));
+      setNewAlbumTitle('');
+      onAlbumCreated?.(created);
+      setMessage('相册已创建，可以粘贴或选择图片');
+    } catch (cause: any) { setMessage(cause.message || '相册创建失败'); }
+    finally { setCreatingAlbum(false); }
+  };
+
+  const uploadPending = async (item: PendingAlbumPhoto) => {
+    if (!token) throw new Error('请先在“个人与同步”中登录此设备');
+    if (!selectedAlbumId) throw new Error('请先选择相册');
+    if (!item.title.trim()) throw new Error('图片名不能为空');
+    const body = new FormData();
+    body.append('file', item.file, item.file.name);
+    body.append('title', item.title.trim());
+    body.append('captured_at', item.captured_at);
+    body.append('description', item.description);
+    body.append('photo_location', item.photo_location);
+    return albumRequest(`/api/private/albums/${selectedAlbumId}/photos`, { method: 'POST', headers: { 'X-Device-Token': token }, body });
+  };
+
+  const confirmUpload = async () => {
+    if (!pending.length) return;
+    setBusy(true); setMessage('正在按确认顺序保存原图…');
+    try {
+      for (const item of pending) {
+        const photo = await uploadPending(item);
+        onUploaded?.(photo);
+        URL.revokeObjectURL(item.preview);
+      }
+      setPending([]); setMessage('全部照片已导入，原图未压缩');
+    } catch (cause: any) { setMessage(cause.message || '导入失败，已保留未完成队列'); }
+    finally { setBusy(false); }
+  };
+
+  return <section className="album-upload-panel ryu-card" onPaste={(event) => {
+    const files = Array.from(event.clipboardData.files || []);
+    if (files.length) { event.preventDefault(); addFiles(files); }
+  }}>
+    <div className="album-upload-heading"><div><p className="feature-kicker">PRIVATE DEVICE UPLOAD</p><h2>把这一刻放进相册</h2><p>先进入个人与同步登录设备。粘贴的截图会进入待确认队列，不会直接上传。</p></div><span className={token ? 'album-device-state is-ready' : 'album-device-state'}>{token ? '设备已验证' : '仅登录设备可上传'}</span></div>
+    {!albumId && <div className="album-upload-row"><select className="select select-bordered" value={selectedAlbumId} onChange={(event) => setSelectedAlbumId(event.target.value)}><option value="">选择目标相册</option>{albums.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select><input className="input input-bordered" value={newAlbumTitle} onChange={(event) => setNewAlbumTitle(event.target.value)} placeholder="或新建相册" /><button type="button" className="ryu-btn is-primary" onClick={createAlbum} disabled={creatingAlbum}>{creatingAlbum ? '创建中…' : '新建相册'}</button></div>}
+    <div className="album-dropzone" tabIndex={0} onClick={() => inputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles(Array.from(event.dataTransfer.files)); }}><input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif" multiple onChange={(event) => { addFiles(Array.from(event.target.files || [])); event.currentTarget.value = ''; }} /><strong>点击选择 / 拖拽图片 / Ctrl+V 粘贴截图</strong><span>支持 JPG、PNG、GIF、WebP、BMP、HEIC；导入前可以逐张修改信息</span></div>
+    {pending.length > 0 && <div className="album-pending-list">{pending.map((item) => <article className="album-pending-item" key={item.id}><img src={item.preview} alt="待确认图片" /><div className="album-pending-fields"><input className="input input-bordered" value={item.title} onChange={(event) => updatePending(item.id, 'title', event.target.value)} placeholder="图片名" /><input className="input input-bordered" type="datetime-local" value={item.captured_at ? item.captured_at.slice(0, 16) : ''} onChange={(event) => updatePending(item.id, 'captured_at', event.target.value)} /><input className="input input-bordered" value={item.photo_location} onChange={(event) => updatePending(item.id, 'photo_location', event.target.value)} placeholder="地点（可选）" /><textarea className="textarea textarea-bordered" value={item.description} onChange={(event) => updatePending(item.id, 'description', event.target.value)} placeholder="图片说明（可选）" /></div><button type="button" className="ryu-btn is-ghost" onClick={() => removePending(item.id)}>移出</button></article>)}</div>}
+    <div className="album-upload-footer"><span>{message || (token ? '当前设备允许上传和编辑信息，不提供前台删除权限' : '登录设备后才会开放上传')}</span>{pending.length > 0 && <button type="button" className="ryu-btn is-primary" onClick={confirmUpload} disabled={busy || !selectedAlbumId}>{busy ? '导入中…' : `确认导入 ${pending.length} 张`}</button>}</div>
+  </section>;
+}
+
 export function AlbumsPage({ albums, settings = {} }: { albums: any[]; settings?: PublicPageSettings }) {
   const [query, setQuery] = useState('');
-  const visible = albums.filter((item) => !query || `${item.title} ${item.description || ''} ${item.location || ''}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-  const photoCount = albums.reduce((sum, album) => sum + (album.photos?.length || 0), 0);
-  const locationItems = Array.from(new Set(albums.map((album) => album.location).filter(Boolean))).slice(0, 12).map((location) => ({ label: location, value: albums.filter((album) => album.location === location).length }));
-  const yearItems = Array.from(new Set(albums.map((album) => album.event_date ? new Date(album.event_date).getFullYear().toString() : '').filter(Boolean))).slice(0, 12).map((year) => ({ label: year, value: albums.filter((album) => album.event_date && new Date(album.event_date).getFullYear().toString() === year).length }));
-  return <BannerPage title="相册" subtitle="记录生活里的画面和回忆" settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '相册', value: albums.length }, { label: '照片', value: photoCount }, { label: '地点', value: new Set(albums.map((album) => album.location).filter(Boolean)).size }]} sidebarSections={[{ title: '拍摄地点', marker: '⌕', tone: 'primary', items: locationItems }, { title: '时间归档', marker: '●', tone: 'secondary', items: yearItems }]} />}><><section className="feature-toolbar ryu-card"><input value={query} onChange={(event) => setQuery(event.target.value)} className="input input-bordered rounded-xl" type="search" placeholder="搜索相册、描述、地点、日期..." /></section><section className="album-grid">{visible.map((album) => <a key={album.id} className="album-card ryu-card" href={`/albums/${album.id}`}><div className="album-body"><div className="album-title-row"><h2>{album.icon || ''} {album.title}</h2><span>{album.photos?.length || 0} 张</span></div><p>{album.description || '暂无描述'}</p><div className="album-meta"><span>{date(album.event_date)}</span><span>{album.location || '未标注地点'}</span></div></div><div className="album-polaroid-stage">{(album.photos || []).slice(0, 6).map((photo: any, index: number) => <span key={photo.id || index} className="album-polaroid" style={{ '--i': index, '--rotate': `${[-10, 7, -4, 10, -7, 4][index]}deg`, '--x': `${(index - 2.5) * 2.05}rem`, '--y': `${index % 2 === 0 ? .35 : 1.15}rem` } as React.CSSProperties}><img src={media(photo.image)} alt={photo.title || album.title} loading="lazy" /></span>)}</div></a>)}</section></></PublicPageLayout></BannerPage>;
+  const [liveAlbums, setLiveAlbums] = useState(albums);
+  const visible = liveAlbums.filter((item) => !query || `${item.title} ${item.description || ''} ${item.location || ''} ${item.event_date || ''}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+  const photoCount = liveAlbums.reduce((sum, album) => sum + (album.photos?.length || 0), 0);
+  const locationItems = Array.from(new Set(liveAlbums.map((album) => album.location).filter(Boolean))).slice(0, 12).map((location) => ({ label: location, value: liveAlbums.filter((album) => album.location === location).length }));
+  const yearItems = Array.from(new Set(liveAlbums.map((album) => album.album_time || album.latest_photo_at || album.event_date).filter(Boolean).map((value) => new Date(value).getFullYear().toString()))).slice(0, 12).map((year) => ({ label: year, value: liveAlbums.filter((album) => String(new Date(album.album_time || album.latest_photo_at || album.event_date).getFullYear()) === year).length }));
+  const refreshAlbum = async () => { try { setLiveAlbums((await albumRequest('/api/albums')) || []); } catch { /* public refresh is best effort */ } };
+  return <BannerPage title="相册" subtitle="记录生活里的画面和回忆" settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '相册', value: liveAlbums.length }, { label: '照片', value: photoCount }, { label: '地点', value: new Set(liveAlbums.map((album) => album.location).filter(Boolean)).size }]} sidebarSections={[{ title: '拍摄地点', marker: '⌕', tone: 'primary', items: locationItems }, { title: '时间归档', marker: '●', tone: 'secondary', items: yearItems }]} />}><><AlbumUploadPanel albums={liveAlbums} onUploaded={refreshAlbum} onAlbumCreated={refreshAlbum} /><section className="feature-toolbar ryu-card"><input value={query} onChange={(event) => setQuery(event.target.value)} className="input input-bordered rounded-xl" type="search" placeholder="搜索相册、描述、地点、日期..." /></section><section className="album-grid">{visible.map((album) => <a key={album.id} className="album-card ryu-card" href={`/albums/${album.id}`}><div className="album-body"><div className="album-title-row"><h2>{album.icon || ''} {album.title}</h2><span>{album.photos?.length || 0} 张</span></div><p>{album.description || '暂无描述'}</p><div className="album-meta"><span>{date(album.album_time || album.latest_photo_at || album.event_date || album.created_at)}</span><span>{album.location || '未标注地点'}</span></div></div><div className="album-polaroid-stage">{(album.photos || []).slice(0, 6).map((photo: any, index: number) => <span key={photo.id || index} className="album-polaroid" style={{ '--i': index, '--rotate': `${[-10, 7, -4, 10, -7, 4][index]}deg`, '--x': `${(index - 2.5) * 2.05}rem`, '--y': `${index % 2 === 0 ? .35 : 1.15}rem` } as React.CSSProperties}><img src={media(photo.preview_image || photo.image)} alt={photo.title || album.title} loading="lazy" /></span>)}</div></a>)}</section></></PublicPageLayout></BannerPage>;
 }
 
 export function AlbumDetailPage({ album, group = 'year', settings = {} }: { album: any; group?: string; settings?: PublicPageSettings }) {
-  const photos = album.photos || [];
-  const groups = photos.reduce((all: Record<string, any[]>, photo: any) => { const value = photo.captured_at || album.event_date || photo.created_at || ''; const key = group === 'location' ? (photo.photo_location || album.location || '未标地点') : (value ? String(new Date(value).getFullYear()) : '未标日期'); (all[key] ||= []).push(photo); return all; }, {});
-  return <BannerPage title={album.title} subtitle={album.description || '照片集'} settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '照片', value: photos.length }, { label: '地点', value: album.location || '未标注' }, { label: '日期', value: album.event_date ? date(album.event_date) : '未标注' }]} sidebarSections={[{ title: '相册信息', marker: '▧', tone: 'primary', items: [{ label: album.location || '未标注地点' }, { label: album.event_date ? date(album.event_date) : '未标注日期' }, { label: `${photos.length} 张照片` }] }]} />}><><section className="feature-toolbar ryu-card"><div><p className="feature-kicker">PHOTO WALL</p><h1>{album.icon || ''} {album.title}</h1><p>{album.description || '照片集'}</p></div><div className="album-view-actions"><a className="ryu-btn" href={`/albums/${album.id}?group=year`}>按年份</a><a className="ryu-btn" href={`/albums/${album.id}?group=location`}>按地点</a><a className="ryu-btn" href="/albums">返回相册</a></div></section><div className={`album-timeline${album.story_mode ? ' is-story-mode' : ''}`}>{(Object.entries(groups) as Array<[string, any[]]>).map(([key, items]) => <section className="album-year-group" key={key}><header><span>{key}</span><p>{items.length} 张照片</p></header><div className="photo-wall">{items.map((photo: any, index: number) => <a className={`photo-wall-item variant-${photo.variant || '1x1'}`} key={photo.id} href={media(photo.image)} target="_blank" rel="noopener noreferrer" style={{ '--rotate': `${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg` } as React.CSSProperties}><img src={media(photo.image)} alt={photo.title || album.title} loading="lazy" /><span><strong>{photo.title || '无题照片'}</strong><small>{photo.story_text || photo.description || '这一刻没有留下文字。'}</small></span></a>)}</div></section>)}</div></></PublicPageLayout></BannerPage>;
+  const [liveAlbum, setLiveAlbum] = useState(album);
+  useEffect(() => setLiveAlbum(album), [album]);
+  const photos = liveAlbum.photos || [];
+  const groups = photos.reduce((all: Record<string, any[]>, photo: any) => { const value = photo.captured_at || liveAlbum.event_date || photo.created_at || ''; const key = group === 'location' ? (photo.photo_location || liveAlbum.location || '未标地点') : (value ? String(new Date(value).getFullYear()) : '未标日期'); (all[key] ||= []).push(photo); return all; }, {});
+  useEffect(() => { if (globalThis.location.hash) document.getElementById(globalThis.location.hash.slice(1))?.scrollIntoView({ block: 'center' }); }, [photos.length]);
+  const refreshAlbum = async () => { try { setLiveAlbum(await albumRequest(`/api/albums/${liveAlbum.id}`)); } catch { /* public refresh is best effort */ } };
+  return <BannerPage title={liveAlbum.title} subtitle={liveAlbum.description || '照片集'} settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '照片', value: photos.length }, { label: '地点', value: liveAlbum.location || '未标注' }, { label: '日期', value: date(liveAlbum.album_time || liveAlbum.latest_photo_at || liveAlbum.event_date || liveAlbum.created_at) }]} sidebarSections={[{ title: '相册信息', marker: '▧', tone: 'primary', items: [{ label: liveAlbum.location || '未标注地点' }, { label: date(liveAlbum.album_time || liveAlbum.latest_photo_at || liveAlbum.event_date || liveAlbum.created_at) }, { label: `${photos.length} 张照片` }] }]} />}><><AlbumUploadPanel albums={[liveAlbum]} albumId={liveAlbum.id} onUploaded={refreshAlbum} /><section className="feature-toolbar ryu-card"><div><p className="feature-kicker">PHOTO WALL</p><h1>{liveAlbum.icon || ''} {liveAlbum.title}</h1><p>{liveAlbum.description || '照片集'}</p></div><div className="album-view-actions"><a className="ryu-btn" href={`/albums/${liveAlbum.id}?group=year`}>按年份</a><a className="ryu-btn" href={`/albums/${liveAlbum.id}?group=location`}>按地点</a><a className="ryu-btn" href="/albums">返回相册</a></div></section><div className={`album-timeline${liveAlbum.story_mode ? ' is-story-mode' : ''}`}>{(Object.entries(groups) as Array<[string, any[]]>).map(([key, items]) => <section className="album-year-group" key={key}><header><span>{key}</span><p>{items.length} 张照片</p></header><div className="photo-wall">{items.map((photo: any, index: number) => <a id={`photo-${photo.id}`} className={`photo-wall-item variant-${photo.variant || '1x1'}`} key={photo.id} href={media(photo.image)} target="_blank" rel="noopener noreferrer" style={{ '--rotate': `${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg` } as React.CSSProperties}><img src={media(photo.preview_image || photo.image)} alt={photo.title || liveAlbum.title} loading="lazy" /><span><strong>{photo.title || photo.display_name || '无题照片'}</strong><small>{photo.story_text || photo.description || '这一刻没有留下文字。'}</small></span></a>)}</div></section>)}</div></></PublicPageLayout></BannerPage>;
 }
 
 const bangumiStatusLabels: Record<string, string> = {

@@ -308,6 +308,23 @@ export function mount(scope) {
   context.scope.listen(context.$('#site-settings-form'), 'submit', context.saveSiteSettings);
   context.scope.listen(context.$('#site-settings-form'), 'input', context.renderSettingsPreview);
   context.scope.listen(context.$('#site-settings-form'), 'change', context.renderSettingsPreview);
+  context.scope.listen(context.$('#storage-settings-form'), 'submit', async (event) => {
+    event.preventDefault();
+    const message = context.$('#storage-settings-message');
+    try {
+      const data = {
+        quota_gb: Number(context.$('#storage-quota-gb')?.value),
+        warn_percent: Number(context.$('#storage-warn-percent')?.value),
+        critical_percent: Number(context.$('#storage-critical-percent')?.value),
+      };
+      const result = await context.request('/admin/storage/settings', { method: 'PUT', body: JSON.stringify(data) });
+      context.state.stats = { ...(context.state.stats || {}), storage: result.data };
+      context.renderDashboard();
+      if (message) message.textContent = '配额设置已保存';
+    } catch (error) {
+      if (message) message.textContent = error.message || '保存失败';
+    }
+  });
   context.scope.listen(context.$('#admin-sidebar-toggle'), 'click', (event) => {
     const collapsed = context.root?.classList.toggle('is-sidebar-collapsed') || false;
     event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
