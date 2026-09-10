@@ -3068,6 +3068,8 @@ h1, h2, h3, .site-title, .article-title { font-family: var(--theme-title-font, v
 }
 
 .bangumi-card {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   color: inherit;
   border: 0;
@@ -3215,6 +3217,7 @@ h1, h2, h3, .site-title, .article-title { font-family: var(--theme-title-font, v
 
 .bangumi-card-main {
   display: block;
+  flex: 1;
   color: inherit;
 }
 
