@@ -28,6 +28,8 @@ import * as searchSourceCtrl from '../controllers/search-sources'
 import * as contentSourceCtrl from '../controllers/content-sources'
 import * as veneraSourceCtrl from '../controllers/venera-sources'
 import * as contentCenterCtrl from '../controllers/content-center'
+import * as searchCtrl from '../controllers/search'
+import * as logsCtrl from '../controllers/logs'
 import * as storageCtrl from '../controllers/storage'
 import { upload, albumUpload, backupUpload, epubUpload, textBookUpload } from '../middleware/upload'
 
@@ -44,6 +46,7 @@ router.get('/articles/search', articleCtrl.search)
 router.get('/articles/random', articleCtrl.random)
 router.get('/articles/:slug', articleCtrl.detail)
 router.get('/search/all', hubCtrl.searchAll)
+router.get('/content-relations', contentCenterCtrl.publicRelationList)
 router.get('/hub/memories', hubCtrl.memories)
 router.get('/hub/insights', personalCtrl.insights)
 router.post('/hub/inbox', personalCtrl.submitInbox)
@@ -149,6 +152,11 @@ router.delete('/admin/subscriptions/:id', auth, contentCenterCtrl.removeSubscrip
 router.get('/admin/content-relations', auth, contentCenterCtrl.relations)
 router.post('/admin/content-relations', auth, contentCenterCtrl.createRelation)
 router.delete('/admin/content-relations/:id', auth, contentCenterCtrl.removeRelation)
+router.get('/admin/search/status', auth, searchCtrl.status)
+router.post('/admin/search/rebuild', auth, searchCtrl.rebuild)
+router.get('/admin/logs', auth, adminOnly, logsCtrl.list)
+router.get('/admin/logs/stats', auth, adminOnly, logsCtrl.stats)
+router.get('/admin/logs/diagnostics', auth, adminOnly, logsCtrl.diagnostics)
 // 个人中心、收集箱与专题
 router.get('/admin/personal/inbox', auth, personalCtrl.inboxList)
 router.put('/admin/personal/inbox/:id', auth, personalCtrl.updateInbox)

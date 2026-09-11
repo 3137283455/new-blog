@@ -2,8 +2,10 @@ import { Request, Response, NextFunction } from 'express'
 import { error } from '../utils/response'
 import { logger } from '../utils/logger'
 
-export function errorHandler(err: any, _req: Request, res: Response, _next: NextFunction) {
-  logger.error(err.message || '请求处理错误', err)
+export function errorHandler(err: any, req: Request & { requestId?: string }, res: Response, _next: NextFunction) {
+  logger.error(err.message || '请求处理错误', err, {
+    source: 'http', request_id: req.requestId || '', method: req.method, path: req.originalUrl,
+  })
 
   if (err.code === 'LIMIT_FILE_SIZE') {
     return error(res, '文件过大，请检查后台配置的上传大小限制', 'FILE_TOO_LARGE', 413)

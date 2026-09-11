@@ -6388,6 +6388,64 @@ select {
   .admin-global-search kbd { display: none; }
 }
 
+.related-content-shelf { margin-top: 1rem; overflow: hidden; border: 1px solid var(--line); border-radius: var(--theme-card-radius); background: var(--surface-solid); }
+.related-content-shelf > header { display: flex; align-items: end; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); padding: 1rem 1.15rem; }
+.related-content-shelf > header p { color: var(--brand); font-size: .55rem; font-weight: 850; letter-spacing: .14em; }
+.related-content-shelf > header h2 { margin-top: .16rem; font-family: var(--editorial-serif); font-size: 1.35rem; font-weight: 550; }
+.related-content-shelf > header > span { color: var(--muted-ink); font-size: .65rem; }
+.related-content-shelf > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.related-content-shelf a { display: grid; grid-template-columns: 3.5rem minmax(0, 1fr) auto; align-items: center; gap: .7rem; min-width: 0; border-right: 1px solid var(--line); padding: .85rem 1rem; color: var(--ink); transition: background 160ms ease; }
+.related-content-shelf a:last-child { border-right: 0; }
+.related-content-shelf a:hover { background: color-mix(in srgb, var(--surface-solid) 80%, var(--brand)); }
+.related-content-cover { display: grid; width: 3.5rem; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: .55rem; background: var(--soft-surface); color: var(--brand); }
+.related-content-cover img { width: 100%; height: 100%; object-fit: cover; }
+.related-content-shelf a > span:nth-child(2) { display: grid; min-width: 0; gap: .16rem; }
+.related-content-shelf small { color: var(--brand); font-size: .58rem; font-weight: 800; }
+.related-content-shelf strong, .related-content-shelf em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.related-content-shelf strong { font-family: var(--editorial-serif); font-size: .98rem; font-weight: 600; }
+.related-content-shelf em { color: var(--muted-ink); font-size: .62rem; font-style: normal; }
+.related-content-arrow { color: var(--brand); font-size: 1rem; }
+.search-tools { display: flex; align-items: center; justify-content: space-between; gap: .8rem; flex-wrap: wrap; }
+.search-kind-filters { display: flex; gap: .35rem; flex-wrap: wrap; }
+.search-kind-filters button { border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted-ink); padding: .32rem .65rem; font-size: .65rem; cursor: pointer; }
+.search-kind-filters button:hover, .search-kind-filters button.is-active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); color: var(--brand); }
+.search-empty-state { display: grid; place-items: center; gap: .35rem; border: 1px dashed var(--line); border-radius: 1rem; padding: 3rem 1rem; color: var(--muted-ink); }
+.search-empty-state strong { color: var(--ink); font-family: var(--editorial-serif); font-size: 1.25rem; }
+.search-empty-state span { font-size: .75rem; }
+.search-load-more { display: block; margin: 1rem auto 0; }
+.article-related-content { margin-top: 1rem; }
+
+.admin-log-memory-settings { display: grid; grid-template-columns: minmax(14rem, 1fr) repeat(2, minmax(9rem, 12rem)) auto; align-items: end; gap: .75rem; margin: 1rem 0; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 1rem; background: color-mix(in srgb, var(--surface-solid) 72%, transparent); }
+.admin-log-memory-settings > div { display: grid; gap: .2rem; }
+.admin-log-memory-settings small { color: var(--muted); font-size: .75rem; line-height: 1.45; }
+.admin-log-memory-settings label { display: grid; gap: .35rem; color: var(--muted); font-size: .75rem; }
+.admin-log-memory-settings label .admin-setting-unit { display: flex; align-items: center; gap: .4rem; }
+.admin-log-memory-settings label input { width: 100%; }
+.admin-log-memory-settings label span:last-child { color: var(--ink); }
+.admin-log-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin-bottom: .9rem; }
+.admin-log-summary > div { border: 1px solid #e8ecf2; border-radius: .55rem; background: #fafcfd; padding: .7rem .8rem; }
+.admin-log-summary small, .admin-log-summary strong { display: block; }
+.admin-log-summary small { color: #8a94a2; font-size: .62rem; }
+.admin-log-summary strong { margin-top: .2rem; color: #263343; font-size: 1.15rem; }
+.admin-log-toolbar { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+.admin-log-toolbar .input, .admin-log-toolbar .select { min-height: 2.2rem; height: 2.2rem; }
+.admin-log-list { display: grid; gap: .45rem; max-height: 34rem; overflow: auto; }
+.admin-log-entry { border: 1px solid #e8ecf2; border-radius: .55rem; background: #fff; padding: .7rem .8rem; }
+.admin-log-entry.is-error { border-color: #f2c9c9; background: #fffafa; }
+.admin-log-entry > header { display: flex; align-items: center; justify-content: space-between; gap: .7rem; }
+.admin-log-entry > header > div { display: flex; align-items: center; gap: .45rem; min-width: 0; }
+.admin-log-entry time { color: #9099a5; font-size: .62rem; }
+.admin-log-entry strong { overflow: hidden; color: #303b49; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.admin-log-level { border-radius: 999px; padding: .18rem .45rem; font-size: .58rem; font-weight: 800; }
+.admin-log-level.error { background: #fee2e2; color: #b42318; }
+.admin-log-level.warn { background: #fff3cd; color: #9a6700; }
+.admin-log-level.info { background: #e8f1ff; color: #2868ef; }
+.admin-log-entry > p { margin-top: .35rem; color: #697585; font-size: .68rem; word-break: break-word; }
+.admin-log-entry details { margin-top: .35rem; }
+.admin-log-entry summary { color: #2868ef; font-size: .62rem; cursor: pointer; }
+.admin-log-entry pre { max-height: 12rem; overflow: auto; margin-top: .35rem; border-radius: .4rem; background: #18202c; color: #dce7f5; padding: .65rem; font: .62rem/1.55 ui-monospace, monospace; white-space: pre-wrap; word-break: break-word; }
+@media (max-width: 760px) { .related-content-shelf > div { grid-template-columns: 1fr; } .related-content-shelf a { border-right: 0; border-bottom: 1px solid var(--line); } .related-content-shelf a:last-child { border-bottom: 0; } .admin-log-summary { grid-template-columns: 1fr; } .admin-log-memory-settings { grid-template-columns: 1fr 1fr; } .admin-log-memory-settings > div { grid-column: 1 / -1; } }
+
 /* Keep the desktop admin chrome flush at the sidebar/topbar seam. Theme-specific
    chrome rules have higher specificity than the base layout reset above. */
 @media (min-width: 1024px) {

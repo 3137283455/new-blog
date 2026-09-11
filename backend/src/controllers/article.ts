@@ -4,6 +4,7 @@ import { config } from '../config'
 import { success, error, paginationResult } from '../utils/response'
 import { AuthRequest } from '../middleware/auth'
 import { needsEpubHtmlRepair, renderArticleContent } from '../utils/markdown'
+import { publicRelations } from '../services/content-relations'
 
 /*
   // 为图片和 iframe 添加懒加载
@@ -319,6 +320,7 @@ export function detail(req: AuthRequest, res: Response) {
     previous,
     next,
     related,
+    custom_relations: publicRelations('article', article.id),
     series_articles: seriesArticles,
     series_position: seriesArticles.findIndex((item) => item.id === article.id) + 1,
   })

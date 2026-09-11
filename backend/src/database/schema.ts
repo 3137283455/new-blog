@@ -1,5 +1,6 @@
 import db from '../config/database'
 import { migrateSourceStorage } from '../modules/manga/storage/source-store'
+import { rebuildSearchIndex } from '../services/search-index'
 
 export function migrate() {
   migrateSourceStorage(db)
@@ -576,6 +577,78 @@ export function migrate() {
       created_at TEXT DEFAULT (datetime('now')),
       UNIQUE(source_type, source_id, target_type, target_id, relation_type)
     );
+    CREATE TABLE IF NOT EXISTS search_index_state (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      dirty INTEGER NOT NULL DEFAULT 1,
+      last_rebuilt_at TEXT DEFAULT ''
+    );
+    INSERT OR IGNORE INTO search_index_state (id, dirty) VALUES (1, 1);
+    CREATE TABLE IF NOT EXISTS search_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      source_id INTEGER NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      title_key TEXT NOT NULL DEFAULT '',
+      subtitle TEXT NOT NULL DEFAULT '',
+      searchable TEXT NOT NULL DEFAULT '',
+      href TEXT NOT NULL DEFAULT '',
+      image TEXT NOT NULL DEFAULT '',
+      meta TEXT NOT NULL DEFAULT '',
+      is_public INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT '',
+      UNIQUE(kind, source_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_search_documents_public ON search_documents(is_public, kind, updated_at);
+    CREATE VIRTUAL TABLE IF NOT EXISTS search_documents_fts USING fts5(title, searchable);
+    DROP TRIGGER IF EXISTS search_documents_ai;
+    DROP TRIGGER IF EXISTS search_documents_ad;
+    DROP TRIGGER IF EXISTS search_documents_au;
+    CREATE TRIGGER IF NOT EXISTS search_documents_ai AFTER INSERT ON search_documents BEGIN
+      INSERT INTO search_documents_fts(rowid, title, searchable) VALUES (new.id, new.title, new.searchable);
+    END;
+    CREATE TRIGGER IF NOT EXISTS search_documents_ad AFTER DELETE ON search_documents BEGIN
+      DELETE FROM search_documents_fts WHERE rowid = old.id;
+    END;
+    CREATE TRIGGER IF NOT EXISTS search_documents_au AFTER UPDATE ON search_documents BEGIN
+      DELETE FROM search_documents_fts WHERE rowid = old.id;
+      INSERT INTO search_documents_fts(rowid, title, searchable) VALUES (new.id, new.title, new.searchable);
+    END;
+
+    CREATE TRIGGER IF NOT EXISTS search_articles_ai AFTER INSERT ON articles BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_articles_au AFTER UPDATE ON articles BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_articles_ad AFTER DELETE ON articles BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_pages_ai AFTER INSERT ON pages BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_pages_au AFTER UPDATE ON pages BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_pages_ad AFTER DELETE ON pages BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_navigation_ai AFTER INSERT ON navigation_links BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_navigation_au AFTER UPDATE ON navigation_links BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_navigation_ad AFTER DELETE ON navigation_links BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_bangumi_ai AFTER INSERT ON bangumi_items BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_bangumi_au AFTER UPDATE ON bangumi_items BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_bangumi_ad AFTER DELETE ON bangumi_items BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_albums_ai AFTER INSERT ON albums BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_albums_au AFTER UPDATE ON albums BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_albums_ad AFTER DELETE ON albums BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_album_photos_ai AFTER INSERT ON album_photos BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_album_photos_au AFTER UPDATE ON album_photos BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_album_photos_ad AFTER DELETE ON album_photos BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_music_ai AFTER INSERT ON music_tracks BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_music_au AFTER UPDATE ON music_tracks BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_music_ad AFTER DELETE ON music_tracks BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_books_ai AFTER INSERT ON books BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_books_au AFTER UPDATE ON books BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_books_ad AFTER DELETE ON books BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_manga_ai AFTER INSERT ON manga_items BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_manga_au AFTER UPDATE ON manga_items BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_manga_ad AFTER DELETE ON manga_items BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_series_ai AFTER INSERT ON article_series BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_series_au AFTER UPDATE ON article_series BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_series_ad AFTER DELETE ON article_series BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_article_tags_ai AFTER INSERT ON article_tags BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_article_tags_ad AFTER DELETE ON article_tags BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_categories_au AFTER UPDATE ON categories BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_tags_au AFTER UPDATE ON tags BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
+    CREATE TRIGGER IF NOT EXISTS search_playlists_au AFTER UPDATE ON music_playlists BEGIN UPDATE search_index_state SET dirty=1 WHERE id=1; END;
     -- 全文搜索 FTS5
     CREATE VIRTUAL TABLE IF NOT EXISTS articles_fts USING fts5(
       title,
@@ -926,6 +999,12 @@ export function migrate() {
     legacyVolumes.forEach(volume => repairLegacyVolume(volume))
   } catch {
     // Existing libraries remain readable even if a legacy volume cannot be restructured.
+  }
+
+  try {
+    rebuildSearchIndex()
+  } catch (cause) {
+    console.warn('[DB] 搜索索引初始化失败，将在首次搜索时重试', cause)
   }
   console.log('[DB] 数据库迁移完成')
 }

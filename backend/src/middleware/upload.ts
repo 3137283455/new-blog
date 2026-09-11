@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { config } from '../config'
 import { Request } from 'express'
+import { normalizeUploadedFilename } from '../utils/filename'
 
 if (!fs.existsSync(config.uploadDir)) {
   fs.mkdirSync(config.uploadDir, { recursive: true })
@@ -31,6 +32,7 @@ const storage = multer.diskStorage({
 })
 
 const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  file.originalname = normalizeUploadedFilename(file.originalname)
   const ext = path.extname(file.originalname).toLowerCase()
   const allowedTypes = [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'image/svg+xml',
@@ -76,6 +78,7 @@ export const albumUpload = multer({
     files: 1,
   },
   fileFilter(_req, file, cb) {
+    file.originalname = normalizeUploadedFilename(file.originalname)
     const ext = path.extname(file.originalname).toLowerCase()
     if (
       /^image\/(?:jpeg|png|gif|webp|bmp|heic|heif)$/i.test(file.mimetype) ||
@@ -94,6 +97,7 @@ export const backupUpload = multer({
     fileSize: 256 * 1024 * 1024,
   },
   fileFilter(_req, file, cb) {
+    file.originalname = normalizeUploadedFilename(file.originalname)
     const ext = path.extname(file.originalname).toLowerCase()
     if (['.db', '.sqlite', '.sqlite3', '.json'].includes(ext)) {
       cb(null, true)
@@ -110,6 +114,7 @@ export const epubUpload = multer({
     files: 1,
   },
   fileFilter(_req, file, cb) {
+    file.originalname = normalizeUploadedFilename(file.originalname)
     if (/\.epub$/i.test(file.originalname) || file.mimetype === 'application/epub+zip') {
       cb(null, true)
       return
@@ -131,6 +136,7 @@ export const mangaArchiveUpload = multer({
   }),
   limits: { fileSize: 300 * 1024 * 1024, files: 80 },
   fileFilter(_req, file, cb) {
+    file.originalname = normalizeUploadedFilename(file.originalname)
     if (
       /\.(?:cbz|zip|epub|cbr|rar|cb7|7z|cbt|tar|pdf|jpe?g|png|webp|gif|avif|bmp)$/i.test(file.originalname) ||
       ['application/zip','application/x-zip-compressed','application/epub+zip','application/x-rar-compressed','application/vnd.rar','application/x-7z-compressed','application/pdf','image/jpeg','image/png','image/webp','image/gif','image/avif','image/bmp'].includes(file.mimetype)
@@ -145,6 +151,7 @@ export const textBookUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024, files: 10 },
   fileFilter(_req, file, cb) {
+    file.originalname = normalizeUploadedFilename(file.originalname)
     if (/\.(?:txt|md|markdown)$/i.test(file.originalname) || ['text/plain', 'text/markdown'].includes(file.mimetype)) {
       cb(null, true)
       return

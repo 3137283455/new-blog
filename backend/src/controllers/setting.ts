@@ -83,6 +83,11 @@ function normalizeSetting(key: string, value: unknown) {
     const parsed = Number(value || new Date().getFullYear())
     return Math.max(2000, Math.min(2100, Number.isFinite(parsed) ? Math.trunc(parsed) : new Date().getFullYear()))
   }
+  if (key === 'memory_warn_mb' || key === 'memory_critical_mb') {
+    const parsed = Number(value)
+    const fallback = key === 'memory_warn_mb' ? 512 : 768
+    return Math.max(128, Math.min(32768, Number.isFinite(parsed) ? Math.trunc(parsed) : fallback))
+  }
   if (['enable_comments', 'comment_moderation', 'allow_search_indexing', 'enable_rss', 'enable_json_feed', 'show_visitor_stats'].includes(key)) {
     return Boolean(value)
   }

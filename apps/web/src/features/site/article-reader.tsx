@@ -5,6 +5,12 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 const articleHref = (value: string) => `/article/${encodeURIComponent(value)}`;
 const formatDate = (value?: string) =>
   value ? new Date(value).toLocaleDateString('zh-CN') : '未标注日期';
+const relationLabels: Record<string, string> = {
+  related: '相关内容',
+  review: '观后感',
+  adaptation: '改编作品',
+  soundtrack: '背景音乐',
+};
 
 type Heading = { id: string; text: string; level: number };
 type ReadingPreferences = {
@@ -162,7 +168,7 @@ export function ArticleReader({ article }: { article: any }) {
             <article className="markdown-body prose prose-lg max-w-none article-restored-body" dangerouslySetInnerHTML={{ __html: html }} />
           </article>
 
-          {(article.previous || article.next || article.related?.length) && (
+          {(article.previous || article.next || article.related?.length || article.custom_relations?.length) && (
             <section className="article-discovery" aria-label="继续阅读">
               {(article.previous || article.next) && (
                 <div className="article-neighbors">
@@ -174,6 +180,12 @@ export function ArticleReader({ article }: { article: any }) {
                 <div className="article-related">
                   <header><div><p>KEEP READING</p><h2>相关推荐</h2></div><span>{article.related.length} 篇</span></header>
                   <div>{article.related.map((post: any, index: number) => <a href={articleHref(post.slug)} key={post.id}><small>{String(index + 1).padStart(2, '0')}</small><strong>{post.title}</strong><span>{post.category_name || '文章'} · {post.view_count || 0} 阅读</span></a>)}</div>
+                </div>
+              ) : null}
+              {article.custom_relations?.length ? (
+                <div className="article-related article-related-content">
+                  <header><div><p>CONNECTED CONTENT</p><h2>关联内容</h2></div><span>{article.custom_relations.length} 项</span></header>
+                  <div>{article.custom_relations.map((item: any) => <a href={item.href} key={`relation-${item.id}`}><small>{relationLabels[item.relation_type] || item.kind_label || '关联'}</small><strong>{item.title}</strong><span>{item.subtitle || item.meta || item.note || item.kind_label}</span></a>)}</div>
                 </div>
               ) : null}
             </section>

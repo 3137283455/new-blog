@@ -2,6 +2,7 @@ import { Response } from 'express'
 import db from '../config/database'
 import { AuthRequest } from '../middleware/auth'
 import { error, success } from '../utils/response'
+import { ensureSearchIndex } from '../services/search-index'
 
 type HubResult = {
   id: string
@@ -26,7 +27,7 @@ function encodePath(value: unknown) {
   return encodeURIComponent(String(value ?? ''))
 }
 
-export function searchAll(req: AuthRequest, res: Response) {
+function searchAllLegacy(req: AuthRequest, res: Response) {
   const query = cleanQuery(req.query.q)
   if (!query) return success(res, { query: '', results: [], groups: {}, total: 0 })
   const like = `%${escapeLike(query)}%`
@@ -188,6 +189,69 @@ export function searchAll(req: AuthRequest, res: Response) {
     return output
   }, {})
   return success(res, { query, results, groups, total: results.length })
+}
+
+const SEARCH_KIND_LABELS: Record<string, string> = {
+  article: '文章', page: '页面', navigation: '网址', bangumi: '追番', album: '相册',
+  'album-photo': '照片', music: '音乐', book: '书籍', manga: '漫画', series: '专题',
+}
+
+function searchKey(value: unknown) {
+  return String(value ?? '').normalize('NFKC').trim().toLocaleLowerCase().slice(0, 80)
+}
+
+function searchLike(value: string) {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`)
+}
+
+export function searchAll(req: AuthRequest, res: Response) {
+  ensureSearchIndex()
+  const query = searchKey(req.query.q)
+  if (!query) return success(res, { query: '', results: [], groups: {}, total: 0, index: { ready: true } })
+  const kind = String(req.query.kind || '').trim()
+  const allowedKinds = new Set(Object.keys(SEARCH_KIND_LABELS))
+  const filterKind = allowedKinds.has(kind) ? kind : ''
+  const limit = Math.max(1, Math.min(40, Number(req.query.limit) || 24))
+  const page = Math.max(1, Math.min(1000, Number(req.query.page) || 1))
+  const offset = (page - 1) * limit
+  const needle = `%${searchLike(query)}%`
+  const prefix = `${searchLike(query)}%`
+  const whereKind = filterKind ? ' AND kind = ?' : ''
+  const count = db.prepare(`
+    SELECT COUNT(*) AS total FROM search_documents
+    WHERE is_public = 1 AND (title_key LIKE ? ESCAPE '\\' OR searchable LIKE ? ESCAPE '\\')${whereKind}
+  `).get(...(filterKind ? [needle, needle, filterKind] : [needle, needle])) as any
+  const rows = db.prepare(`
+    SELECT id, kind, source_id, title, subtitle, href, image, meta
+    FROM search_documents
+    WHERE is_public = 1 AND (title_key LIKE ? ESCAPE '\\' OR searchable LIKE ? ESCAPE '\\')${whereKind}
+    ORDER BY
+      CASE WHEN title_key = ? THEN 0
+           WHEN title_key LIKE ? ESCAPE '\\' THEN 1
+           WHEN searchable LIKE ? ESCAPE '\\' THEN 2
+           ELSE 3 END,
+      CASE kind WHEN 'article' THEN 0 WHEN 'book' THEN 1 WHEN 'manga' THEN 2 WHEN 'bangumi' THEN 3 WHEN 'album' THEN 4 ELSE 5 END,
+      CASE WHEN updated_at = '' THEN 1 ELSE 0 END,
+      updated_at DESC, id DESC
+    LIMIT ? OFFSET ?
+  `).all(...(filterKind
+    ? [needle, needle, filterKind, query, prefix, needle, limit, offset]
+    : [needle, needle, query, prefix, needle, limit, offset])) as any[]
+  const results = rows.map((item) => ({
+    id: `${item.kind}-${item.source_id}`,
+    kind: item.kind,
+    kind_label: SEARCH_KIND_LABELS[item.kind] || item.kind,
+    title: item.title,
+    subtitle: item.subtitle || '',
+    href: item.href,
+    image: item.image || '',
+    meta: item.meta || '',
+  }))
+  const groups = results.reduce<Record<string, typeof results>>((output, item) => {
+    ;(output[item.kind] ||= []).push(item)
+    return output
+  }, {})
+  return success(res, { query: String(req.query.q || '').trim().slice(0, 80), kind: filterKind, results, groups, total: Number(count?.total || 0), page, limit })
 }
 
 export function memories(req: AuthRequest, res: Response) {

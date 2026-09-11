@@ -100,20 +100,26 @@ export function ContentCenterPanel() {
             <form id="content-relation-form" className="mt-4 grid grid-cols-[7rem_1fr] gap-2">
               <select className="select select-bordered rounded-xl" name="source_type">
                 <option value="article">文章</option>
+                <option value="page">页面</option>
                 <option value="book">书籍</option>
                 <option value="manga">漫画</option>
                 <option value="bangumi">番剧</option>
                 <option value="album">相册</option>
+                <option value="music">音乐</option>
+                <option value="series">专题</option>
               </select>
               <select className="select select-bordered rounded-xl" name="source_id" required>
                 <option value="">选择来源内容</option>
               </select>
               <select className="select select-bordered rounded-xl" name="target_type">
                 <option value="article">文章</option>
+                <option value="page">页面</option>
                 <option value="book">书籍</option>
                 <option value="manga">漫画</option>
                 <option value="bangumi">番剧</option>
                 <option value="album">相册</option>
+                <option value="music">音乐</option>
+                <option value="series">专题</option>
               </select>
               <select className="select select-bordered rounded-xl" name="target_id" required>
                 <option value="">选择目标内容</option>

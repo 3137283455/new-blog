@@ -7,6 +7,7 @@ import { config } from '../config'
 import { AuthRequest } from '../middleware/auth'
 import { DeviceRequest } from '../middleware/device'
 import { success, error } from '../utils/response'
+import { publicRelations } from '../services/content-relations'
 
 const imagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp)$/i
 const pagePattern = /\.(?:jpe?g|png|webp|gif|avif|bmp|pdf)$/i
@@ -37,7 +38,7 @@ function attach(row: any, full=false) { if (!row) return row; row.read_sources =
 function listSelect(where = '') { return `SELECT m.*, (SELECT COUNT(*) FROM manga_volumes v WHERE v.manga_id=m.id) volume_count, (SELECT COUNT(*) FROM manga_chapters c JOIN manga_volumes v ON v.id=c.volume_id WHERE v.manga_id=m.id) chapter_count FROM manga_items m ${where}` }
 
 export function publicList(req: AuthRequest, res: Response) { const type=clean(req.query.type,20); const clause=type==='local'||type==='network'?'WHERE is_active=1 AND library_type=? ORDER BY sort_order,id DESC':'WHERE is_active=1 ORDER BY library_type,sort_order,id DESC'; const rows=(type==='local'||type==='network'?db.prepare(listSelect(clause)).all(type):db.prepare(listSelect(clause)).all()) as any[]; return success(res, rows.map((row)=>attach(row))) }
-export function publicDetail(req: AuthRequest, res: Response) { const row = db.prepare(listSelect('WHERE slug=? AND is_active=1')).get(clean(req.params.slug, 180)); return row ? success(res, attach(row,true)) : error(res, '漫画不存在', 'NOT_FOUND', 404) }
+export function publicDetail(req: AuthRequest, res: Response) { const row: any = db.prepare(listSelect('WHERE slug=? AND is_active=1')).get(clean(req.params.slug, 180)); return row ? success(res, { ...attach(row,true), custom_relations: publicRelations('manga', row.id) }) : error(res, '漫画不存在', 'NOT_FOUND', 404) }
 export function publicChapter(req: AuthRequest, res: Response) {
   const manga=db.prepare("SELECT * FROM manga_items WHERE slug=? AND library_type='local' AND is_active=1").get(clean(req.params.slug,180)) as any
   if(!manga) return error(res,'本地漫画不存在','NOT_FOUND',404)

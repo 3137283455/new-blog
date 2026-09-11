@@ -1,4 +1,51 @@
 export function register(context) {
+  context.loadLogs = async function loadLogs() {
+    const level = context.$('#logs-level-filter')?.value || '';
+    const source = context.$('#logs-source-filter')?.value || '';
+    const query = context.$('#logs-query-filter')?.value || '';
+    try {
+      const params = new URLSearchParams({ limit: '80' });
+      if (level) params.set('level', level);
+      if (source) params.set('source', source);
+      if (query) params.set('q', query);
+      const [logJson, statJson] = await Promise.all([
+        context.request(`/admin/logs?${params.toString()}`),
+        context.request('/admin/logs/stats'),
+      ]);
+      context.renderLogs(logJson.data || { items: [], sources: [] }, statJson.data || {});
+    } catch (error) {
+      if (context.scope.disposed) return;
+      const list = context.$('#admin-log-list');
+      if (list) list.innerHTML = `<p class="text-sm text-error">${context.escapeHtml(error.message || '日志读取失败')}</p>`;
+    }
+  };
+  context.renderLogs = function renderLogs(data, stats) {
+    const errors = context.$('#logs-errors-count');
+    const warnings = context.$('#logs-warnings-count');
+    const latest = context.$('#logs-latest-at');
+    if (errors) errors.textContent = String(stats.errors_24h ?? 0);
+    if (warnings) warnings.textContent = String(stats.warnings_24h ?? 0);
+    if (latest) latest.textContent = stats.latest_at ? new Date(stats.latest_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '暂无';
+    const sourceSelect = context.$('#logs-source-filter');
+    if (sourceSelect) {
+      const selected = sourceSelect.value;
+      sourceSelect.innerHTML = `<option value="">全部来源</option>${(data.sources || []).map((source) => `<option value="${context.escapeHtml(source)}">${context.escapeHtml(source)}</option>`).join('')}`;
+      sourceSelect.value = selected;
+    }
+    const list = context.$('#admin-log-list');
+    if (!list) return;
+    const label = { error: '错误', warn: '告警', info: '信息' };
+    list.innerHTML = (data.items || []).map((item) => {
+      const detail = JSON.stringify({ context: item.context || {}, stack: item.stack || '' }, null, 2);
+      return `<article class="admin-log-entry ${item.level === 'error' ? 'is-error' : ''}"><header><div><span class="admin-log-level ${context.escapeHtml(item.level)}">${label[item.level] || item.level}</span><strong>${context.escapeHtml(item.source || 'backend')}</strong><time>${context.escapeHtml(new Date(item.timestamp).toLocaleString('zh-CN'))}</time></div><small>${context.escapeHtml(item.id || '')}</small></header><p>${context.escapeHtml(item.message || item.error || '')}</p>${item.stack || item.context ? `<details><summary>查看详情</summary><pre>${context.escapeHtml(detail)}</pre></details>` : ''}</article>`;
+    }).join('') || '<p class="text-sm text-base-content/45">暂无符合条件的日志。</p>';
+  };
+  context.renderMemorySettings = function renderMemorySettings() {
+    const warn = context.$('#memory-warn-mb');
+    const critical = context.$('#memory-critical-mb');
+    if (warn) warn.value = Number(context.state.settings.memory_warn_mb || 512);
+    if (critical) critical.value = Number(context.state.settings.memory_critical_mb || 768);
+  };
   context.loadSettings = async function loadSettings() {
     const json = await context.request('/admin/settings');
     const rows = json.data || [];
@@ -27,7 +74,9 @@ export function register(context) {
     context.renderMusicPlaylists();
     context.renderFontLibrary();
     context.renderSettings();
+    context.renderMemorySettings();
     context.renderProfile();
+    await context.loadLogs();
   };
   context.loadThemes = async function loadThemes() {
     const json = await context.request('/admin/themes');
@@ -508,6 +557,25 @@ export function register(context) {
       if (context.scope.disposed) return;
       context.$('#settings-message').textContent = error.message || '站点设置保存失败';
       context.notify(error.message || '站点设置保存失败', true);
+    }
+  };
+  context.saveMemorySettings = async function saveMemorySettings(event) {
+    event.preventDefault();
+    const message = context.$('#memory-settings-message');
+    const warnInput = Number(context.$('#memory-warn-mb')?.value || 512);
+    const criticalInput = Number(context.$('#memory-critical-mb')?.value || 768);
+    const warn = Number.isFinite(warnInput) ? Math.min(32768, Math.max(128, Math.trunc(warnInput))) : 512;
+    const critical = Number.isFinite(criticalInput) ? Math.min(32768, Math.max(warn + 1, Math.trunc(criticalInput))) : Math.max(warn + 1, 768);
+    try {
+      await context.request('/admin/settings', {
+        method: 'PUT',
+        body: JSON.stringify({ settings: { memory_warn_mb: warn, memory_critical_mb: critical } }),
+      });
+      context.state.settings.memory_warn_mb = warn;
+      context.state.settings.memory_critical_mb = critical;
+      if (message) message.textContent = `内存告警阈值已保存：${warn} / ${critical} MB`;
+    } catch (error) {
+      if (message) message.textContent = error.message || '阈值保存失败';
     }
   };
   context.parseSetting = function parseSetting(row) {

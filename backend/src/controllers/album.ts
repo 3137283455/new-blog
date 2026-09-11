@@ -10,6 +10,7 @@ import fs from 'fs'
 import * as exifr from 'exifr'
 import sharp from 'sharp'
 import { storageStats } from './storage'
+import { publicRelations } from '../services/content-relations'
 
 const albumSelect = `
   SELECT a.id, a.title, a.description,
@@ -79,7 +80,8 @@ export function publicList(_req: AuthRequest, res: Response) {
 export function publicDetail(req: AuthRequest, res: Response) {
   const album = db.prepare(`${albumSelect} WHERE a.id = ? AND a.is_active = 1`).get(Number(req.params.id)) as any
   if (!album) return error(res, '相册不存在', 'NOT_FOUND', 404)
-  return success(res, attachPhotos([album])[0])
+  const result = attachPhotos([album])[0]
+  return success(res, { ...result, custom_relations: publicRelations('album', album.id) })
 }
 
 export function list(_req: AuthRequest, res: Response) {

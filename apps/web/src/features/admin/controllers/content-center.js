@@ -245,10 +245,13 @@ export function mount(scope) {
       try {
         const paths = {
             article: '/admin/articles?pageSize=200',
+            page: '/admin/pages?pageSize=200',
             book: '/admin/books',
             manga: '/admin/manga',
             bangumi: '/admin/bangumi',
             album: '/admin/albums',
+            music: '/admin/music',
+            series: '/admin/series',
           },
           pairs = await Promise.all(
             Object.entries(paths).map(async ([type, path]) => [type, await api(path)]),
@@ -293,13 +296,9 @@ export function mount(scope) {
             .map(
               (x) =>
                 '<article class="flex items-center justify-between gap-3 rounded-xl bg-base-200/55 p-3"><span><b>' +
-                escape(x.source_type) +
-                ' #' +
-                x.source_id +
+                escape(x.source_title || x.source_type + ' #' + x.source_id) +
                 '</b> → <b>' +
-                escape(x.target_type) +
-                ' #' +
-                x.target_id +
+                escape(x.target_title || x.target_type + ' #' + x.target_id) +
                 '</b><small class="block text-base-content/45">' +
                 escape(x.relation_type + (x.note ? ' · ' + x.note : '')) +
                 '</small></span><button class="btn btn-ghost btn-xs text-error" data-relation-delete="' +

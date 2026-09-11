@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler'
 import { logger } from './utils/logger'
 import routes from './routes'
 import visitorLogger from './middleware/visitor'
+import crypto from 'node:crypto'
 
 const app = express()
 
@@ -34,6 +35,15 @@ app.use(
 app.use(cookieParser())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true }))
+
+app.use((req, res, next) => {
+  const requestId = crypto.randomUUID()
+  const started = performance.now()
+  ;(req as express.Request & { requestId?: string }).requestId = requestId
+  res.setHeader('X-Request-Id', requestId)
+  res.on('finish', () => logger.request({ method: req.method, path: req.originalUrl, requestId }, res.statusCode, performance.now() - started))
+  next()
+})
 
 app.use(visitorLogger)
 

@@ -293,9 +293,48 @@ export function ArchivePage({ articles, category = '', settings = {} }: { articl
 }
 
 export function SearchPage({ settings = {} }: { settings?: PublicPageSettings }) {
-  const [query, setQuery] = useState(''); const [results, setResults] = useState<any[]>([]); const [status, setStatus] = useState('输入关键词开始搜索');
-  const search = async (value: string) => { setQuery(value); if (!value.trim()) { setResults([]); setStatus('输入关键词开始搜索'); return; } setStatus(`正在搜索“${value}”…`); try { const response = await fetch(`/api/search/all?q=${encodeURIComponent(value)}&limit=24`); const json = await response.json(); setResults(json.data?.results || []); setStatus(`找到 ${json.data?.total || 0} 条内容`); } catch { setStatus('搜索失败，请稍后重试'); } };
-  return <BannerPage title="搜索" subtitle="搜索站内文章" settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} />}><div className="ryu-card search-workbench p-5"><header className="search-workbench-head"><div><p>DISCOVER</p><h2>找到想读的内容</h2></div><a href="/archive">浏览归档 ↗</a></header><label className="input input-bordered search-main-input flex items-center gap-2 rounded-2xl"><span aria-hidden="true">⌕</span><input autoFocus value={query} onChange={(event) => void search(event.target.value)} type="search" placeholder="输入关键词，搜索标题、正文、标签、分类..." autoComplete="off" /><kbd>/</kbd></label><div className="search-tools"><span>{status}</span></div><div className="mt-4 flex flex-col gap-3" aria-live="polite">{results.map((item) => <a className="ryu-card search-result search-result-wide block p-4 hover:text-primary" key={item.id} href={item.href}><div className="search-meta flex flex-wrap items-center gap-2 text-xs text-base-content/50"><span className="search-chip">{item.kind_label || '内容'}</span><span>{item.meta || ''}</span></div><h2 className="mt-2 text-xl font-black">{item.title}</h2><p className="mt-2 text-sm text-base-content/60">{item.subtitle || item.excerpt || ''}</p></a>)}</div></div></PublicPageLayout></BannerPage>;
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState('输入关键词开始搜索');
+  const [loading, setLoading] = useState(false);
+  const requestRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const kinds = [['', '全部内容'], ['article', '文章'], ['book', '书籍'], ['manga', '漫画'], ['bangumi', '追番'], ['album', '相册'], ['album-photo', '照片'], ['music', '音乐'], ['series', '专题']] as const;
+  const search = async (value: string, nextPage = 1, nextKind = kind) => {
+    if (!value.trim()) { setResults([]); setTotal(0); setPage(1); setStatus('输入关键词开始搜索'); return; }
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setLoading(true);
+    setStatus(`正在搜索“${value}”…`);
+    try {
+      const params = new URLSearchParams({ q: value, limit: '24', page: String(nextPage) });
+      if (nextKind) params.set('kind', nextKind);
+      const response = await fetch(`/api/search/all?${params.toString()}`, { signal: controller.signal, cache: 'no-store' });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.message || '搜索失败');
+      const data = json.data || {};
+      const nextResults = data.results || [];
+      setResults((current) => nextPage === 1 ? nextResults : [...current, ...nextResults]);
+      setTotal(Number(data.total || 0));
+      setPage(nextPage);
+      setStatus(`找到 ${Number(data.total || 0)} 条内容`);
+    } catch (error) {
+      if ((error as Error).name !== 'AbortError') setStatus('搜索失败，请稍后重试');
+    } finally {
+      if (!controller.signal.aborted) setLoading(false);
+    }
+  };
+  const scheduleSearch = (value: string, nextKind = kind) => {
+    setQuery(value);
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => void search(value, 1, nextKind), 180);
+  };
+  useEffect(() => () => { requestRef.current?.abort(); if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
+  return <BannerPage title="搜索" subtitle="搜索站内文章、书籍、漫画与相册" settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} />}><div className="ryu-card search-workbench p-5"><header className="search-workbench-head"><div><p>DISCOVER</p><h2>找到想读的内容</h2></div><a href="/archive">浏览归档 ↗</a></header><label className="input input-bordered search-main-input flex items-center gap-2 rounded-2xl"><span aria-hidden="true">⌕</span><input autoFocus value={query} onChange={(event) => scheduleSearch(event.target.value)} type="search" placeholder="输入关键词，搜索标题、正文、标签、分类..." autoComplete="off" /><kbd>/</kbd></label><div className="search-tools"><div className="search-kind-filters" role="tablist" aria-label="搜索类型">{kinds.map(([value, label]) => <button key={value || 'all'} type="button" className={kind === value ? 'is-active' : ''} onClick={() => { setKind(value); void search(query, 1, value); }}>{label}</button>)}</div><span>{loading ? '搜索中…' : status}</span></div><div className="mt-4 flex flex-col gap-3" aria-live="polite">{results.map((item) => <a className="ryu-card search-result search-result-wide block p-4 hover:text-primary" key={item.id} href={item.href}><div className="search-meta flex flex-wrap items-center gap-2 text-xs text-base-content/50"><span className="search-chip">{item.kind_label || '内容'}</span><span>{item.meta || ''}</span></div><h2 className="mt-2 text-xl font-black">{item.title}</h2><p className="mt-2 text-sm text-base-content/60">{item.subtitle || item.excerpt || ''}</p></a>)}{query.trim() && !loading && !results.length && <div className="search-empty-state"><strong>没有找到匹配内容</strong><span>换个关键词或筛选类型再试。</span></div>}</div>{results.length < total && <button className="ryu-btn search-load-more" type="button" disabled={loading} onClick={() => void search(query, page + 1, kind)}>{loading ? '正在加载…' : `继续加载（还剩 ${total - results.length} 条）`}</button>}</div></PublicPageLayout></BannerPage>;
 }
 
 export function NavigationPage({ links }: { links: any[] }) {
@@ -338,6 +377,19 @@ async function albumRequest(url: string, init: RequestInit = {}) {
   const json = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(json.message || json.error || '请求失败');
   return json.data;
+}
+
+function RelatedContentShelf({ items = [] }: { items?: any[] }) {
+  if (!items.length) return null;
+  const labels: Record<string, string> = { related: '相关内容', review: '观后感', adaptation: '改编作品', soundtrack: '背景音乐' };
+  return <section className="related-content-shelf" aria-label="关联内容">
+    <header><div><p>CONNECTED CONTENT</p><h2>关联内容</h2></div><span>{items.length} 项</span></header>
+    <div>{items.map((item) => <a href={item.href} key={`related-${item.id}`}>
+      <span className="related-content-cover">{item.image ? <img src={media(item.image)} alt="" loading="lazy" /> : <b>{item.kind_label?.slice(0, 1) || '·'}</b>}</span>
+      <span><small>{labels[item.relation_type] || item.kind_label || '关联内容'}</small><strong>{item.title}</strong><em>{item.subtitle || item.meta || item.note || ''}</em></span>
+      <b className="related-content-arrow">↗</b>
+    </a>)}</div>
+  </section>;
 }
 
 function AlbumUploadPanel({
@@ -501,7 +553,7 @@ export function AlbumDetailPage({ album, group = 'year', settings = {} }: { albu
   const groups = photos.reduce((all: Record<string, any[]>, photo: any) => { const value = photo.captured_at || liveAlbum.event_date || photo.created_at || ''; const key = group === 'location' ? (photo.photo_location || liveAlbum.location || '未标地点') : (value ? String(new Date(value).getFullYear()) : '未标日期'); (all[key] ||= []).push(photo); return all; }, {});
   useEffect(() => { if (globalThis.location.hash) document.getElementById(globalThis.location.hash.slice(1))?.scrollIntoView({ block: 'center' }); }, [photos.length]);
   const refreshAlbum = async () => { try { setLiveAlbum(await albumRequest(`/api/albums/${liveAlbum.id}`)); } catch { /* public refresh is best effort */ } };
-  return <BannerPage title={liveAlbum.title} subtitle={liveAlbum.description || '照片集'} settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '照片', value: photos.length }, { label: '地点', value: liveAlbum.location || '未标注' }, { label: '日期', value: date(liveAlbum.album_time || liveAlbum.latest_photo_at || liveAlbum.event_date || liveAlbum.created_at) }]} sidebarSections={[{ title: '相册信息', marker: '▧', tone: 'primary', items: [{ label: liveAlbum.location || '未标注地点' }, { label: date(liveAlbum.album_time || liveAlbum.latest_photo_at || liveAlbum.event_date || liveAlbum.created_at) }, { label: `${photos.length} 张照片` }] }]} />}><><AlbumUploadPanel albums={[liveAlbum]} albumId={liveAlbum.id} onUploaded={refreshAlbum} /><section className="feature-toolbar ryu-card"><div><p className="feature-kicker">PHOTO WALL</p><h1>{liveAlbum.icon || ''} {liveAlbum.title}</h1><p>{liveAlbum.description || '照片集'}</p></div><div className="album-view-actions"><a className="ryu-btn" href={`/albums/${liveAlbum.id}?group=year`}>按年份</a><a className="ryu-btn" href={`/albums/${liveAlbum.id}?group=location`}>按地点</a><a className="ryu-btn" href="/albums">返回相册</a></div></section><div className={`album-timeline${liveAlbum.story_mode ? ' is-story-mode' : ''}`}>{(Object.entries(groups) as Array<[string, any[]]>).map(([key, items]) => <section className="album-year-group" key={key}><header><span>{key}</span><p>{items.length} 张照片</p></header><div className="photo-wall">{items.map((photo: any, index: number) => <a id={`photo-${photo.id}`} className={`photo-wall-item variant-${photo.variant || '1x1'}`} key={photo.id} href={media(photo.image)} target="_blank" rel="noopener noreferrer" style={{ '--rotate': `${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg` } as React.CSSProperties}><img src={media(photo.preview_image || photo.image)} alt={photo.title || liveAlbum.title} loading="lazy" /><span><strong>{photo.title || photo.display_name || '无题照片'}</strong><small>{photo.story_text || photo.description || '这一刻没有留下文字。'}</small></span></a>)}</div></section>)}</div></></PublicPageLayout></BannerPage>;
+  return <BannerPage title={liveAlbum.title} subtitle={liveAlbum.description || '照片集'} settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '照片', value: photos.length }, { label: '地点', value: liveAlbum.location || '未标注' }, { label: '日期', value: date(liveAlbum.album_time || liveAlbum.latest_photo_at || liveAlbum.event_date || liveAlbum.created_at) }]} sidebarSections={[{ title: '相册信息', marker: '▧', tone: 'primary', items: [{ label: liveAlbum.location || '未标注地点' }, { label: date(liveAlbum.album_time || liveAlbum.latest_photo_at || liveAlbum.event_date || liveAlbum.created_at) }, { label: `${photos.length} 张照片` }] }]} />}><><AlbumUploadPanel albums={[liveAlbum]} albumId={liveAlbum.id} onUploaded={refreshAlbum} /><section className="feature-toolbar ryu-card"><div><p className="feature-kicker">PHOTO WALL</p><h1>{liveAlbum.icon || ''} {liveAlbum.title}</h1><p>{liveAlbum.description || '照片集'}</p></div><div className="album-view-actions"><a className="ryu-btn" href={`/albums/${liveAlbum.id}?group=year`}>按年份</a><a className="ryu-btn" href={`/albums/${liveAlbum.id}?group=location`}>按地点</a><a className="ryu-btn" href="/albums">返回相册</a></div></section><div className={`album-timeline${liveAlbum.story_mode ? ' is-story-mode' : ''}`}>{(Object.entries(groups) as Array<[string, any[]]>).map(([key, items]) => <section className="album-year-group" key={key}><header><span>{key}</span><p>{items.length} 张照片</p></header><div className="photo-wall">{items.map((photo: any, index: number) => <a id={`photo-${photo.id}`} className={`photo-wall-item variant-${photo.variant || '1x1'}`} key={photo.id} href={media(photo.image)} target="_blank" rel="noopener noreferrer" style={{ '--rotate': `${[-2, 1.5, -1, 2.5, -1.5][index % 5]}deg` } as React.CSSProperties}><img src={media(photo.preview_image || photo.image)} alt={photo.title || liveAlbum.title} loading="lazy" /><span><strong>{photo.title || photo.display_name || '无题照片'}</strong><small>{photo.story_text || photo.description || '这一刻没有留下文字。'}</small></span></a>)}</div></section>)}</div><RelatedContentShelf items={liveAlbum.custom_relations} /></></PublicPageLayout></BannerPage>;
 }
 
 const bangumiStatusLabels: Record<string, string> = {

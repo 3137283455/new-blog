@@ -325,6 +325,14 @@ export function mount(scope) {
       if (message) message.textContent = error.message || '保存失败';
     }
   });
+  context.scope.listen(context.$('#memory-settings-form'), 'submit', context.saveMemorySettings);
+  context.scope.listen(context.$('#logs-refresh'), 'click', context.loadLogs);
+  context.scope.listen(context.$('#logs-level-filter'), 'change', context.loadLogs);
+  context.scope.listen(context.$('#logs-source-filter'), 'change', context.loadLogs);
+  context.scope.listen(context.$('#logs-query-filter'), 'input', () => {
+    window.clearTimeout(context.logsTimer);
+    context.logsTimer = context.scope.timeout(context.loadLogs, 220);
+  });
   context.scope.listen(context.$('#admin-sidebar-toggle'), 'click', (event) => {
     const collapsed = context.root?.classList.toggle('is-sidebar-collapsed') || false;
     event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
