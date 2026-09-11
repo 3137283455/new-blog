@@ -27,8 +27,8 @@ export function stats(_req: AuthRequest, res: Response) {
   const anomalies: { type: string; message: string; level: string }[] = []
   const rssMB = Math.round(memUsage.rss / 1024 / 1024)
   const storage = storageStats()
-  if (rssMB > 200) anomalies.push({ type: 'memory', message: `内存占用过高：${rssMB}MB`, level: 'warning' })
-  if (rssMB > 300) anomalies.push({ type: 'memory', message: `内存严重不足：${rssMB}MB`, level: 'danger' })
+  if (rssMB > 768) anomalies.push({ type: 'memory', message: `内存占用较高：${rssMB}MB`, level: 'danger' })
+  else if (rssMB > 512) anomalies.push({ type: 'memory', message: `内存占用偏高：${rssMB}MB`, level: 'warning' })
   if (pendingComments > 10) anomalies.push({ type: 'comments', message: `${pendingComments} 条评论待审核`, level: 'info' })
   if (totalAll === 0) anomalies.push({ type: 'content', message: '还没有任何文章', level: 'info' })
   if (trashedMedia > 20) anomalies.push({ type: 'media', message: `媒体回收站有 ${trashedMedia} 个文件，可定期确认后永久删除`, level: 'info' })

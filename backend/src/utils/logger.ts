@@ -42,7 +42,7 @@ export const logger = {
     const used = process.memoryUsage()
     const rssMB = Math.round((used.rss / 1024 / 1024) * 100) / 100
     const heapMB = Math.round((used.heapUsed / 1024 / 1024) * 100) / 100
-    if (rssMB > 250) {
+    if (rssMB > 512) {
       this.warn(`内存占用过高: RSS=${rssMB}MB, Heap=${heapMB}MB`)
     }
     return { rss: rssMB, heap: heapMB }

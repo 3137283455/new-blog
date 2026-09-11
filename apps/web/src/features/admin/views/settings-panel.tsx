@@ -16,6 +16,35 @@ export function SettingsPanel() {
       <div className="admin-settings-dashboard">
         <div className="admin-settings-main">
           <form
+            id="storage-settings-form"
+            className="admin-settings-section"
+            data-settings-search="存储 空间 配额 容量 告警 阈值"
+          >
+            <header>
+              <div>
+                <h3>存储空间</h3>
+                <p>设置全站文件配额与容量告警阈值。</p>
+              </div>
+            </header>
+            <label className="admin-setting-row">
+              <span><b>存储配额</b><small>达到配额后停止接受新的文件上传。</small></span>
+              <div className="admin-setting-unit"><input id="storage-quota-gb" className="input input-bordered" type="number" min="1" max="1024" step="0.1" /><span>GB</span></div>
+            </label>
+            <label className="admin-setting-row">
+              <span><b>普通告警</b><small>达到此比例时在概览中提醒。</small></span>
+              <div className="admin-setting-unit"><input id="storage-warn-percent" className="input input-bordered" type="number" min="1" max="98" /><span>%</span></div>
+            </label>
+            <label className="admin-setting-row">
+              <span><b>严重告警</b><small>必须高于普通告警阈值。</small></span>
+              <div className="admin-setting-unit"><input id="storage-critical-percent" className="input input-bordered" type="number" min="2" max="100" /><span>%</span></div>
+            </label>
+            <footer className="admin-settings-actions">
+              <p id="storage-settings-message" className="min-h-6 text-sm"></p>
+              <button className="ryu-btn-primary" type="submit">保存存储设置</button>
+            </footer>
+          </form>
+
+          <form
             id="account-form"
             className="admin-settings-section"
             data-settings-search="账号 登录 昵称 头像 密码"

@@ -278,7 +278,7 @@ export function HomePage({
 
         <section id="latest" className="home-latest">
           <header className="section-heading"><div><span className="section-number">02</span><div><p>Latest notes</p><h2>最近更新</h2></div></div><a href="/archive">查看全部 <span>↗</span></a></header>
-          <div className="home-post-grid">{regular.map((post, index) => <article key={post.id} className={`home-post${index === 0 ? ' is-wide' : ''}`}><a href={`/article/${href(post.slug)}`} className="home-post-cover"><img src={post.cover_image || `/image${((index + 1) % 3) + 1}.webp`} alt="" loading="lazy" decoding="async" /><span>{String(index + 1).padStart(2, '0')}</span></a><div className="home-post-body"><p className="article-kicker"><span>{post.category_name || '随笔'}</span><time>{date(post.published_at || post.created_at)}</time></p><h3><a href={`/article/${href(post.slug)}`}>{post.title}</a></h3>{post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}<div className="article-footer"><span>{readingTime(`${post.title}${post.excerpt || ''}`)} 分钟</span><span>{post.view_count || 0} 浏览 · {post.comment_count || 0} 评论</span></div></div></article>)}</div>
+          <div className="home-post-grid">{regular.map((post, index) => <article key={post.id} className="home-post"><a href={`/article/${href(post.slug)}`} className="home-post-cover"><img src={post.cover_image || `/image${((index + 1) % 3) + 1}.webp`} alt="" loading="lazy" decoding="async" /><span>{String(index + 1).padStart(2, '0')}</span></a><div className="home-post-body"><p className="article-kicker"><span>{post.category_name || '随笔'}</span><time>{date(post.published_at || post.created_at)}</time></p><h3><a href={`/article/${href(post.slug)}`}>{post.title}</a></h3>{post.excerpt && <p className="article-excerpt">{post.excerpt}</p>}<div className="article-footer"><span>{readingTime(`${post.title}${post.excerpt || ''}`)} 分钟</span><span>{post.view_count || 0} 浏览 · {post.comment_count || 0} 评论</span></div></div></article>)}</div>
           {!articles.length && <div className="home-empty"><span>空白页</span><h2>第一篇故事还在路上</h2><p>从一个念头开始，把它写下来。</p><a href="/admin/write">开始写作</a></div>}
         </section>
       </PublicPageLayout>
@@ -358,6 +358,7 @@ function AlbumUploadPanel({
   const [creatingAlbum, setCreatingAlbum] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -373,6 +374,7 @@ function AlbumUploadPanel({
   const addFiles = (files: File[]) => {
     const imageFiles = files.filter((file) => file.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(file.name));
     if (!imageFiles.length) { setMessage('这里只接受图片文件'); return; }
+    setOpen(true);
     setMessage('');
     setPending((current) => [...current, ...imageFiles.map((file) => ({
       id: `${Date.now()}-${Math.random()}`,
@@ -434,15 +436,19 @@ function AlbumUploadPanel({
     finally { setBusy(false); }
   };
 
-  return <section className="album-upload-panel ryu-card" onPaste={(event) => {
+  if (!token) return null;
+
+  return <section className={`album-upload-panel ryu-card${open ? ' is-open' : ''}`} onPaste={(event) => {
     const files = Array.from(event.clipboardData.files || []);
     if (files.length) { event.preventDefault(); addFiles(files); }
   }}>
-    <div className="album-upload-heading"><div><p className="feature-kicker">PRIVATE DEVICE UPLOAD</p><h2>把这一刻放进相册</h2><p>先进入个人与同步登录设备。粘贴的截图会进入待确认队列，不会直接上传。</p></div><span className={token ? 'album-device-state is-ready' : 'album-device-state'}>{token ? '设备已验证' : '仅登录设备可上传'}</span></div>
-    {!albumId && <div className="album-upload-row"><select className="select select-bordered" value={selectedAlbumId} onChange={(event) => setSelectedAlbumId(event.target.value)}><option value="">选择目标相册</option>{albums.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select><input className="input input-bordered" value={newAlbumTitle} onChange={(event) => setNewAlbumTitle(event.target.value)} placeholder="或新建相册" /><button type="button" className="ryu-btn is-primary" onClick={createAlbum} disabled={creatingAlbum}>{creatingAlbum ? '创建中…' : '新建相册'}</button></div>}
-    <div className="album-dropzone" tabIndex={0} onClick={() => inputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles(Array.from(event.dataTransfer.files)); }}><input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif" multiple onChange={(event) => { addFiles(Array.from(event.target.files || [])); event.currentTarget.value = ''; }} /><strong>点击选择 / 拖拽图片 / Ctrl+V 粘贴截图</strong><span>支持 JPG、PNG、GIF、WebP、BMP、HEIC；导入前可以逐张修改信息</span></div>
-    {pending.length > 0 && <div className="album-pending-list">{pending.map((item) => <article className="album-pending-item" key={item.id}><img src={item.preview} alt="待确认图片" /><div className="album-pending-fields"><input className="input input-bordered" value={item.title} onChange={(event) => updatePending(item.id, 'title', event.target.value)} placeholder="图片名" /><input className="input input-bordered" type="datetime-local" value={item.captured_at ? item.captured_at.slice(0, 16) : ''} onChange={(event) => updatePending(item.id, 'captured_at', event.target.value)} /><input className="input input-bordered" value={item.photo_location} onChange={(event) => updatePending(item.id, 'photo_location', event.target.value)} placeholder="地点（可选）" /><textarea className="textarea textarea-bordered" value={item.description} onChange={(event) => updatePending(item.id, 'description', event.target.value)} placeholder="图片说明（可选）" /></div><button type="button" className="ryu-btn is-ghost" onClick={() => removePending(item.id)}>移出</button></article>)}</div>}
-    <div className="album-upload-footer"><span>{message || (token ? '当前设备允许上传和编辑信息，不提供前台删除权限' : '登录设备后才会开放上传')}</span>{pending.length > 0 && <button type="button" className="ryu-btn is-primary" onClick={confirmUpload} disabled={busy || !selectedAlbumId}>{busy ? '导入中…' : `确认导入 ${pending.length} 张`}</button>}</div>
+    <button className="album-upload-toggle" type="button" onClick={() => setOpen((value) => !value)}><span><b>＋ 导入照片</b><small>已验证设备 · 支持粘贴截图</small></span><i>{open ? '收起' : '打开'}</i></button>
+    {open && <div className="album-upload-content">
+      {!albumId && <div className="album-upload-row"><select className="select select-bordered" value={selectedAlbumId} onChange={(event) => setSelectedAlbumId(event.target.value)}><option value="">选择目标相册</option>{albums.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}</select><input className="input input-bordered" value={newAlbumTitle} onChange={(event) => setNewAlbumTitle(event.target.value)} placeholder="或新建相册" /><button type="button" className="ryu-btn is-primary" onClick={createAlbum} disabled={creatingAlbum}>{creatingAlbum ? '创建中…' : '新建相册'}</button></div>}
+      <div className="album-dropzone" tabIndex={0} onClick={() => inputRef.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); addFiles(Array.from(event.dataTransfer.files)); }}><input ref={inputRef} hidden type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif" multiple onChange={(event) => { addFiles(Array.from(event.target.files || [])); event.currentTarget.value = ''; }} /><strong>点击选择 / 拖拽图片 / Ctrl+V 粘贴截图</strong><span>导入前可以逐张修改名称、时间、地点和说明</span></div>
+      {pending.length > 0 && <div className="album-pending-list">{pending.map((item) => <article className="album-pending-item" key={item.id}><img src={item.preview} alt="待确认图片" /><div className="album-pending-fields"><input className="input input-bordered" value={item.title} onChange={(event) => updatePending(item.id, 'title', event.target.value)} placeholder="图片名" /><input className="input input-bordered" type="datetime-local" value={item.captured_at ? item.captured_at.slice(0, 16) : ''} onChange={(event) => updatePending(item.id, 'captured_at', event.target.value)} /><input className="input input-bordered" value={item.photo_location} onChange={(event) => updatePending(item.id, 'photo_location', event.target.value)} placeholder="地点（可选）" /><textarea className="textarea textarea-bordered" value={item.description} onChange={(event) => updatePending(item.id, 'description', event.target.value)} placeholder="图片说明（可选）" /></div><button type="button" className="ryu-btn is-ghost" onClick={() => removePending(item.id)}>移出</button></article>)}</div>}
+      <div className="album-upload-footer"><span>{message || '图片只在点击确认后上传，原图不压缩'}</span>{pending.length > 0 && <button type="button" className="ryu-btn is-primary" onClick={confirmUpload} disabled={busy || !selectedAlbumId}>{busy ? '导入中…' : `确认导入 ${pending.length} 张`}</button>}</div>
+    </div>}
   </section>;
 }
 
@@ -454,7 +460,38 @@ export function AlbumsPage({ albums, settings = {} }: { albums: any[]; settings?
   const locationItems = Array.from(new Set(liveAlbums.map((album) => album.location).filter(Boolean))).slice(0, 12).map((location) => ({ label: location, value: liveAlbums.filter((album) => album.location === location).length }));
   const yearItems = Array.from(new Set(liveAlbums.map((album) => album.album_time || album.latest_photo_at || album.event_date).filter(Boolean).map((value) => new Date(value).getFullYear().toString()))).slice(0, 12).map((year) => ({ label: year, value: liveAlbums.filter((album) => String(new Date(album.album_time || album.latest_photo_at || album.event_date).getFullYear()) === year).length }));
   const refreshAlbum = async () => { try { setLiveAlbums((await albumRequest('/api/albums')) || []); } catch { /* public refresh is best effort */ } };
-  return <BannerPage title="相册" subtitle="记录生活里的画面和回忆" settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '相册', value: liveAlbums.length }, { label: '照片', value: photoCount }, { label: '地点', value: new Set(liveAlbums.map((album) => album.location).filter(Boolean)).size }]} sidebarSections={[{ title: '拍摄地点', marker: '⌕', tone: 'primary', items: locationItems }, { title: '时间归档', marker: '●', tone: 'secondary', items: yearItems }]} />}><><AlbumUploadPanel albums={liveAlbums} onUploaded={refreshAlbum} onAlbumCreated={refreshAlbum} /><section className="feature-toolbar ryu-card"><input value={query} onChange={(event) => setQuery(event.target.value)} className="input input-bordered rounded-xl" type="search" placeholder="搜索相册、描述、地点、日期..." /></section><section className="album-grid">{visible.map((album) => <a key={album.id} className="album-card ryu-card" href={`/albums/${album.id}`}><div className="album-body"><div className="album-title-row"><h2>{album.icon || ''} {album.title}</h2><span>{album.photos?.length || 0} 张</span></div><p>{album.description || '暂无描述'}</p><div className="album-meta"><span>{date(album.album_time || album.latest_photo_at || album.event_date || album.created_at)}</span><span>{album.location || '未标注地点'}</span></div></div><div className="album-polaroid-stage">{(album.photos || []).slice(0, 6).map((photo: any, index: number) => <span key={photo.id || index} className="album-polaroid" style={{ '--i': index, '--rotate': `${[-10, 7, -4, 10, -7, 4][index]}deg`, '--x': `${(index - 2.5) * 2.05}rem`, '--y': `${index % 2 === 0 ? .35 : 1.15}rem` } as React.CSSProperties}><img src={media(photo.preview_image || photo.image)} alt={photo.title || album.title} loading="lazy" /></span>)}</div></a>)}</section></></PublicPageLayout></BannerPage>;
+  return <BannerPage title="相册" subtitle="记录生活里的画面和回忆" settings={settings}>
+    <PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '相册', value: liveAlbums.length }, { label: '照片', value: photoCount }, { label: '地点', value: new Set(liveAlbums.map((album) => album.location).filter(Boolean)).size }]} sidebarSections={[{ title: '拍摄地点', marker: '⌕', tone: 'primary', items: locationItems }, { title: '时间归档', marker: '●', tone: 'secondary', items: yearItems }]} />}>
+      <>
+        <AlbumUploadPanel albums={liveAlbums} onUploaded={refreshAlbum} onAlbumCreated={refreshAlbum} />
+        <section className="album-index-toolbar">
+          <div><p>PHOTO ARCHIVE</p><h1>全部相册</h1><span>{liveAlbums.length} 册 · {photoCount} 张照片</span></div>
+          <label><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} type="search" placeholder="搜索相册、地点或日期" /></label>
+        </section>
+        <section className="album-showcase-grid">
+          {visible.map((album, albumIndex) => {
+            const photos = album.photos || [];
+            const leadImage = album.cover || photos[0]?.preview_image || photos[0]?.image || '';
+            const sidePhotos = photos.slice(album.cover ? 0 : 1, album.cover ? 2 : 3);
+            return <a key={album.id} className="album-showcase-card" href={`/albums/${album.id}`}>
+              <div className={`album-showcase-collage${sidePhotos.length ? ' has-side' : ''}`}>
+                <span className="album-showcase-lead">{leadImage ? <img src={media(leadImage)} alt="" loading="lazy" decoding="async" /> : <b>{album.icon || '相'}</b>}</span>
+                {sidePhotos.map((photo: any) => <span key={photo.id}><img src={media(photo.preview_image || photo.image)} alt="" loading="lazy" decoding="async" /></span>)}
+                <i>{String(albumIndex + 1).padStart(2, '0')}</i>
+              </div>
+              <div className="album-showcase-copy">
+                <p><time>{date(album.album_time || album.latest_photo_at || album.event_date || album.created_at)}</time><span>{photos.length} 张</span></p>
+                <h2>{album.icon && <em>{album.icon}</em>}{album.title}</h2>
+                <div>{album.description || '这一册还没有写下说明。'}</div>
+                <footer><span>{album.location || '未标注地点'}</span><b>打开相册 ↗</b></footer>
+              </div>
+            </a>;
+          })}
+          {!visible.length && <div className="album-index-empty"><strong>{query ? '没有找到匹配的相册' : '还没有相册'}</strong><span>{query ? '换个关键词试试。' : '登录过的设备可以从这里创建第一册。'}</span></div>}
+        </section>
+      </>
+    </PublicPageLayout>
+  </BannerPage>;
 }
 
 export function AlbumDetailPage({ album, group = 'year', settings = {} }: { album: any; group?: string; settings?: PublicPageSettings }) {
