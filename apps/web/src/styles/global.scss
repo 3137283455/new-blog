@@ -6387,6 +6387,15 @@ select {
   .admin-topbar.is-searching .admin-global-search { width: min(72vw, 24rem); }
   .admin-global-search kbd { display: none; }
 }
+
+/* Keep the desktop admin chrome flush at the sidebar/topbar seam. Theme-specific
+   chrome rules have higher specificity than the base layout reset above. */
+@media (min-width: 1024px) {
+  body.admin-body .admin-sidebar,
+  body.admin-body .admin-topbar {
+    border-radius: 0;
+  }
+}
 /* Media library workspace ------------------------------------------------- */
 .admin-media-panel { min-width: 0; }
 .admin-media-manager { overflow: hidden; border: 1px solid #dfe4eb; border-radius: .7rem; background: #fff; color: #202733; box-shadow: 0 10px 30px rgb(31 42 58 / .06); }
