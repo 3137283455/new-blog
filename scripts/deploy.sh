@@ -55,18 +55,21 @@ npm ci --prefix "$WEB_DIR"
 
 echo "[deploy] installing webpage extraction engine"
 if [[ -n "${WEB_IMPORT_PYTHON:-}" ]]; then
-  "$WEB_IMPORT_PYTHON" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt" || echo "[deploy] Trafilatura unavailable; using bundled Readability"
+  WEB_PYTHON="$WEB_IMPORT_PYTHON"
+elif command -v python3 >/dev/null 2>&1; then
+  python3 -m venv "$BACKEND_DIR/.venv"
+  WEB_PYTHON="$BACKEND_DIR/.venv/bin/python"
 else
-  if command -v python3 >/dev/null 2>&1; then
-    if python3 -m venv "$BACKEND_DIR/.venv"; then
-      "$BACKEND_DIR/.venv/bin/python" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt" || echo "[deploy] Trafilatura unavailable; using bundled Readability"
-    else
-      echo "[deploy] Python venv unavailable; using bundled Readability"
-    fi
-  else
-    echo "[deploy] Python unavailable; using bundled Readability"
-  fi
+  echo "[deploy] Python 3.9+ is required to install Trafilatura"
+  exit 1
 fi
+
+PIP_ARGS=(--disable-pip-version-check --retries 8 --timeout 120 --prefer-binary)
+if ! "$WEB_PYTHON" -m pip install "${PIP_ARGS[@]}" -r "$BACKEND_DIR/requirements-web-import.txt"; then
+  echo "[deploy] default PyPI download failed; retrying with the Tsinghua mirror"
+  "$WEB_PYTHON" -m pip install "${PIP_ARGS[@]}" --index-url https://pypi.tuna.tsinghua.edu.cn/simple -r "$BACKEND_DIR/requirements-web-import.txt"
+fi
+"$WEB_PYTHON" -c "import trafilatura; print('[deploy] Trafilatura', getattr(trafilatura, '__version__', 'installed'))"
 
 echo "[deploy] building backend"
 npm run build --prefix "$BACKEND_DIR"
