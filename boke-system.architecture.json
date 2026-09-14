@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "个人博客系统架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/3137283455/new-blog",
+      "provider": "github",
+      "revision": "6ccd5e9f05299ce1fd97c4cbca47f971b4672b48"
+    },
+    "viewBox": [1260, 720],
+    "views": [
+      {
+        "id": "request-path",
+        "label": "访问主链路",
+        "focus": ["devices", "nginx", "next-web", "express-api", "sqlite-db"],
+        "note": "从多端访问到页面渲染、业务 API 与持久化数据。"
+      },
+      {
+        "id": "content-path",
+        "label": "内容与阅读",
+        "focus": ["next-web", "express-api", "device-auth", "import-engine", "file-store", "source-adapters", "external-sources"],
+        "note": "覆盖图书、漫画、追番、媒体导入和外部内容源。"
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "devices",
+      "type": "external",
+      "label": "个人设备",
+      "sublabel": "桌面 · Android · 移动浏览器",
+      "pos": [28, 248],
+      "size": [150, 76],
+      "sources": [
+        { "path": "apps/web/src/features/site/site-data.ts", "label": "页面数据入口" }
+      ]
+    },
+    {
+      "id": "nginx",
+      "type": "cloud",
+      "label": "Nginx 入口",
+      "sublabel": "TLS · 反向代理 · 静态缓存",
+      "pos": [220, 248],
+      "size": [158, 76],
+      "sources": [
+        { "path": "nginx.conf.example", "label": "生产代理示例" }
+      ]
+    },
+    {
+      "id": "next-web",
+      "type": "frontend",
+      "label": "Next.js Web",
+      "sublabel": "前台 · 后台 · 阅读器 · PWA",
+      "pos": [420, 248],
+      "size": [168, 76],
+      "sources": [
+        { "path": "apps/web/next.config.mjs", "label": "同源 API 重写" },
+        { "path": "apps/web/src/features/site/site-data.ts", "label": "服务端数据加载" }
+      ]
+    },
+    {
+      "id": "express-api",
+      "type": "backend",
+      "label": "Express API",
+      "sublabel": "文章 · 书库 · 漫画 · 追番 · 媒体",
+      "pos": [632, 248],
+      "size": [178, 76],
+      "sources": [
+        { "path": "backend/src/app.ts", "line": 55, "end_line": 62, "label": "HTTP 服务入口" },
+        { "path": "backend/src/routes/index.ts", "label": "统一业务路由" }
+      ]
+    },
+    {
+      "id": "sqlite-db",
+      "type": "database",
+      "label": "SQLite 数据库",
+      "sublabel": "内容 · 设置 · 进度 · 注释 · 日志",
+      "pos": [854, 248],
+      "size": [170, 76],
+      "sources": [
+        { "path": "backend/src/config/database.ts", "label": "better-sqlite3 连接" },
+        { "path": "backend/src/config/index.ts", "line": 11, "label": "数据库路径" }
+      ]
+    },
+    {
+      "id": "device-auth",
+      "type": "security",
+      "label": "身份与私人设备",
+      "sublabel": "管理员 Cookie/JWT · 设备令牌",
+      "pos": [632, 76],
+      "size": [178, 76],
+      "sources": [
+        { "path": "backend/src/routes/index.ts", "line": 1, "end_line": 3, "label": "双鉴权中间件" }
+      ]
+    },
+    {
+      "id": "import-engine",
+      "type": "backend",
+      "label": "导入与格式解析",
+      "sublabel": "EPUB · 文本 · PDF · 漫画包",
+      "pos": [632, 420],
+      "size": [178, 76],
+      "sources": [
+        { "path": "backend/src/controllers/book-import.ts", "label": "图书导入" },
+        { "path": "backend/src/controllers/book-formats.ts", "label": "多格式解析" },
+        { "path": "backend/src/controllers/manga.ts", "label": "漫画导入" }
+      ]
+    },
+    {
+      "id": "file-store",
+      "type": "database",
+      "label": "本地文件存储",
+      "sublabel": "uploads · 封面 · 音频 · 章节图片",
+      "pos": [854, 420],
+      "size": [170, 76],
+      "sources": [
+        { "path": "backend/src/config/index.ts", "line": 12, "label": "上传目录" },
+        { "path": "backend/src/middleware/upload.ts", "label": "分类上传与限额" }
+      ]
+    },
+    {
+      "id": "source-adapters",
+      "type": "backend",
+      "label": "内容源适配器",
+      "sublabel": "检索规则 · Venera · 详情与章节",
+      "pos": [854, 76],
+      "size": [170, 76],
+      "sources": [
+        { "path": "backend/src/controllers/content-sources.ts", "label": "统一内容源接口" },
+        { "path": "backend/src/controllers/search-sources.ts", "label": "可配置检索源" },
+        { "path": "backend/src/controllers/venera-sources.ts", "label": "Venera 规则源" }
+      ]
+    },
+    {
+      "id": "external-sources",
+      "type": "external",
+      "label": "外部内容服务",
+      "sublabel": "番剧 · 漫画 · 图书检索与阅读源",
+      "pos": [1066, 76],
+      "size": [166, 76],
+      "sources": [
+        { "path": "backend/src/controllers/bangumi.ts", "label": "番剧源接入" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "单机部署 · PM2 管理的博客服务",
+      "wraps": ["nginx", "next-web", "express-api", "sqlite-db", "device-auth", "import-engine", "file-store", "source-adapters"],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    { "id": "devices-to-nginx", "from": "devices", "to": "nginx", "label": "HTTPS", "variant": "emphasis" },
+    { "id": "nginx-to-next", "from": "nginx", "to": "next-web", "label": "页面与静态资源", "labelAt": [399, 338] },
+    { "id": "next-to-api", "from": "next-web", "to": "express-api", "label": "同源 /api", "labelAt": [610, 244] },
+    { "id": "api-to-db", "from": "express-api", "to": "sqlite-db", "label": "同步 SQL", "variant": "emphasis", "labelAt": [832, 244] },
+    { "id": "auth-to-api", "from": "device-auth", "to": "express-api", "label": "鉴权上下文", "variant": "security", "labelAt": [721, 166] },
+    { "id": "api-to-import", "from": "express-api", "to": "import-engine", "label": "导入任务", "labelAt": [721, 338] },
+    { "id": "import-to-files", "from": "import-engine", "to": "file-store", "label": "解包与归档", "labelAt": [832, 510] },
+    { "id": "api-to-files", "from": "express-api", "to": "file-store", "label": "媒体读写" },
+    { "id": "api-to-adapters", "from": "express-api", "to": "source-adapters", "label": "检索与订阅", "fromSide": "top", "toSide": "bottom" },
+    { "id": "adapters-to-external", "from": "source-adapters", "to": "external-sources", "label": "站点独立规则", "variant": "dashed", "labelAt": [1045, 166] },
+    { "id": "nginx-to-files", "from": "nginx", "to": "file-store", "label": "/uploads 缓存", "variant": "dashed", "fromSide": "bottom", "toSide": "bottom", "via": [[299, 540], [939, 540]], "labelAt": [510, 556] }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "内容体验",
+      "items": ["文章、专题、导航、追番、相册、音乐", "图书与漫画共用跨设备阅读能力"]
+    },
+    {
+      "dot": "emerald",
+      "title": "数据与隐私",
+      "items": ["管理员与私人设备采用独立鉴权", "阅读进度、书签、注释统一落入 SQLite"]
+    },
+    {
+      "dot": "amber",
+      "title": "部署边界",
+      "items": ["Nginx 对外，Next.js 与 Express 仅由 PM2 托管", "数据库与上传文件支持本机备份导出"]
+    }
+  ]
+}
