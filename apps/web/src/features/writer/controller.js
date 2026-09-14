@@ -10,6 +10,7 @@ export function mount(scope) {
   }
   const params = new URLSearchParams(location.search);
   let articleId = params.get('id') || '';
+  let webSources = [];
   let articles = [];
   let trashedArticles = [];
   let currentFilter = 'all';
@@ -31,6 +32,7 @@ export function mount(scope) {
   const $$ = (selector) => Array.from(scope.queryAll(selector));
   const mobileWriterQuery = window.matchMedia('(max-width: 760px)');
   function setMobilePanel(panel = 'editor', focusEditor = false) {
+    if (panel === 'articles') { location.assign('/admin/write'); return; }
     document.body.classList.toggle('mobile-panel-articles', panel === 'articles');
     document.body.classList.toggle('mobile-panel-settings', panel === 'settings');
     $$('.writer-mobile-nav [data-mobile-panel]').forEach((button) => {
@@ -42,6 +44,7 @@ export function mount(scope) {
   }
   function closeMobilePanels() {
     setMobilePanel('editor');
+    document.body.classList.add('right-collapsed');
   }
   function setMessage(text) {
     $('#save-status').textContent = text || '未保存';
@@ -52,6 +55,7 @@ export function mount(scope) {
   function collectLocalDraft() {
     return {
       articleId,
+      webSources,
       title: $('#title')?.value || '',
       content: $('#content')?.value || '',
       excerpt: $('#excerpt')?.value || '',
@@ -72,6 +76,7 @@ export function mount(scope) {
   }
   function applyLocalDraft(draft) {
     if (!draft) return;
+    webSources = draft.webSources || [];
     $('#title').value = draft.title || '';
     $('#content').value = draft.content || '';
     $('#excerpt').value = draft.excerpt || '';
@@ -317,6 +322,7 @@ export function mount(scope) {
       content: $('#content').value.trim(),
       excerpt: $('#excerpt').value.trim(),
       cover_image: $('#cover').value.trim(),
+      web_sources: webSources,
       title_font_family: titleFont.family,
       title_font_url: titleFont.url,
       body_font_family: bodyFont.family,
@@ -335,6 +341,7 @@ export function mount(scope) {
   function fillArticle(post) {
     window.clearTimeout(autosaveTimer);
     articleId = post?.id ? String(post.id) : '';
+    webSources = post?.web_sources || [];
     $('#writer-mode').textContent = articleId ? '编辑文章' : '新文章';
     $('#title').value = post?.title || '';
     $('#content').value = post?.content || '';
@@ -384,6 +391,10 @@ export function mount(scope) {
       });
       const oldArticleId = articleId;
       if (!articleId && json.data?.id) articleId = String(json.data.id);
+      history.replaceState(null, '', '/admin/write/editor?id=' + encodeURIComponent(articleId));
+      $('#writer-mode').textContent = '编辑文章';
+      $('#status').value = payload.status;
+      $('#quick-status').value = payload.status;
       clearLocalDraft(oldArticleId);
       clearLocalDraft(articleId);
       isDirty = false;
@@ -538,7 +549,7 @@ export function mount(scope) {
       const json = await request('/admin/articles/epub/import', { method: 'POST', body: form });
       const book = json.data || {};
       articleId = '';
-      history.pushState(null, '', '/admin/write');
+      history.pushState(null, '', '/admin/write/editor');
       $('#writer-mode').textContent = 'EPUB 小说草稿';
       $('#title').value = book.title || file.name.replace(/\.epub$/i, '');
       $('#content').value = book.content || '';
@@ -590,6 +601,7 @@ export function mount(scope) {
     });
   }
   function renderArticleList() {
+    if (!$('#article-list')) return;
     renderTabs();
     const visible = getVisibleArticles();
     const emptyText =
@@ -632,6 +644,7 @@ export function mount(scope) {
         `;
   }
   async function loadArticles({ includeTrash = trashLoaded } = {}) {
+    if (!$('#article-list')) return;
     articleListController?.abort();
     const controller = new AbortController();
     articleListController = controller;
@@ -710,7 +723,7 @@ export function mount(scope) {
     if (!confirm('确定把这篇文章移入回收站吗？')) return;
     await request(`/admin/articles/${id}`, { method: 'DELETE' });
     if (String(id) === String(articleId)) {
-      history.pushState(null, '', '/admin/write');
+      history.pushState(null, '', '/admin/write/editor');
       fillArticle(null);
     }
     setMessage('已移入回收站');
@@ -725,7 +738,7 @@ export function mount(scope) {
     if (!confirm('确定永久删除吗？这个操作不能撤销。')) return;
     await request(`/admin/articles/${id}/force`, { method: 'DELETE' });
     if (String(id) === String(articleId)) {
-      history.pushState(null, '', '/admin/write');
+      history.pushState(null, '', '/admin/write/editor');
       fillArticle(null);
     }
     setMessage('已永久删除');
@@ -786,15 +799,17 @@ export function mount(scope) {
   }
   scope.listen($('#quick-status'), 'change', (event) => {
     $('#status').value = event.target.value;
+    markDirty();
   });
   scope.listen($('#status'), 'change', (event) => {
     $('#quick-status').value = event.target.value;
   });
   scope.listen($('#toggle-left'), 'click', () => {
-    document.body.classList.toggle('left-collapsed');
+    location.assign('/admin/write');
   });
   scope.listen($('#toggle-right'), 'click', () => {
-    document.body.classList.toggle('right-collapsed');
+    if (mobileWriterQuery.matches) setMobilePanel('settings');
+    else document.body.classList.toggle('right-collapsed');
   });
   $$('.writer-mobile-nav [data-mobile-panel]').forEach((button) => {
     scope.listen(button, 'click', () => setMobilePanel(button.dataset.mobilePanel || 'editor'));
@@ -812,6 +827,17 @@ export function mount(scope) {
   });
   scope.listen($('#preview-resizer'), 'mousedown', startPreviewResize);
   scope.listen($('#immersive-mode'), 'click', enterImmersive);
+  scope.listen($('#exit-immersive'), 'click', exitImmersive);
+  scope.listen(window, 'writer:insert-web', event => {
+    const data = event.detail;
+    if (!data?.content) return;
+    webSources = [...webSources, ...(data.web_sources || [])];
+    insertText('\n\n', data.content, '\n\n');
+    markDirty();
+    updateWordCount();
+    if (previewEnabled) updatePreview();
+    setMessage('网页内容已插入，保存文章后生效');
+  });
   scope.listen(document, 'keydown', (event) => {
     if (event.key === 'Escape' && document.body.classList.contains('immersive')) {
       exitImmersive();
@@ -860,7 +886,7 @@ export function mount(scope) {
     event.target.value = '';
   });
   scope.listen($('#new-draft'), 'click', () => {
-    history.pushState(null, '', '/admin/write');
+    history.pushState(null, '', '/admin/write/editor');
     fillArticle(null);
     if (mobileWriterQuery.matches) setMobilePanel('editor', true);
     setMessage('新文章');
@@ -918,7 +944,7 @@ export function mount(scope) {
       if (action === 'edit') {
         if (isDirty && !confirm('当前文章有未保存修改，确定切换文章吗？')) return;
         articleId = String(id);
-        history.pushState(null, '', `/admin/write?id=${encodeURIComponent(articleId)}`);
+        history.pushState(null, '', `/admin/write/editor?id=${encodeURIComponent(articleId)}`);
         renderArticleList();
         await loadCurrentArticle();
         if (mobileWriterQuery.matches) setMobilePanel('editor');

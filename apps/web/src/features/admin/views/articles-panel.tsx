@@ -20,7 +20,7 @@ export function ArticlesPanel() {
             <button id="batch-delete" className="ryu-btn btn-sm">
               批量删除
             </button>
-            <a id="new-article" className="ryu-btn-primary btn-sm" href="/admin/write">
+            <a id="new-article" className="ryu-btn-primary btn-sm" href="/admin/write/editor">
               新建文章
             </a>
           </div>

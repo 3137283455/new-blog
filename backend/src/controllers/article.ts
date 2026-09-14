@@ -159,9 +159,14 @@ export function adminList(req: AuthRequest, res: Response) {
   const trashed = req.query.trashed as string
   const status = req.query.status as string
   const summary = req.query.summary === 'true'
+  const keyword = String(req.query.q || '').trim().slice(0,200)
 
   let where = trashed === 'true' ? 'WHERE a.deleted_at IS NOT NULL' : 'WHERE a.deleted_at IS NULL'
   const params: any[] = []
+  if (keyword) {
+    where += ' AND (a.title LIKE ? OR a.excerpt LIKE ? OR a.slug LIKE ?)'
+    params.push('%' + keyword + '%', '%' + keyword + '%', '%' + keyword + '%')
+  }
 
   if (trashed !== 'true') {
     if (status === 'draft' || status === 'published') {
@@ -446,7 +451,7 @@ export function getById(req: AuthRequest, res: Response) {
   `).get(Number(req.params.id)) as any
   if (!article) return error(res, '文章不存在', 'NOT_FOUND', 404)
   const tags = db.prepare('SELECT t.* FROM tags t JOIN article_tags at2 ON t.id = at2.tag_id WHERE at2.article_id = ?').all(article.id)
-  return success(res, { ...article, is_pinned: !!article.is_pinned, is_recommended: !!article.is_recommended, tags })
+  return success(res, { ...article, is_pinned: !!article.is_pinned, is_recommended: !!article.is_recommended, tags, web_sources: articleSources(article.id) })
 }
 
 export function create(req: AuthRequest, res: Response) {
@@ -490,6 +495,7 @@ export function create(req: AuthRequest, res: Response) {
     }
   }
 
+  saveArticleSources(Number(result.lastInsertRowid), req.body.web_sources)
   const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(result.lastInsertRowid)
   return success(res, article, '文章创建成功')
 }
@@ -550,6 +556,7 @@ export function update(req: AuthRequest, res: Response) {
     }
   }
 
+  saveArticleSources(Number(id), req.body.web_sources)
   const article = db.prepare('SELECT * FROM articles WHERE id = ?').get(Number(id))
   return success(res, article, '文章更新成功')
 }
@@ -658,3 +665,4 @@ export function jsonFeed(_req: AuthRequest, res: Response) {
     })),
   })
 }
+import { articleSources, saveArticleSources } from '../services/article-sources'

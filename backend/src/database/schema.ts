@@ -1,6 +1,7 @@
 import db from '../config/database'
 import { migrateSourceStorage } from '../modules/manga/storage/source-store'
 import { rebuildSearchIndex } from '../services/search-index'
+import { migrateArticleSources } from '../services/article-sources'
 
 export function migrate() {
   migrateSourceStorage(db)
@@ -1002,6 +1003,7 @@ export function migrate() {
   }
 
   try {
+    migrateArticleSources()
     rebuildSearchIndex()
   } catch (cause) {
     console.warn('[DB] 搜索索引初始化失败，将在首次搜索时重试', cause)

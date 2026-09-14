@@ -1,10 +1,11 @@
 export function WriterView() {
   return (
     <>
+      <button id="exit-immersive" className="writer-exit-immersive" type="button" data-writer-scope="">退出沉浸</button>
       <main className="writer-shell" data-writer-scope="">
         <header className="writer-topbar" data-writer-scope="">
           <div className="writer-brand" data-writer-scope="">
-            <a className="writer-logo" href="/admin" title="返回后台" data-writer-scope="">
+            <a className="writer-logo" href="/admin/write" title="返回写作台" data-writer-scope="">
               写
             </a>
             <div className="writer-crumbs" data-writer-scope="">
@@ -29,22 +30,22 @@ export function WriterView() {
               id="toggle-left"
               className="writer-btn icon"
               type="button"
-              title="收起左侧"
+              title="返回文章管理"
               data-writer-scope=""
             >
-              ⇤
+              文章
             </button>
             <button
               id="toggle-right"
               className="writer-btn icon"
               type="button"
-              title="收起右侧"
+              title="文章设置"
               data-writer-scope=""
             >
-              ⇥
+              设置
             </button>
-            <a className="writer-btn writer-back-link" href="/admin" data-writer-scope="">
-              返回后台
+            <a className="writer-btn writer-back-link" href="/admin/write" data-writer-scope="">
+              文章管理
             </a>
             <button id="save-draft" className="writer-btn" type="button" data-writer-scope="">
               保存草稿
@@ -61,71 +62,6 @@ export function WriterView() {
         </header>
 
         <section className="writer-main" data-writer-scope="">
-          <aside className="writer-left" data-writer-scope="">
-            <div className="writer-mobile-panel-head" data-writer-scope="">
-              <strong data-writer-scope="">文章管理</strong>
-              <button
-                type="button"
-                data-mobile-close
-                aria-label="关闭文章管理"
-                data-writer-scope=""
-              >
-                ×
-              </button>
-            </div>
-            <div className="writer-left-head" data-writer-scope="">
-              <input
-                id="article-search"
-                className="writer-search"
-                type="search"
-                placeholder="搜索标题、摘要、slug"
-                data-writer-scope=""
-              />
-              <button
-                id="new-draft"
-                className="writer-left-action"
-                type="button"
-                data-writer-scope=""
-              >
-                + 新建文章
-              </button>
-              <div className="writer-tabs" id="article-tabs" data-writer-scope="">
-                <button
-                  className="writer-tab active"
-                  type="button"
-                  data-filter="all"
-                  data-writer-scope=""
-                >
-                  全部 0
-                </button>
-                <button
-                  className="writer-tab"
-                  type="button"
-                  data-filter="draft"
-                  data-writer-scope=""
-                >
-                  草稿箱 0
-                </button>
-                <button
-                  className="writer-tab"
-                  type="button"
-                  data-filter="published"
-                  data-writer-scope=""
-                >
-                  已发布 0
-                </button>
-                <button
-                  className="writer-tab"
-                  type="button"
-                  data-filter="trash"
-                  data-writer-scope=""
-                >
-                  回收站 0
-                </button>
-              </div>
-            </div>
-            <div id="article-list" className="writer-list" data-writer-scope=""></div>
-          </aside>
 
           <section className="writer-stage" data-writer-scope="">
             <div className="writer-toolbar" data-writer-scope="">
@@ -331,6 +267,7 @@ export function WriterView() {
                 </button>
               </div>
               <div className="writer-tool-group writer-action-tools" data-writer-scope="">
+                <button id="import-web-button" className="writer-tool is-text" type="button" data-writer-scope="">网页导入</button>
                 <button
                   id="toggle-preview"
                   className="writer-tool is-text"
@@ -365,7 +302,7 @@ export function WriterView() {
                   title="导入 txt/md"
                   data-writer-scope=""
                 >
-                  导入
+                  TXT / MD
                 </button>
                 <button
                   id="import-epub-button"

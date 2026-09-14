@@ -3,6 +3,7 @@ import { auth, adminOnly } from '../middleware/auth'
 import { deviceAuth } from '../middleware/device'
 import * as authCtrl from '../controllers/auth'
 import * as articleCtrl from '../controllers/article'
+import * as webImportCtrl from '../controllers/web-import'
 import * as categoryCtrl from '../controllers/category'
 import * as commentCtrl from '../controllers/comment'
 import * as pageCtrl from '../controllers/page'
@@ -112,6 +113,8 @@ router.get('/visitors/count', dashboardCtrl.todayCount)
 router.get('/admin/articles', auth, articleCtrl.adminList)
 router.get('/admin/articles/:id', auth, articleCtrl.getById)
 router.post('/admin/articles', auth, articleCtrl.create)
+router.post('/admin/web-import/preview', auth, adminOnly, webImportCtrl.preview)
+router.post('/admin/web-import/commit', auth, adminOnly, webImportCtrl.commit)
 router.post('/admin/articles/epub/import', auth, epubUpload.single('file'), epubCtrl.importEpub)
 router.post('/admin/books/epub/preview', auth, epubUpload.array('files', 20), bookImportCtrl.previewEpub)
 router.post('/admin/books/epub/commit', auth, bookImportCtrl.commitEpub)

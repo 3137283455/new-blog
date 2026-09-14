@@ -1,16 +1,18 @@
 'use client';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { WebImportDialog } from './web-import-dialog';
 import { createAdminScope } from '../admin/admin-scope';
 import { WriterView } from './writer-view';
 import { writerScopeAttribute } from './scope-attribute';
 import { mount } from './controller';
 export function WriterPage() {
+  const [importing, setImporting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!ref.current) return;
     const scope = createAdminScope(ref.current);
     const bodyClass = document.body.className;
-    document.body.className = '';
+    document.body.className = 'writer-editor left-collapsed right-collapsed';
     const oldFontStyle = document.getElementById('writer-font-library-style');
     const oldFontText = oldFontStyle?.textContent || '';
     document.body.dataset.apiBase = '/api';
@@ -26,11 +28,13 @@ export function WriterPage() {
       else document.getElementById('writer-font-library-style')?.remove();
     });
     mount(scope);
+    scope.listen(scope.query('#import-web-button'), 'click', () => setImporting(true));
     return () => scope.dispose();
   }, []);
   return (
     <div ref={ref} style={{ display: 'contents' }}>
       <WriterView />
+      {importing && <WebImportDialog onClose={() => setImporting(false)} onInsert={data => window.dispatchEvent(new CustomEvent('writer:insert-web', { detail: data }))} />}
     </div>
   );
 }

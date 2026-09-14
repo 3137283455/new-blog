@@ -53,6 +53,15 @@ npm ci --prefix "$BACKEND_DIR"
 echo "[deploy] installing Next frontend dependencies"
 npm ci --prefix "$WEB_DIR"
 
+echo "[deploy] installing webpage extraction engine"
+if [[ -n "${WEB_IMPORT_PYTHON:-}" ]]; then
+  "$WEB_IMPORT_PYTHON" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt"
+else
+  command -v python3 >/dev/null 2>&1 || { echo "[deploy] Python 3.9+ and python3-venv are required for web import"; exit 1; }
+  python3 -m venv "$BACKEND_DIR/.venv"
+  "$BACKEND_DIR/.venv/bin/python" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt"
+fi
+
 echo "[deploy] building backend"
 npm run build --prefix "$BACKEND_DIR"
 

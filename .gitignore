@@ -40,3 +40,5 @@ apps/web/next-env.d.ts
 playwright-report/
 test-results/
 artifacts/
+.venv/
+__pycache__/
