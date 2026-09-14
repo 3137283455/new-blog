@@ -19,21 +19,21 @@ export function DashboardPanel() {
           </article>
         ))}
       </div>
-      <section className="admin-storage-card ryu-card mt-4 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-base-content/45">全站存储配额</p>
-            <h2 className="mt-1 text-2xl font-black">存储空间</h2>
-            <p id="storage-summary" className="mt-1 text-sm text-base-content/55">正在读取空间使用情况…</p>
+      <div className="admin-dashboard-overview mt-4">
+        <section className="admin-storage-card ryu-card p-5">
+          <div className="admin-storage-heading">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-base-content/45">站点容量</p>
+              <h2 className="mt-1 text-lg font-black">存储空间</h2>
+              <p id="storage-summary" className="admin-storage-summary mt-1 text-xs text-base-content/55">正在读取空间使用情况…</p>
+            </div>
+            <a className="admin-storage-manage" href="#albums" id="storage-open-albums">相册管理 <span aria-hidden="true">→</span></a>
           </div>
-          <a className="ryu-btn" href="#albums" id="storage-open-albums">管理相册导出</a>
-        </div>
-        <div className="admin-storage-layout is-summary-only mt-5">
-          <div id="storage-pie" className="admin-storage-pie" aria-label="存储空间使用占比"><span>--</span></div>
-          <div id="storage-breakdown" className="admin-storage-breakdown"></div>
-        </div>
-      </section>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="admin-storage-layout is-summary-only mt-4">
+            <div id="storage-pie" className="admin-storage-pie" aria-label="存储空间使用占比"><span>--</span></div>
+            <div id="storage-breakdown" className="admin-storage-breakdown"></div>
+          </div>
+        </section>
         <div className="ryu-card p-5">
           <h3 className="font-black">最近发布</h3>
           <div id="recent-posts" className="mt-4 grid gap-3 text-sm"></div>
