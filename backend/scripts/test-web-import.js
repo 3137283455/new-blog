@@ -49,7 +49,9 @@ test('expired preview cannot be committed', async () => {
   assert.equal(code,410);
   assert.equal(body.success,false);
 });
-test('preview to draft is idempotent, private and detects duplicates', async () => {
+test('without Python, preview to draft is idempotent, private and detects duplicates', async () => {
+  const oldPython = process.env.WEB_IMPORT_PYTHON;
+  process.env.WEB_IMPORT_PYTHON = path.join(sandbox, 'python-not-installed');
   const web = require('../dist/services/web-fetch');
   const original = web.fetchWeb;
   const document = '<html><head><title>从网页创建草稿</title></head><body><article><h1>从网页创建草稿</h1>'+Array.from({length:8},(_,i)=>'<p>第'+i+'部分，这是独立的导入集成测试，验证网页内容可以提取成结构化的文章，并且在保存后继续编辑和阅读。保存为私密草稿不会向外发布内容，作者可以审核并修改后再决定发布。</p>').join('')+'</article></body></html>';
@@ -73,5 +75,9 @@ test('preview to draft is idempotent, private and detects duplicates', async () 
     assert.equal(denied.statusCode,409);
     const other=response();await commit({userId:userId+1,body:{preview_id:second.body.data.preview_id,mode:'draft'}},other);
     assert.equal(other.statusCode,410);
-  } finally { web.fetchWeb=original; }
+  } finally {
+    web.fetchWeb=original;
+    if (oldPython === undefined) delete process.env.WEB_IMPORT_PYTHON;
+    else process.env.WEB_IMPORT_PYTHON = oldPython;
+  }
 });

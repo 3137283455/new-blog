@@ -15,6 +15,7 @@ import { fetchWeb, webUrl } from '../services/web-fetch'
 import { saveArticleSources } from '../services/article-sources'
 import { renderArticleContent } from '../utils/markdown'
 import { success, error } from '../utils/response'
+import { extractWithReadability } from '../services/readability-extractor'
 
 type Picture = { id: string; url: string; alt: string }
 type Preview = { owner: number; expires: number; title: string; html: string; source: any; images: Picture[]; busy?: boolean; result?: any }
@@ -22,7 +23,7 @@ const previews = new Map<string, Preview>()
 let extracting = 0
 let committing = 0
 
-export function extractWebHtml(html: string, url: string): Promise<any> {
+async function extractWithTrafilatura(html: string, url: string): Promise<any> {
   const python = process.env.WEB_IMPORT_PYTHON || path.resolve(__dirname, '../../.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python')
   return new Promise((resolve, reject) => {
     const child = spawn(python, [path.resolve(__dirname, '../../scripts/extract-web.py')], { windowsHide: true, stdio: ['pipe','pipe','pipe'] })
@@ -37,10 +38,20 @@ export function extractWebHtml(html: string, url: string): Promise<any> {
     child.on('close', code => {
       clearTimeout(timer)
       if (code !== 0) return reject(new Error(errors.includes('ModuleNotFoundError') ? '网页导入引擎依赖缺失，请重新安装' : '未能提取正文；网页可能需要登录、浏览器渲染或限制抓取'))
-      try { resolve(JSON.parse(output)) } catch { reject(new Error('正文提取返回了无效结果')) }
+      try { resolve({ ...JSON.parse(output), engine: 'trafilatura' }) } catch { reject(new Error('正文提取返回了无效结果')) }
     })
     child.stdin.end(JSON.stringify({ html, url }))
   })
+}
+
+export async function extractWebHtml(html: string, url: string): Promise<any> {
+  try {
+    return await extractWithTrafilatura(html, url)
+  } catch {
+    // npm installs this engine with the backend, so a missing Python environment
+    // never disables webpage import. Both paths use the same fetch/sanitizer.
+    return extractWithReadability(html, url)
+  }
 }
 
 export function cleanExtractedHtml(html: string, base: string) {

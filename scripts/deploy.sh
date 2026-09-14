@@ -55,11 +55,17 @@ npm ci --prefix "$WEB_DIR"
 
 echo "[deploy] installing webpage extraction engine"
 if [[ -n "${WEB_IMPORT_PYTHON:-}" ]]; then
-  "$WEB_IMPORT_PYTHON" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt"
+  "$WEB_IMPORT_PYTHON" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt" || echo "[deploy] Trafilatura unavailable; using bundled Readability"
 else
-  command -v python3 >/dev/null 2>&1 || { echo "[deploy] Python 3.9+ and python3-venv are required for web import"; exit 1; }
-  python3 -m venv "$BACKEND_DIR/.venv"
-  "$BACKEND_DIR/.venv/bin/python" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt"
+  if command -v python3 >/dev/null 2>&1; then
+    if python3 -m venv "$BACKEND_DIR/.venv"; then
+      "$BACKEND_DIR/.venv/bin/python" -m pip install -r "$BACKEND_DIR/requirements-web-import.txt" || echo "[deploy] Trafilatura unavailable; using bundled Readability"
+    else
+      echo "[deploy] Python venv unavailable; using bundled Readability"
+    fi
+  else
+    echo "[deploy] Python unavailable; using bundled Readability"
+  fi
 fi
 
 echo "[deploy] building backend"

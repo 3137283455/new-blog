@@ -9,7 +9,10 @@
 
 ## 安装
 
-后端仍为 Express；Python 仅作为本机正文提取工作进程，不对外开放端口。
+后端仍为 Express。Readability 正文引擎随 npm 依赖安装，未安装 Python 时网页导入也可用。
+每次后端构建都会执行无网络的提取自检，依赖不完整时构建直接失败。
+安装 Trafilatura 后优先使用它；不可用时自动回退 Readability，仍复用原有下载安全检查、HTML 清洗、图片入库和草稿流程。
+Python 仅作为本机正文提取工作进程，不对外开放端口。以下 Python 安装步骤为可选增强，不是启用网页导入的前提。
 推荐 Python 3.10 或更新版本。Linux 需要安装发行版的 python3-venv 软件包。
 
 在 backend 目录运行：
@@ -23,6 +26,8 @@ npm run build
 
 Windows 使用 `python -m venv .venv` 和 `.venv\Scripts\python.exe -m pip install -r requirements-web-import.txt`。
 可通过 `WEB_IMPORT_PYTHON` 指定解释器绝对路径。标准 `scripts/deploy.sh` 已包含安装步骤。
+只使用 Node 的部署方式：在 backend 执行 `npm ci && npm run build`，然后重启后端即可。
+仅提交 GitHub 或只替换前端不会更新服务器依赖与后端进程。
 重启后端时自动创建文章来源表；不改动已有文章。
 
 ## 工作流程

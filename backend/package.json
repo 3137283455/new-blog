@@ -5,7 +5,8 @@
   "main": "src/app.ts",
   "scripts": {
     "dev": "tsx watch src/app.ts",
-    "build": "tsc",
+    "build": "tsc && node scripts/check-web-import.js",
+    "check:web-import": "node scripts/check-web-import.js",
     "test:epub": "npm run build && node scripts/test-epub-import.js",
     "test:series": "npm run build && node scripts/test-series-management.js",
     "test:media-settings": "npm run build && node scripts/test-media-settings.js",
@@ -24,6 +25,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "adm-zip": "^0.6.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.11.1",
@@ -38,6 +40,7 @@
     "highlight.js": "^11.11.1",
     "ipaddr.js": "^2.5.0",
     "jsonwebtoken": "^9.0.3",
+    "linkedom": "^0.18.13",
     "markdown-it": "^14.3.0",
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-katex": "^2.0.3",
