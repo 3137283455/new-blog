@@ -4,6 +4,6 @@ export async function writingRequest(url: string, options: RequestInit = {}) {
   const response = await fetch('/api' + url, { ...options, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, ...options.headers } });
   if (response.status === 401) { location.assign('/admin'); throw new Error('登录已过期'); }
   const json = await response.json();
-  if (!response.ok || !json.success) throw new Error(json.message || '请求失败，请重试');
+  if (!response.ok || !json.success) throw Object.assign(new Error(json.message || '请求失败，请重试'), {code: json.code});
   return json;
 }

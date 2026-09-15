@@ -50,6 +50,9 @@ mkdir -p "$ROOT_DIR/logs" "$BACKEND_DIR/data" "$BACKEND_DIR/uploads" "$BACKEND_D
 echo "[deploy] installing backend dependencies"
 npm ci --prefix "$BACKEND_DIR"
 
+echo "[deploy] installing dynamic article browser"
+(cd "$BACKEND_DIR" && PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT=120000 npx playwright install --with-deps chromium)
+
 echo "[deploy] installing Next frontend dependencies"
 npm ci --prefix "$WEB_DIR"
 

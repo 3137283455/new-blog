@@ -16,6 +16,8 @@ import { saveArticleSources } from '../services/article-sources'
 import { renderArticleContent } from '../utils/markdown'
 import { success, error } from '../utils/response'
 import { extractWithReadability } from '../services/readability-extractor'
+import { canonicalArticleUrl, prepareArticleHtml, WebArticleError } from '../services/web-article'
+import { renderWebArticle } from '../services/web-renderer'
 
 type Picture = { id: string; url: string; alt: string }
 type Preview = { owner: number; expires: number; title: string; html: string; source: any; images: Picture[]; busy?: boolean; result?: any }
@@ -52,6 +54,33 @@ export async function extractWebHtml(html: string, url: string): Promise<any> {
     // never disables webpage import. Both paths use the same fetch/sanitizer.
     return extractWithReadability(html, url)
   }
+}
+
+async function extractArticleDocument(html: string, url: string, assisted = false) {
+  const prepared = prepareArticleHtml(html, url, assisted)
+  const extracted = await extractWebHtml(prepared.html, url)
+  // A site's exact article container is already scoped: preserve its image order
+  // and short paragraphs, which generic heuristics may otherwise discard.
+  if (prepared.scoped) extracted.html = cheerio.load(prepared.html)('article').html() || extracted.html
+  if (cleanExtractedHtml(extracted.html, url).text.length < 80) throw new WebArticleError('未找到完整正文，请使用“粘贴图文”导入', 'DYNAMIC_EMPTY')
+  return extracted
+}
+
+export async function extractArticleFromUrl(sourceUrl: string) {
+  let finalUrl = sourceUrl
+  try {
+    const response = await fetchWeb(sourceUrl)
+    finalUrl = canonicalArticleUrl(response.url)
+    if (!/text\/html|application\/xhtml\+xml/i.test(response.type)) throw new WebArticleError('该链接不是 HTML 网页，请使用本地文件导入', 'NOT_HTML')
+    const charset = response.type.match(/charset=["']?([\w-]+)/i)?.[1] || response.bytes.toString('ascii',0,2048).match(/charset=["']?([\w-]+)/i)?.[1] || 'utf-8'
+    let html: string
+    try { html = new TextDecoder(charset).decode(response.bytes) } catch { html = response.bytes.toString('utf8') }
+    return {extracted: await extractArticleDocument(html, finalUrl), url: finalUrl, method: 'http'}
+  } catch (cause) {
+    if (cause instanceof WebArticleError && cause.code === 'NOT_HTML') throw cause
+  }
+  const rendered = await renderWebArticle(finalUrl)
+  return {extracted: await extractArticleDocument(rendered.html, rendered.url), url: rendered.url, method: 'browser'}
 }
 
 export function cleanExtractedHtml(html: string, base: string) {
@@ -92,23 +121,23 @@ export async function preview(req: AuthRequest, res: Response) {
   extracting++
   try {
     const sourceUrl = webUrl(String(req.body.url || '')).href
-    const response = await fetchWeb(sourceUrl)
-    if (!/text\/html|application\/xhtml\+xml/i.test(response.type)) throw new Error('该链接不是 HTML 网页，请使用本地文件导入')
-    const charset = response.type.match(/charset=["']?([\w-]+)/i)?.[1] || response.bytes.toString('ascii',0,2048).match(/charset=["']?([\w-]+)/i)?.[1] || 'utf-8'
-    let html: string
-    try { html = new TextDecoder(charset).decode(response.bytes) } catch { html = response.bytes.toString('utf8') }
-    const extracted = await extractWebHtml(html, response.url)
+    const supplied = req.body.html
+    if (supplied !== undefined && (typeof supplied !== 'string' || Buffer.byteLength(supplied) > 6 * 1024 * 1024)) throw new Error('粘贴内容须为 HTML 文本，且不能超过 6 MB')
+    const response = supplied !== undefined
+      ? {extracted: await extractArticleDocument(supplied, sourceUrl, true), url: canonicalArticleUrl(sourceUrl), method: 'clipboard'}
+      : await extractArticleFromUrl(sourceUrl)
+    const extracted = response.extracted
     const cleaned = cleanExtractedHtml(extracted.html, response.url)
     if (cleaned.text.length < 30) throw new Error('未找到足够的正文内容，请确认链接是文章详情页')
-    const title = String(extracted.title || new URL(response.url).hostname).slice(0,300)
+    const title = String((supplied !== undefined && req.body.title) || extracted.title || new URL(response.url).hostname).slice(0,300)
     const source = { source_url: sourceUrl, final_url: response.url, title, author: String(extracted.author || ''), published_at: String(extracted.date || ''), fetched_at: new Date().toISOString(), fingerprint: createHash('sha256').update(cleaned.text).digest('hex') }
     const id = randomUUID()
     previews.set(id, { owner: req.userId!, expires: Date.now() + 15 * 60_000, title, html: cleaned.html, images: cleaned.images, source })
     // No third-party image request is made by the preview browser.
     const $ = cheerio.load(cleaned.html)
     $('img').each((_, node) => { $(node).replaceWith($('<p>').text(`[图片 ${$(node).attr('src')?.split('/').pop()}] ${$(node).attr('alt') || ''}`)) })
-    return success(res, { preview_id: id, title, html: $('body').html(), source, images: cleaned.images, duplicates: duplicates(source), characters: cleaned.text.length })
-  } catch (cause) { return error(res, cause instanceof Error ? cause.message : '网页提取失败', 'EXTRACTION_FAILED') }
+    return success(res, { preview_id: id, title, html: $('body').html(), source, images: cleaned.images, duplicates: duplicates(source), characters: cleaned.text.length, method: response.method, engine: extracted.engine })
+  } catch (cause) { return error(res, cause instanceof Error ? cause.message : '网页提取失败', cause instanceof WebArticleError ? cause.code : 'EXTRACTION_FAILED') }
   finally { extracting-- }
 }
 export async function commit(req: AuthRequest, res: Response) {
