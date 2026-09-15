@@ -21,10 +21,10 @@ for (const width of [1440, 390])
       );
       const oldPage = await context.newPage(),
         newPage = await context.newPage();
-      for (const [page, port] of [
-        [oldPage, 4311],
-        [newPage, 3111],
-      ] as const) {
+      const targets = width < 760
+        ? ([[newPage, 3111]] as const)
+        : ([[oldPage, 4311], [newPage, 3111]] as const);
+      for (const [page, port] of targets) {
         await page.goto(`http://127.0.0.1:${port}${path}`);
         await expect(page.locator('[data-comic]')).toHaveAttribute('data-mode', mode);
         await page.evaluate(() => document.fonts.ready);
@@ -32,26 +32,33 @@ for (const width of [1440, 390])
           content:
             '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}',
         });
-        if (width < 760) {
-          await expect(page.locator('[data-comic]')).toHaveClass(/controls/);
-          await page.locator('[data-action="settings"]:visible').click();
+        if (width < 760 && port === 3111) {
+          await expect(page.locator('.mobile-reader-shell')).toHaveAttribute('data-open', 'false');
+          await page.locator('[data-stage]').click({ position: { x: width / 2, y: 400 } });
+          await expect(page.locator('.mobile-reader-shell')).toHaveAttribute('data-open', 'true');
+          await page.locator('.mobile-reader-shell__bottom button').filter({ hasText: '设置' }).click();
           await page.locator('[data-settings] button[value="cancel"]').click();
         }
       }
       if (mode === 'scroll')
         for (const page of [oldPage, newPage]) {
+          if (width < 760 && page === oldPage) continue;
+          const pageLabel = width < 760
+            ? page.locator('.mobile-reader-shell__top > span')
+            : page.locator('[data-page-label]');
           await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
           // Exercise the same complete scroll sequence on both pages. This also loads lazy images
           // and avoids comparing an in-flight initial scroll against a settled screenshot.
           await page.evaluate(() =>
             window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }),
           );
-          await expect(page.locator('[data-page-label]')).toHaveText('3');
+          await expect(pageLabel).toContainText('3');
           await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
           await expect.poll(() => page.evaluate(() => scrollY)).toBe(0);
-          await expect(page.locator('[data-page-label]')).toHaveText('1');
+          await expect(pageLabel).toContainText('1');
         }
-      await compare(oldPage, newPage, info);
+      if (width >= 760) await compare(oldPage, newPage, info);
+      else await newPage.screenshot({ path: info.outputPath(`mobile-${mode}.png`), fullPage: true });
       await context.close();
     });
   }

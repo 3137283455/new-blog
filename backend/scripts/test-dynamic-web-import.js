@@ -52,7 +52,7 @@ test('captcha cannot become a successful article preview', async () => {
   } finally {web.fetchWeb=originalFetch;renderer.renderWebArticle=originalRender;}
 });
 
-test('pasted article bypasses remote captcha and safely creates a private draft', async () => {
+test('pasted article bypasses remote captcha and safely creates a publishable draft', async () => {
   const originalFetch = web.fetchWeb;
   web.fetchWeb = async () => {throw new Error('Pasted preview must not request the source website');};
   try {
@@ -66,7 +66,7 @@ test('pasted article bypasses remote captcha and safely creates a private draft'
     const saved=res();await commit({userId,body:{preview_id:output.body.data.preview_id,mode:'draft',image_ids:[]}},saved);
     assert.equal(saved.body.success,true,saved.body.message);
     const row=db.prepare('SELECT * FROM articles WHERE id=?').get(saved.body.data.id);
-    assert.equal(row.status,'draft');assert.equal(row.visibility,'private');
+    assert.equal(row.status,'draft');assert.equal(row.visibility,'public');
     assert.ok(row.content.includes('第7段'));assert.ok(row.content.includes('188764135'));
   } finally {web.fetchWeb=originalFetch;}
 });

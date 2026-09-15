@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { writingRequest } from './writing-api';
 import { WebImportDialog } from './web-import-dialog';
+import { toast } from '../../shared/ui/toast';
 type Article = { id: number; title: string; excerpt?: string; status: string; category_name?: string; updated_at?: string; view_count: number; is_pinned?: boolean };
 const tabs = [['all','全部文章'],['draft','草稿'],['published','已发布'],['trash','回收站']];
 export function WritingWorkspace() {
@@ -34,8 +35,9 @@ export function WritingWorkspace() {
     setPending(article.id);
     try {
       await writingRequest('/admin/articles/' + article.id + (kind === 'restore' ? '/restore' : kind === 'force' ? '/force' : ''), {method: kind === 'restore' ? 'PUT' : 'DELETE'});
+      toast.success(kind === 'restore' ? '文章已恢复' : kind === 'force' ? '文章已永久删除' : '文章已移入回收站');
       if (articles.length === 1 && page > 1) setPage(page - 1); else setRevision(revision + 1);
-    } catch (error) { setError((error as Error).message); }
+    } catch (error) { const message = (error as Error).message; setError(message); toast.error(message); }
     finally { setPending(null); }
   }
   return <main className="writing-workspace">

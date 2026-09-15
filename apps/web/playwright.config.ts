@@ -9,6 +9,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     browserName: 'chromium',
+    launchOptions: process.env.BOKE_PLAYWRIGHT_EXECUTABLE
+      ? { executablePath: process.env.BOKE_PLAYWRIGHT_EXECUTABLE }
+      : undefined,
     serviceWorkers: 'block',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

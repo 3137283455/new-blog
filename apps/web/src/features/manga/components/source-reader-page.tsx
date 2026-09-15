@@ -4,6 +4,8 @@ import '../styles/ReaderControls.css';
 import type { SourceKind } from '../source-detail';
 import type { SourceReader } from '../source-reader';
 import { useSourceReader } from '../use-source-reader';
+import { MobileReaderShell } from '../../../shared/reader/mobile-reader-shell';
+import { MobileReaderMusic } from '../../../shared/reader/mobile-reader-music';
 
 function SourceReaderPageImage({
   src,
@@ -66,6 +68,9 @@ export function SourceReaderPage({
   const pages = reader.pages || [];
   const [appearance, setAppearance] = useState({ theme: 'night', width: 980 });
   const appearanceDialog = useRef<HTMLDialogElement>(null);
+  const [mobileControls, setMobileControls] = useState(false);
+  const [readerReady, setReaderReady] = useState(false);
+  useEffect(() => setReaderReady(true), []);
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('source-reader-appearance') || '{}');
@@ -93,15 +98,20 @@ export function SourceReaderPage({
       data-page-count={kind === 'manga' ? pages.length : 0}
       data-mode={kind === 'manga' && pages.length ? state.mode : undefined}
       data-reading-theme={appearance.theme}
+      data-reader-ready={readerReady}
       style={{ '--source-reading-width': appearance.width + 'px' } as CSSProperties}
       onClick={(event) => {
-        if (
-          state.mode !== 'paged' ||
-          (event.target as HTMLElement).closest('button,a,figcaption,dialog,input,select,label')
-        )
+        if ((event.target as HTMLElement).closest('button,a,figcaption,dialog,input,select,label')) return;
+        if (innerWidth <= 760) {
+          const ratio = event.clientX / innerWidth;
+          if (state.mode !== 'scroll' && ratio < .28) state.go(state.current - 1);
+          else if (state.mode !== 'scroll' && ratio > .72) state.go(state.current + 1);
+          else if (ratio > .28 && ratio < .72) setMobileControls((value) => !value);
           return;
+        }
         const box = event.currentTarget.getBoundingClientRect();
-        state.go(state.current + (event.clientX - box.left < box.width / 2 ? -1 : 1));
+        const ratio = (event.clientX - box.left) / box.width;
+        if (state.mode === 'paged') state.go(state.current + (ratio < .5 ? -1 : 1));
       }}
     >
       <header className="source-reader-topbar">
@@ -194,6 +204,22 @@ export function SourceReaderPage({
           <p>{reader.content || '源站没有返回可读内容。'}</p>
         </article>
       )}
+      {kind === 'manga' && pages.length > 0 && (
+        <MobileReaderShell
+          open={mobileControls}
+          onOpenChange={setMobileControls}
+          backHref={backUrl}
+          title={reader.title || '漫画阅读'}
+          subtitle={sourceLabel}
+          progress={`${state.current + 1} / ${pages.length}`}
+          actions={[
+            { label: '目录', icon: '☷', href: backUrl },
+            { label: '上一页', icon: '←', disabled: state.current <= 0, onClick: () => state.go(state.current - 1) },
+            { label: '下一页', icon: '→', primary: true, disabled: state.current >= pages.length - 1, onClick: () => state.go(state.current + 1) },
+            { label: '设置', icon: 'Aa', onClick: () => appearanceDialog.current?.showModal() },
+          ]}
+        />
+      )}
       <dialog
         ref={appearanceDialog}
         className="source-appearance-dialog"
@@ -236,6 +262,7 @@ export function SourceReaderPage({
               <option value="paged">单页翻阅</option>
             </select>
           </label>
+          <MobileReaderMusic />
           <button className="source-appearance-done">完成</button>
         </form>
       </dialog>

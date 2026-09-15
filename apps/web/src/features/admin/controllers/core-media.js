@@ -291,22 +291,22 @@ export function register(context) {
     context.addFontEntry(family, url, '已从媒体库加入字体库，记得保存字体库');
   };
   context.uploadCover = async function uploadCover(file) {
-    context.$('#editor-message').textContent = '正在上传封面...';
+    context.notify('正在上传封面…', 'info');
     try {
       const media = await context.uploadFile(file);
       context.$('#article-form').elements.namedItem('cover_image').value = media.url;
       window.updateAdminFieldPreview?.('article-form', 'cover_image');
       context.updateCoverPreview(media.url);
-      context.$('#editor-message').textContent = '封面上传成功';
+      context.notify('封面上传成功');
       await context.loadMedia();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#editor-message').textContent = error.message;
+      context.notify(error.message || '封面上传失败', true);
     }
   };
   context.uploadMediaFiles = async function uploadMediaFiles(files) {
     if (!files.length) return;
-    context.$('#media-message').textContent = `正在上传 ${files.length} 个文件...`;
+    context.notify(`正在上传 ${files.length} 个文件…`, 'info');
     try {
       const uploaded = [];
       for (const file of files) {
@@ -328,13 +328,11 @@ export function register(context) {
       const categories = Array.from(
         new Set(uploaded.map((item) => categoryLabels[item.category] || '其他文件')),
       );
-      context.$('#media-message').textContent = `上传完成，已自动归入：${categories.join('、')}`;
-      context.notify(`已上传 ${files.length} 个媒体文件`);
+      context.notify(`已上传 ${files.length} 个文件，自动归入：${categories.join('、')}`);
       await context.loadMedia();
       await context.loadDashboard();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#media-message').textContent = error.message;
       context.notify(error.message || '上传媒体失败', true);
     }
     if (context.$('#media-upload')) context.$('#media-upload').value = '';
@@ -343,8 +341,9 @@ export function register(context) {
     if (!confirm('确认把这个媒体文件移入回收站？')) return;
     try {
       await context.request(`/admin/media/${id}`, { method: 'DELETE' });
-      await context.loadMedia();
-      await context.loadDashboard();
+      context.state.media = context.state.media.filter((item) => String(item.id) !== String(id));
+      context.renderMedia();
+      context.loadDashboard().catch(() => {});
       context.notify('媒体文件已移入回收站');
     } catch (error) {
       if (context.scope.disposed) return;
@@ -354,9 +353,9 @@ export function register(context) {
   context.restoreMedia = async function restoreMedia(id) {
     try {
       await context.request(`/admin/media/${id}/restore`, { method: 'PUT' });
-      context.$('#media-message').textContent = '媒体文件已恢复';
-      await context.loadMedia();
-      await context.loadDashboard();
+      context.state.media = context.state.media.filter((item) => String(item.id) !== String(id));
+      context.renderMedia();
+      context.loadDashboard().catch(() => {});
       context.notify('媒体文件已恢复');
     } catch (error) {
       if (context.scope.disposed) return;
@@ -367,9 +366,9 @@ export function register(context) {
     if (!confirm('确认永久删除这个媒体文件？删除后磁盘文件也会被移除，不能恢复。')) return;
     try {
       await context.request(`/admin/media/${id}/force`, { method: 'DELETE' });
-      context.$('#media-message').textContent = '媒体文件已永久删除';
-      await context.loadMedia();
-      await context.loadDashboard();
+      context.state.media = context.state.media.filter((item) => String(item.id) !== String(id));
+      context.renderMedia();
+      context.loadDashboard().catch(() => {});
       context.notify('媒体文件已永久删除');
     } catch (error) {
       if (context.scope.disposed) return;
@@ -388,17 +387,6 @@ export function register(context) {
         method: 'POST',
         body: JSON.stringify({}),
       });
-      const data = json.data || {};
-      const moved = (data.movedFiles || []).slice(0, 5).join('、');
-      const kept = (data.keptFiles || [])
-        .slice(0, 3)
-        .map((item) => `${item.name}（${(item.references || []).join('、')}）`)
-        .join('、');
-      context.$('#media-message').innerHTML = `
-      <span>${context.escapeHtml(json.message || '清理完成')}</span>
-      ${moved ? `<br><span class="text-base-content/50">移入回收站：${context.escapeHtml(moved)}</span>` : ''}
-      ${kept ? `<br><span class="text-base-content/50">已保留：${context.escapeHtml(kept)}</span>` : ''}
-    `;
       await context.loadMedia();
       await context.loadDashboard();
       context.notify(json.message || '冗余媒体已移入回收站');
@@ -412,9 +400,9 @@ export function register(context) {
     const removable = context.state.media.filter((file) => !file.in_use);
     const locked = context.state.media.length - removable.length;
     if (!removable.length) {
-      context.$('#media-message').textContent = locked
+      context.notify(locked
         ? '回收站里的文件仍被引用，不能清空'
-        : '媒体回收站为空';
+        : '媒体回收站为空', locked ? 'warning' : 'info');
       return;
     }
     if (
@@ -434,42 +422,40 @@ export function register(context) {
         failedCount++;
       }
     }
-    context.$('#media-message').textContent =
-      `已永久删除 ${successCount} 个文件${failedCount ? `，${failedCount} 个删除失败或仍被引用` : ''}${locked ? `，保留 ${locked} 个使用中文件` : ''}`;
+    const summary = `已永久删除 ${successCount} 个文件${failedCount ? `，${failedCount} 个删除失败或仍被引用` : ''}${locked ? `，保留 ${locked} 个使用中文件` : ''}`;
     await context.loadMedia();
     await context.loadDashboard();
-    context.notify('媒体回收站清理完成');
+    context.notify(summary, failedCount ? 'warning' : 'success');
   };
   context.uploadMusicField = async function uploadMusicField(file, fieldName) {
-    context.$('#music-message').textContent = '正在上传文件...';
+    context.notify('正在上传文件…', 'info');
     try {
       const media = await context.uploadFile(file);
       context.$('#music-form').elements.namedItem(fieldName).value = media.url;
       window.updateAdminFieldPreview?.('music-form', fieldName);
-      context.$('#music-message').textContent = '上传成功';
+      context.notify('上传成功');
       await context.loadMedia();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#music-message').textContent = error.message;
+      context.notify(error.message || '文件上传失败', true);
     }
   };
   context.uploadAvatar = async function uploadAvatar(file) {
-    context.$('#profile-message').textContent = '正在上传头像...';
+    context.notify('正在上传头像…', 'info');
     try {
       const media = await context.uploadFile(file);
       context.$('#profile-form').elements.namedItem('profile_avatar').value = media.url;
       window.updateAdminFieldPreview?.('profile-form', 'profile_avatar');
-      context.$('#profile-message').textContent = '头像上传成功，记得保存';
+      context.notify('头像上传成功，记得保存');
       await context.loadMedia();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#profile-message').textContent = error.message || '头像上传失败';
       context.notify(error.message || '头像上传失败', true);
     }
   };
   context.uploadBannerImages = async function uploadBannerImages(files) {
     if (!files.length) return;
-    context.$('#settings-message').textContent = `正在上传 ${files.length} 张 Banner 图...`;
+    context.notify(`正在上传 ${files.length} 张 Banner 图…`, 'info');
     const input = context.$('#site-settings-form').elements.namedItem('banner_images');
     const current = input.value
       .split(/\r?\n/)
@@ -482,11 +468,10 @@ export function register(context) {
       }
       input.value = Array.from(new Set(current)).join('\n');
       await context.saveBannerImages();
-      context.$('#settings-message').textContent = 'Banner 图已上传并保存';
+      context.notify('Banner 图已上传并保存');
       await context.loadMedia();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#settings-message').textContent = error.message;
       context.notify(error.message || 'Banner 图上传失败', true);
     }
   };

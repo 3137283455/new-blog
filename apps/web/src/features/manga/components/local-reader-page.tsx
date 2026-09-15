@@ -3,6 +3,8 @@ import type { CSSProperties } from 'react';
 import { useLocalReader } from '../use-local-reader';
 import { chapterHref, type LocalReaderData } from '../local-reader';
 import type { ReaderSettings } from '../reader-settings';
+import { MobileReaderShell } from '../../../shared/reader/mobile-reader-shell';
+import { MobileReaderMusic } from '../../../shared/reader/mobile-reader-music';
 export function LocalReaderPage({ data }: { data: LocalReaderData }) {
   const state = useLocalReader(data);
   const { manga, chapter, navigation } = data,
@@ -126,24 +128,20 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
           ↑<small>顶部</small>
         </button>
       </aside>
-      <button className="trigger" data-controls="" onClick={() => state.setControls(true)}>
-        •••
-      </button>
-      <section className="mobile" data-mobile="">
-        <button data-action="catalog" onClick={() => state.action('catalog')}>
-          ☷<small>目录</small>
-        </button>
-        <button data-action="previous" onClick={() => state.action('previous')}>
-          ←<small>上一页</small>
-        </button>
-        <button className="primary" data-action="next" onClick={() => state.action('next')}>
-          →<small>下一页</small>
-        </button>
-        <button data-action="settings" onClick={() => state.action('settings')}>
-          <b>Aa</b>
-          <small>设置</small>
-        </button>
-      </section>
+      <MobileReaderShell
+        open={state.controls}
+        onOpenChange={state.setControls}
+        backHref={`/manga/${manga.slug}`}
+        title={chapter.title}
+        subtitle={`${manga.title} · ${chapter.volume_title}`}
+        progress={`${state.current + 1} / ${pages.length}`}
+        actions={[
+          { label: '目录', icon: '☷', onClick: () => state.action('catalog') },
+          { label: '上一页', icon: '←', disabled: state.current <= 0, onClick: () => state.action('previous') },
+          { label: '下一页', icon: '→', primary: true, disabled: state.current >= pages.length - 1, onClick: () => state.action('next') },
+          { label: '设置', icon: 'Aa', onClick: () => state.action('settings') },
+        ]}
+      />
       <button
         className="scrim"
         data-scrim=""
@@ -270,6 +268,7 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
               type="checkbox"
             />
           </label>
+          <MobileReaderMusic />
         </form>
       </dialog>
       <div className="comic-toast" data-toast="" hidden={!state.toast}>

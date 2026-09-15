@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { BookChapterResponse } from './contracts';
 import { ensurePrivateDeviceToken } from '../../shared/device/private-device';
+import { MobileReaderShell } from '../../shared/reader/mobile-reader-shell';
+import { MobileReaderMusic } from '../../shared/reader/mobile-reader-music';
 import './reader-controls.css';
 
 const defaults = {
@@ -11,6 +13,7 @@ const defaults = {
   size: 20,
   line: 1.9,
   width: 760,
+  margin: 20,
   font: 'serif',
   background: '#f6efdc',
 };
@@ -30,6 +33,7 @@ export function BookReaderPage({
   const [ready, setReady] = useState(false);
   const [progress, setProgress] = useState(0);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const article = useRef<HTMLElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const position = useRef(0);
@@ -46,6 +50,7 @@ export function BookReaderPage({
         size: Math.max(14, Math.min(32, Number(saved.size) || 20)),
         line: Math.max(1.4, Math.min(2.6, Number(saved.line) || 1.9)),
         width: Math.max(560, Math.min(960, Number(saved.width) || 760)),
+        margin: Math.max(12, Math.min(48, Number(saved.margin) || 20)),
         font: saved.font === 'sans-serif' ? 'sans-serif' : 'serif',
         background: /^#[0-9a-f]{6}$/i.test(saved.background)
           ? saved.background
@@ -148,12 +153,18 @@ export function BookReaderPage({
       data-theme={prefs.theme}
       data-mode={prefs.mode}
       data-controls={controlsOpen}
+      onClick={(event) => {
+        if (innerWidth > 760 || (event.target as HTMLElement).closest('a,button,input,select,dialog')) return;
+        const x = event.clientX / innerWidth;
+        if (x > .28 && x < .72) setControlsOpen((value) => !value);
+      }}
       style={
         {
           '--reading-bg': colors[prefs.theme] || colors.day,
           '--reading-size': prefs.size + 'px',
           '--reading-line': prefs.line,
           '--reading-width': prefs.width + 'px',
+          '--reading-margin': prefs.margin + 'px',
           '--reading-font': prefs.font,
         } as CSSProperties
       }
@@ -222,14 +233,42 @@ export function BookReaderPage({
           ↑<span>顶部</span>
         </button>
       </aside>
+      <MobileReaderShell
+        open={controlsOpen}
+        onOpenChange={setControlsOpen}
+        backHref={contentsUrl}
+        title={chapter.title}
+        subtitle={chapter.volume_title}
+        progress={`${Math.round(progress * 100)}%`}
+        actions={[
+          { label: '目录', icon: '☰', onClick: () => setCatalogOpen(true) },
+          { label: '夜间', icon: '☾', onClick: () => update({ theme: prefs.theme === 'night' ? 'day' : 'night' }) },
+          { label: '设置', icon: 'Aa', primary: true, onClick: () => dialog.current?.showModal() },
+          { label: '沉浸', icon: '⛶', onClick: () => document.fullscreenElement ? void document.exitFullscreen() : void document.documentElement.requestFullscreen?.().catch(() => {}) },
+          { label: '顶部', icon: '↑', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+        ]}
+      />
       <button
-        className="reading-toggle"
-        aria-label={controlsOpen ? '收起阅读工具' : '展开阅读工具'}
-        aria-expanded={controlsOpen}
-        onClick={() => setControlsOpen(!controlsOpen)}
-      >
-        {controlsOpen ? '×' : '☰'}
-      </button>
+        className="reading-catalog-scrim"
+        type="button"
+        hidden={!catalogOpen}
+        aria-label="关闭目录"
+        onClick={() => setCatalogOpen(false)}
+      />
+      <aside className="reading-catalog" data-open={catalogOpen} aria-label="章节目录">
+        <header>
+          <div><small>{book.title}</small><h2>章节目录</h2></div>
+          <button type="button" aria-label="关闭目录" onClick={() => setCatalogOpen(false)}>×</button>
+        </header>
+        <nav>
+          {navigation.map((item, itemIndex) => (
+            <a key={item.id} href={chapterUrl(item)} aria-current={item.id === chapter.id ? 'page' : undefined}>
+              <span>{String(itemIndex + 1).padStart(2, '0')}</span>
+              <div><strong>{item.title}</strong><small>{item.volume_title}</small></div>
+            </a>
+          ))}
+        </nav>
+      </aside>
       <dialog className="reading-settings" ref={dialog} aria-labelledby="reading-settings-title">
         <form method="dialog">
           <header>
@@ -276,6 +315,17 @@ export function BookReaderPage({
             />
           </label>
           <label>
+            页边距 <output>{prefs.margin}px</output>
+            <input
+              type="range"
+              min="12"
+              max="48"
+              step="2"
+              value={prefs.margin}
+              onChange={(e) => update({ margin: Number(e.target.value) })}
+            />
+          </label>
+          <label>
             阅读方式
             <select value={prefs.mode} onChange={(e) => update({ mode: e.target.value })}>
               <option value="scroll">连续滚动</option>
@@ -313,6 +363,7 @@ export function BookReaderPage({
               </label>
             )}
           </fieldset>
+          <MobileReaderMusic />
           <footer>
             <button type="button" onClick={() => setPrefs(defaults)}>
               恢复默认

@@ -179,7 +179,7 @@ export async function commit(req: AuthRequest, res: Response) {
     const result = db.transaction(() => {
       for (const file of media) db.prepare('INSERT INTO media (filename,original_name,path,mime_type,size) VALUES (?,?,?,?,?)').run(file.filename,file.original,file.relative,'image/webp',file.size)
       if (req.body.mode === 'insert') return { content, web_sources: [item.source], images_imported: media.length }
-      const row = db.prepare(`INSERT INTO articles (title,slug,content,content_html,excerpt,status,visibility,author_id) VALUES (?,?,?,?,?,'draft','private',?)`)
+      const row = db.prepare(`INSERT INTO articles (title,slug,content,content_html,excerpt,status,visibility,author_id) VALUES (?,?,?,?,?,'draft','public',?)`)
         .run(title, `web-${randomUUID()}`, content, renderArticleContent(content), '', req.userId!)
       const id = Number(row.lastInsertRowid)
       saveArticleSources(id, [item.source])

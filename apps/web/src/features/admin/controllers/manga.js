@@ -81,11 +81,10 @@ export function mount(scope) {
           }),
         });
         await load();
-        message.textContent = '基础设置已保存';
+        notify('漫画基础设置已保存');
         scope.timeout(() => $('#manga-settings-dialog')?.close(), 350);
       } catch (error) {
         if (scope.disposed) return;
-        message.textContent = error.message;
         notify(error.message, true);
       }
     });

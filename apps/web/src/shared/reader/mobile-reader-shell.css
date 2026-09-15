@@ -1,0 +1,35 @@
+.mobile-reader-shell { display: none; }
+@media (max-width: 760px) {
+  html:has(.mobile-reader-shell) [data-music-player] { display: none !important; }
+  .mobile-reader-shell { display: contents; color: #f5f6f4; }
+  .mobile-reader-shell__top,
+  .mobile-reader-shell__bottom { position: fixed; z-index: 90; left: 0; right: 0; opacity: 0; pointer-events: none; transition: opacity .18s ease, transform .18s ease; }
+  .mobile-reader-shell__top { top: 0; display: grid; grid-template-columns: 2.75rem minmax(0,1fr) auto; align-items: center; gap: .55rem; min-height: 3.65rem; padding: max(.45rem, env(safe-area-inset-top)) .8rem .45rem; background: rgb(17 20 18 / 92%); backdrop-filter: blur(18px); transform: translateY(-100%); }
+  .mobile-reader-shell__top > a { display: grid; width: 2.35rem; height: 2.35rem; place-items: center; border-radius: 50%; color: inherit; font-size: 1.75rem; text-decoration: none; }
+  .mobile-reader-shell__top div { min-width: 0; }
+  .mobile-reader-shell__top :is(strong,small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-reader-shell__top strong { font: 650 .9rem/1.3 system-ui; }
+  .mobile-reader-shell__top small { margin-top: .1rem; font: .68rem/1.2 system-ui; opacity: .62; }
+  .mobile-reader-shell__top > span { font: .72rem ui-monospace, monospace; opacity: .78; }
+  .mobile-reader-shell__bottom { bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: .2rem; padding: .45rem .55rem max(.45rem, env(safe-area-inset-bottom)); background: rgb(17 20 18 / 94%); backdrop-filter: blur(20px); transform: translateY(100%); }
+  .mobile-reader-shell__bottom :is(button,a) { display: grid; min-width: 0; min-height: 3.2rem; place-items: center; align-content: center; gap: .16rem; border: 0; border-radius: .7rem; background: transparent; color: inherit; text-decoration: none; }
+  .mobile-reader-shell__bottom :is(button,a)[data-primary='true'] { background: #eef2ec; color: #172019; }
+  .mobile-reader-shell__bottom b { font: 650 1.15rem/1 system-ui; }
+  .mobile-reader-shell__bottom small { font: .62rem/1.15 system-ui; opacity: .72; }
+  .mobile-reader-shell__bottom button:disabled { opacity: .34; }
+  .mobile-reader-shell[data-open='true'] :is(.mobile-reader-shell__top,.mobile-reader-shell__bottom) { opacity: 1; pointer-events: auto; transform: none; }
+  .mobile-reader-music { display: grid; gap: .75rem; padding: .9rem; border: 1px solid rgb(20 28 23 / 10%); border-radius: 1rem; background: rgb(255 255 255 / 34%); color: inherit; }
+  .mobile-reader-music header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .mobile-reader-music header span { font-weight: 700; }
+  .mobile-reader-music header small { opacity: .55; }
+  .mobile-reader-music__track { display: grid; min-width: 0; gap: .15rem; }
+  .mobile-reader-music__track :is(strong,span) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-reader-music__track strong { font-size: .9rem; }
+  .mobile-reader-music__track span { font-size: .72rem; opacity: .58; }
+  .mobile-reader-music__controls { display: flex; justify-content: center; gap: .7rem; }
+  .mobile-reader-music__controls button { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border: 1px solid currentColor; border-radius: 50%; background: transparent; color: inherit; font-size: 1.2rem; }
+  .mobile-reader-music__controls button.primary { border-color: #1a251d; background: #1a251d; color: #fff; }
+  .mobile-reader-music__volume { display: grid !important; grid-template-columns: auto minmax(0,1fr) 2.6rem; align-items: center; gap: .65rem; font-size: .72rem; }
+  .mobile-reader-music__volume input { width: 100%; }
+  .mobile-reader-music__volume output { text-align: right; opacity: .62; }
+}

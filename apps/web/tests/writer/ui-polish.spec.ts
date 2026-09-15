@@ -7,8 +7,12 @@ for(const width of [1440,390]) {
     await page.goto('/books/ui-fixture/volume/chapter');
     await expect(page.locator('.reading-prose')).toBeVisible();
     await page.evaluate(()=>scrollTo(0,1300));
-    if(width<760) await page.getByRole('button',{name:'展开阅读工具'}).click();
-    await page.locator('.reading-actions button').filter({hasText:'设置'}).click();
+    if(width<760) {
+      await page.locator('.reading-workspace').click({position:{x:width/2,y:450}});
+      await page.locator('.mobile-reader-shell__bottom button').filter({hasText:'设置'}).click();
+    } else {
+      await page.locator('.reading-actions button').filter({hasText:'设置'}).click();
+    }
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByLabel('字体',{exact:true}).selectOption('sans-serif');
     await page.getByLabel('阅读方式',{exact:true}).selectOption('paged');

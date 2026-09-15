@@ -45,8 +45,6 @@ export function register(context) {
   context.createCategory = async function createCategory(event) {
     event.preventDefault();
     const input = event.currentTarget.elements.namedItem('name');
-    const message = context.$('#category-message');
-    message.textContent = '';
     try {
       await context.request('/admin/categories', {
         method: 'POST',
@@ -54,19 +52,15 @@ export function register(context) {
       });
       input.value = '';
       await context.loadTaxonomy();
-      message.textContent = '分类已添加';
       context.notify('分类已添加');
     } catch (error) {
       if (context.scope.disposed) return;
-      message.textContent = error.message || '分类添加失败';
       context.notify(error.message || '分类添加失败', true);
     }
   };
   context.createTag = async function createTag(event) {
     event.preventDefault();
     const input = event.currentTarget.elements.namedItem('name');
-    const message = context.$('#tag-message');
-    message.textContent = '';
     try {
       await context.request('/admin/tags', {
         method: 'POST',
@@ -74,11 +68,9 @@ export function register(context) {
       });
       input.value = '';
       await context.loadTaxonomy();
-      message.textContent = '标签已添加';
       context.notify('标签已添加');
     } catch (error) {
       if (context.scope.disposed) return;
-      message.textContent = error.message || '标签添加失败';
       context.notify(error.message || '标签添加失败', true);
     }
   };
@@ -92,11 +84,9 @@ export function register(context) {
         body: JSON.stringify({ name }),
       });
       await context.loadTaxonomy();
-      context.$('#category-message').textContent = '分类已更新';
       context.notify('分类已更新');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#category-message').textContent = error.message || '分类更新失败';
       context.notify(error.message || '分类更新失败', true);
     }
   };
@@ -105,11 +95,9 @@ export function register(context) {
     try {
       await context.request(`/admin/categories/${id}`, { method: 'DELETE' });
       await Promise.all([context.loadTaxonomy(), context.loadArticles()]);
-      context.$('#category-message').textContent = '分类已删除，相关文章已变为未分类';
-      context.notify('分类已删除');
+      context.notify('分类已删除，相关文章已变为未分类');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#category-message').textContent = error.message || '分类删除失败';
       context.notify(error.message || '分类删除失败', true);
     }
   };
@@ -123,11 +111,9 @@ export function register(context) {
         body: JSON.stringify({ name }),
       });
       await context.loadTaxonomy();
-      context.$('#tag-message').textContent = '标签已更新';
       context.notify('标签已更新');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#tag-message').textContent = error.message || '标签更新失败';
       context.notify(error.message || '标签更新失败', true);
     }
   };
@@ -136,11 +122,9 @@ export function register(context) {
     try {
       await context.request(`/admin/tags/${id}`, { method: 'DELETE' });
       await Promise.all([context.loadTaxonomy(), context.loadArticles()]);
-      context.$('#tag-message').textContent = '标签已删除，文章关联已移除';
-      context.notify('标签已删除');
+      context.notify('标签已删除，文章关联已移除');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#tag-message').textContent = error.message || '标签删除失败';
       context.notify(error.message || '标签删除失败', true);
     }
   };
@@ -177,14 +161,12 @@ export function register(context) {
         method: id ? 'PUT' : 'POST',
         body: JSON.stringify(payload),
       });
-      context.$('#page-message').textContent = '页面已保存';
       context.notify('页面已保存');
       context.resetPageForm();
       context.state.pagesTrashMode = false;
       await context.loadPages();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#page-message').textContent = error.message || '页面保存失败';
       context.notify(error.message || '页面保存失败', true);
     }
   };

@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import type { Viewport } from 'next';
 import { getSiteSettings, themeCss } from '../shared/site/settings';
+import { ToastProvider } from '../shared/ui/toast-provider';
+import '../shared/ui/toast.css';
 
 export const dynamic = 'force-dynamic';
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f4f2ea' };
@@ -36,6 +38,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       >
         <div className="site-bg-grid" />
         {children}
+        <ToastProvider />
       </body>
     </html>
   );

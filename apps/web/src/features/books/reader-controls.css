@@ -128,6 +128,8 @@
 .reading-toggle {
   display: none;
 }
+.reading-catalog,
+.reading-catalog-scrim { display: none; }
 .reading-pages button,
 .reading-settings button {
   padding: 9px 16px;
@@ -235,7 +237,7 @@
 }
 @media (max-width: 760px) {
   .reading-workspace {
-    padding: 16px 20px 110px;
+    padding: 16px var(--reading-margin) 110px;
   }
   .reading-paper {
     max-width: 100%;
@@ -248,7 +250,7 @@
     font-size: 24px;
   }
   .reading-toggle {
-    display: grid;
+    display: none;
     place-items: center;
     position: fixed;
     right: 16px;
@@ -263,7 +265,7 @@
     font-size: 20px;
   }
   .reading-actions {
-    display: none;
+    display: none !important;
     top: auto;
     bottom: calc(76px + env(safe-area-inset-bottom));
     left: 16px;
@@ -275,9 +277,7 @@
     background: var(--reading-bg);
     box-shadow: 0 8px 24px #0002;
   }
-  .reading-workspace[data-controls='true'] .reading-actions {
-    display: grid;
-  }
+  .reading-workspace[data-controls='true'] .reading-actions { display: none; }
   .reading-actions :is(button, a) {
     width: 100%;
     border: 0;
@@ -295,4 +295,18 @@
   .reading-settings label {
     margin: 16px 0;
   }
+  .reading-catalog-scrim:not([hidden]) { display: block; position: fixed; z-index: 91; inset: 0; border: 0; background: rgb(8 14 11 / 55%); backdrop-filter: blur(2px); }
+  .reading-catalog { display: flex; position: fixed; z-index: 92; inset: 0 auto 0 0; width: min(88vw, 390px); flex-direction: column; padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom)); background: var(--reading-bg); color: var(--reading-ink); box-shadow: 22px 0 60px rgb(0 0 0 / 28%); transform: translateX(-105%); transition: transform .2s ease; }
+  .reading-catalog[data-open='true'] { transform: none; }
+  .reading-catalog header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem .25rem 1rem; border-bottom: 1px solid #8883; }
+  .reading-catalog h2 { margin: .2rem 0 0; font-size: 1.4rem; }
+  .reading-catalog header small { opacity: .58; }
+  .reading-catalog header button { display: grid; width: 2.35rem; height: 2.35rem; place-items: center; border: 1px solid #8883; border-radius: 50%; background: transparent; font-size: 1.35rem; }
+  .reading-catalog nav { overflow: auto; padding: .65rem 0; }
+  .reading-catalog nav a { display: grid; grid-template-columns: 2rem minmax(0,1fr); gap: .55rem; padding: .78rem .65rem; border-radius: .65rem; color: inherit; text-decoration: none; }
+  .reading-catalog nav a[aria-current='page'] { background: color-mix(in srgb, var(--reading-ink) 10%, transparent); }
+  .reading-catalog nav a > span { opacity: .42; font: .7rem ui-monospace, monospace; }
+  .reading-catalog nav :is(strong,small) { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .reading-catalog nav strong { font-size: .86rem; }
+  .reading-catalog nav small { margin-top: .2rem; font-size: .68rem; opacity: .52; }
 }

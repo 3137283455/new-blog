@@ -169,12 +169,8 @@ export function useLocalReader(data: LocalReaderData) {
           [live.current.current]?.scrollIntoView({ behavior: 'auto' });
       initialized.current = true;
     });
-    const timer = setTimeout(() => {
-      if (innerWidth <= 760) setControls(true);
-    }, 300);
     return () => {
       cancelAnimationFrame(frame);
-      clearTimeout(timer);
     };
   }, [ready]);
   useEffect(() => {

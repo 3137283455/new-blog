@@ -192,7 +192,7 @@ export function register(context) {
     context.$('#music-track-dialog')?.close();
   };
   context.saveMusic = async function saveMusic() {
-    context.$('#music-message').textContent = '正在保存音乐...';
+    context.notify('正在保存音乐…', 'info');
     try {
       await context.request('/admin/music', {
         method: 'PUT',
@@ -202,12 +202,10 @@ export function register(context) {
       context.state.musicPlaylists = playlistJson.data || [];
       context.renderMusicPlaylists();
       context.renderMusic();
-      context.$('#music-message').textContent = '音乐已保存';
       context.notify('音乐已保存');
       return true;
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#music-message').textContent = error.message || '音乐保存失败';
       context.notify(error.message || '音乐保存失败', true);
       return false;
     }
@@ -229,7 +227,7 @@ export function register(context) {
       is_active: fields.namedItem('is_active').checked,
     };
     if (!payload.name) {
-      context.$('#music-playlist-message').textContent = '请填写歌单名称';
+      context.notify('请填写歌单名称', 'warning');
       return;
     }
     try {
@@ -237,7 +235,6 @@ export function register(context) {
         method: id ? 'PUT' : 'POST',
         body: JSON.stringify(payload),
       });
-      context.$('#music-playlist-message').textContent = id ? '歌单已更新' : '歌单已创建';
       context.notify(id ? '歌单已更新' : '歌单已创建');
       context.resetMusicPlaylistForm(false);
       const [musicJson, playlistJson] = await Promise.all([
@@ -255,7 +252,6 @@ export function register(context) {
       context.$('#music-playlist-dialog')?.close();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#music-playlist-message').textContent = error.message || '歌单保存失败';
       context.notify(error.message || '歌单保存失败', true);
     }
   };
@@ -298,11 +294,9 @@ export function register(context) {
       }
       context.renderMusic();
       context.renderMusicPlaylists();
-      context.$('#music-playlist-message').textContent = '歌单已删除，歌曲已保留';
       context.notify('歌单已删除，歌曲已保留');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#music-playlist-message').textContent = error.message || '歌单删除失败';
       context.notify(error.message || '歌单删除失败', true);
     }
   };

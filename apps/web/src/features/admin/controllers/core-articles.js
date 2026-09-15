@@ -58,8 +58,7 @@ export function register(context) {
       target === 'title' ? context.$('#title-font-select') : context.$('#body-font-select');
     if (!select) return;
     select.value = context.fontKey(font);
-    context.$('#font-library-message').textContent =
-      `已设为${target === 'title' ? '标题' : '正文'}字体，保存文章后生效`;
+    context.notify(`已设为${target === 'title' ? '标题' : '正文'}字体，保存文章后生效`);
     context.switchPanel('articles');
   };
   context.editArticle = async function editArticle(id) {
@@ -133,18 +132,17 @@ export function register(context) {
       is_pinned: fields.namedItem('is_pinned').checked,
       is_recommended: fields.namedItem('is_recommended').checked,
     };
-    context.$('#editor-message').textContent = '正在保存...';
     try {
       await context.request(id ? `/admin/articles/${id}` : '/admin/articles', {
         method: id ? 'PUT' : 'POST',
         body: JSON.stringify(payload),
       });
-      context.$('#editor-message').textContent = '保存成功';
+      context.notify('文章保存成功');
       await Promise.all([context.loadDashboard(), context.loadArticles()]);
       context.switchPanel('articles');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#editor-message').textContent = error.message;
+      context.notify(error.message || '文章保存失败', true);
     }
   };
   context.deleteArticle = async function deleteArticle(id) {
@@ -235,6 +233,6 @@ export function register(context) {
     const selected = textarea.value.slice(start, end) || item.text;
     textarea.setRangeText(`${item.before}${selected}${item.after}`, start, end, 'end');
     textarea.focus();
-    context.$('#editor-message').textContent = '已插入 Markdown 片段';
+    context.notify('已插入 Markdown 片段', 'info');
   };
 }

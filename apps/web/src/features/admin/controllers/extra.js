@@ -3,6 +3,7 @@ import {
   parseBrowserBookmarks,
   validateBookmarkItems,
 } from './bookmark-import.js';
+import { toast } from '../../../shared/ui/toast';
 export function mount(scope) {
   (() => {
     const root = scope.query('.admin-shell');
@@ -61,10 +62,13 @@ export function mount(scope) {
     }
     function setPanelMessage(id, message, error = false) {
       const el = $(`#${id}`);
-      if (!el) return;
-      el.textContent = message;
-      el.classList.toggle('text-error', error);
-      el.classList.toggle('text-success', !error && !!message);
+      if (el) {
+        el.textContent = '';
+        el.classList.remove('text-error', 'text-success');
+      }
+      if (!message) return;
+      if (error) toast.error(message);
+      else toast.success(message);
     }
     function parseJsonSetting(row, fallback) {
       if (!row) return fallback;

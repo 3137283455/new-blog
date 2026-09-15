@@ -1,15 +1,17 @@
+import { toast } from '../../../shared/ui/toast';
+
 export function register(context) {
   context.setStatus = function setStatus(text) {
     const status = context.$('#admin-status');
     if (status) status.textContent = text;
     if (context.root) context.root.dataset.status = text || '';
   };
-  context.notify = function notify(message, error = false) {
-    const el = context.$('#admin-notice');
-    if (!el) return;
-    el.textContent = message || '';
-    el.classList.toggle('is-visible', !!message);
-    el.classList.toggle('is-error', !!error);
+  context.notify = function notify(message, kind = 'success') {
+    if (!message) return;
+    if (kind === true || kind === 'error') toast.error(message);
+    else if (kind === 'warning') toast.warning(message);
+    else if (kind === 'info') toast.info(message);
+    else toast.success(message);
   };
   context.ensurePanelTabs = function ensurePanelTabs() {
     [
@@ -408,7 +410,7 @@ export function register(context) {
     preview.innerHTML = `<img class="h-40 w-full object-cover" src="${context.escapeHtml(url)}" alt="封面预览" />`;
   };
   context.downloadAdminFile = async function downloadAdminFile(path, filenameHint) {
-    context.$('#backup-message').textContent = '正在生成导出文件...';
+    context.notify('正在生成导出文件…', 'info');
     const headers = {};
     if (context.state.token) headers.Authorization = `Bearer ${context.state.token}`;
     const res = await context.scope.fetch(`${context.API_BASE}${path}`, { headers });
@@ -428,7 +430,7 @@ export function register(context) {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    context.$('#backup-message').textContent = `已开始下载：${filename}`;
+    context.notify(`已开始下载：${filename}`);
   };
   context.saveBannerImages = async function saveBannerImages() {
     const input = context.$('#site-settings-form').elements.namedItem('banner_images');

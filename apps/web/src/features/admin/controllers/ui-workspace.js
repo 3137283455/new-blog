@@ -94,15 +94,14 @@ export function register(context) {
     });
     context.scope.listen(context.$('#logs-policy-form'), 'submit', async (event) => {
       event.preventDefault();
-      const message = context.$('#logs-policy-message');
       try {
         await context.request('/admin/logs/policy', {
           method: 'PUT',
           body: JSON.stringify({ retention_days: Number(context.$('#logs-retention-days').value) }),
         });
-        message.textContent = '已保存，下次自动清理生效';
+        context.notify('日志保留策略已保存，下次自动清理生效');
       } catch (error) {
-        message.textContent = error.message || '保存失败';
+        context.notify(error.message || '日志保留策略保存失败', true);
       }
     });
     context.scope.listen(context.$('#logs-panel'), 'click', async (event) => {
@@ -123,10 +122,10 @@ export function register(context) {
           method: 'POST',
           body: JSON.stringify({ mode }),
         });
-        context.$('#logs-policy-message').textContent = '已清理 ' + result.data.removed + ' 条记录';
+        context.notify('已清理 ' + result.data.removed + ' 条日志记录');
         await context.loadLogs();
       } catch (error) {
-        context.$('#logs-policy-message').textContent = error.message || '清理失败';
+        context.notify(error.message || '日志清理失败', true);
       } finally {
         button.disabled = false;
       }

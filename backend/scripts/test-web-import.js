@@ -49,12 +49,12 @@ test('expired preview cannot be committed', async () => {
   assert.equal(code,410);
   assert.equal(body.success,false);
 });
-test('without Python, preview to draft is idempotent, private and detects duplicates', async () => {
+test('without Python, preview to draft is idempotent, publishable and detects duplicates', async () => {
   const oldPython = process.env.WEB_IMPORT_PYTHON;
   process.env.WEB_IMPORT_PYTHON = path.join(sandbox, 'python-not-installed');
   const web = require('../dist/services/web-fetch');
   const original = web.fetchWeb;
-  const document = '<html><head><title>从网页创建草稿</title></head><body><article><h1>从网页创建草稿</h1>'+Array.from({length:8},(_,i)=>'<p>第'+i+'部分，这是独立的导入集成测试，验证网页内容可以提取成结构化的文章，并且在保存后继续编辑和阅读。保存为私密草稿不会向外发布内容，作者可以审核并修改后再决定发布。</p>').join('')+'</article></body></html>';
+  const document = '<html><head><title>从网页创建草稿</title></head><body><article><h1>从网页创建草稿</h1>'+Array.from({length:8},(_,i)=>'<p>第'+i+'部分，这是独立的导入集成测试，验证网页内容可以提取成结构化的文章，并且在保存后继续编辑和阅读。草稿状态不会向外发布内容，作者可以审核并修改后再决定发布。</p>').join('')+'</article></body></html>';
   web.fetchWeb = async () => ({bytes:Buffer.from(document),type:'text/html; charset=utf-8',url:'https://example.com/integration'});
   function response() { return {statusCode:200,body:null,status(value){this.statusCode=value;return this},json(value){this.body=value;return this}}; }
   try {
@@ -66,7 +66,9 @@ test('without Python, preview to draft is idempotent, private and detects duplic
     assert.equal(saved.body.success,true,saved.body.message);
     const id=saved.body.data.id;
     const row=db.prepare('SELECT * FROM articles WHERE id=?').get(id);
-    assert.equal(row.title,'我的网页草稿'); assert.equal(row.status,'draft'); assert.equal(row.visibility,'private');
+    assert.equal(row.title,'我的网页草稿'); assert.equal(row.status,'draft'); assert.equal(row.visibility,'public');
+    db.prepare("UPDATE articles SET status='published', published_at=datetime('now') WHERE id=?").run(id);
+    assert.equal(db.prepare("SELECT COUNT(*) count FROM articles WHERE id=? AND status='published' AND visibility='public' AND deleted_at IS NULL").get(id).count,1);
     assert.ok(row.content.includes('来源：')); assert.equal(articleSources(id).length,1);
     const again=response();await commit(args,again);assert.equal(again.body.data.id,id);
     const second=response();await preview({userId,body:{url:'https://example.com/integration'}},second);

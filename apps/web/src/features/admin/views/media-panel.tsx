@@ -78,12 +78,6 @@ export function MediaPanel() {
           </details>
         </div>
 
-        <div
-          id="media-message"
-          className="admin-media-message"
-          role="status"
-          aria-live="polite"
-        ></div>
         <div className="admin-media-explorer">
           <aside className="admin-media-sidebar">
             <header>

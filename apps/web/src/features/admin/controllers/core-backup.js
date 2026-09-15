@@ -2,7 +2,7 @@ export function register(context) {
   context.loadBackupManifest = async function loadBackupManifest() {
     const json = await context.request('/admin/backup/manifest');
     context.$('#backup-manifest').textContent = JSON.stringify(json.data || {}, null, 2);
-    context.$('#backup-message').textContent = '备份清单已刷新';
+    context.notify('备份清单已刷新', 'info');
   };
   context.handleBackupDownload = async function handleBackupDownload(type) {
     try {
@@ -18,7 +18,6 @@ export function register(context) {
       }
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#backup-message').textContent = error.message || '导出失败';
       context.notify(error.message || '导出失败', true);
     }
   };
@@ -35,9 +34,10 @@ export function register(context) {
     const endpoint = isDatabase ? '/admin/backup/database/import' : '/admin/backup/articles/import';
     const formData = new FormData();
     formData.append('file', file);
-    context.$('#backup-message').textContent = isDatabase
-      ? '正在校验并恢复数据库，请勿关闭页面...'
-      : '正在导入文章...';
+    context.notify(
+      isDatabase ? '正在校验并恢复数据库，请勿关闭页面…' : '正在导入文章…',
+      'info',
+    );
     try {
       const headers = {};
       if (context.state.token) headers.Authorization = `Bearer ${context.state.token}`;
@@ -50,13 +50,11 @@ export function register(context) {
       if (!response.ok || json.success === false) {
         throw new Error(json.message || `导入失败（HTTP ${response.status}）`);
       }
-      context.$('#backup-message').textContent = json.message || '导入完成';
       context.notify(json.message || '导入完成');
       await context.loadAll();
       await context.loadBackupManifest();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#backup-message').textContent = error.message || '导入失败';
       context.notify(error.message || '导入失败', true);
     } finally {
       if (input) input.value = '';

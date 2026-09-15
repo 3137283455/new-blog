@@ -386,11 +386,11 @@ html.comic-page body {
 }
 @media (max-width: 760px) {
   .comic {
-    padding: 3.55rem 0 4.8rem;
+    min-height: 100dvh;
+    padding: 0;
   }
   :where(.comic) .top {
-    height: 3.5rem;
-    padding: 0 0.7rem;
+    display: none;
   }
   .comic main {
     width: 100%;
@@ -406,7 +406,7 @@ html.comic-page body {
     z-index: 35;
     right: 0.7rem;
     bottom: 0.8rem;
-    display: block;
+    display: none;
     width: 2.8rem;
     height: 2.8rem;
     border: 1px solid #fff3;
@@ -420,7 +420,7 @@ html.comic-page body {
     right: 0.6rem;
     bottom: 0.6rem;
     left: 0.6rem;
-    display: grid;
+    display: none;
     grid-template-columns: repeat(4, 1fr);
     border-radius: 1rem;
     background: #171a18f2;

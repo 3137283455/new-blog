@@ -128,9 +128,7 @@
     bottom: calc(72px + env(safe-area-inset-bottom));
   }
   .source-reader-manga .source-reader-controls {
-    flex-wrap: wrap;
-    bottom: calc(8px + env(safe-area-inset-bottom));
-    gap: 4px;
+    display: none;
   }
   .source-reader-manga .source-reader-controls button {
     font-size: 12px;
@@ -138,4 +136,6 @@
   .source-appearance-dialog {
     padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
   }
+  .source-reader-manga .source-reader-topbar { display: none; }
+  .source-reader-manga { min-height: 100dvh; padding-top: 0; }
 }

@@ -271,16 +271,16 @@ export function mount(scope) {
   context.scope.listen(context.$('#font-file-upload'), 'change', async (event) => {
     const file = event.currentTarget.files?.[0];
     if (!file) return;
-    context.$('#font-library-message').textContent = '正在上传字体...';
+    context.notify('正在上传字体…', 'info');
     try {
       const media = await context.uploadFile(file);
       context.$('#font-url-input').value = media.url;
       context.$('#font-name-input').value =
         context.$('#font-name-input').value.trim() || file.name.replace(/\.[^.]+$/, '');
-      context.$('#font-library-message').textContent = '字体已上传，可点击加入字体库';
+      context.notify('字体已上传，可点击加入字体库');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#font-library-message').textContent = error.message;
+      context.notify(error.message || '字体上传失败', true);
     }
   });
   context.scope.listen(context.$('#font-library-list'), 'click', (event) => {
@@ -294,7 +294,7 @@ export function mount(scope) {
     if (remove) {
       context.state.fontLibrary.splice(Number(remove.dataset.removeFont), 1);
       context.renderFontLibrary();
-      context.$('#font-library-message').textContent = '字体已移除，记得保存字体库';
+      context.notify('字体已移除，记得保存字体库', 'info');
     }
   });
   context.scope.listen(context.$('#category-form'), 'submit', context.createCategory);
@@ -320,7 +320,6 @@ export function mount(scope) {
   context.scope.listen(context.$('#site-settings-form'), 'change', context.renderSettingsPreview);
   context.scope.listen(context.$('#storage-settings-form'), 'submit', async (event) => {
     event.preventDefault();
-    const message = context.$('#storage-settings-message');
     try {
       const data = {
         quota_gb: Number(context.$('#storage-quota-gb')?.value),
@@ -330,9 +329,9 @@ export function mount(scope) {
       const result = await context.request('/admin/storage/settings', { method: 'PUT', body: JSON.stringify(data) });
       context.state.stats = { ...(context.state.stats || {}), storage: result.data };
       context.renderDashboard();
-      if (message) message.textContent = '配额设置已保存';
+      context.notify('配额设置已保存');
     } catch (error) {
-      if (message) message.textContent = error.message || '保存失败';
+      context.notify(error.message || '保存失败', true);
     }
   });
   context.scope.listen(context.$('#memory-settings-form'), 'submit', context.saveMemorySettings);
@@ -360,8 +359,7 @@ export function mount(scope) {
     }
   });
   context.scope.listen(context.$('#admin-notification-toggle'), 'click', () => {
-    const notice = context.$('#admin-notice');
-    if (notice?.textContent) notice.classList.toggle('is-visible');
+    context.notify('暂无新的系统通知', 'info');
     context.$('#admin-notification-dot')?.classList.add('hidden');
   });
   context.scope.listen(document, 'keydown', (event) => {
@@ -469,11 +467,11 @@ export function mount(scope) {
       const media = await context.uploadFile(file);
       context.$('#music-playlist-form').elements.namedItem('cover').value = media.url;
       window.updateAdminFieldPreview?.('music-playlist-form', 'cover');
-      context.$('#music-playlist-message').textContent = '封面上传成功';
+      context.notify('封面上传成功');
       await context.loadMedia();
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#music-playlist-message').textContent = error.message || '封面上传失败';
+      context.notify(error.message || '封面上传失败', true);
     }
   });
   context.scope.listen(context.$('#articles-table'), 'click', (event) => {
@@ -570,7 +568,7 @@ export function mount(scope) {
       context.state.music[index] = context.state.music[nextIndex];
       context.state.music[nextIndex] = current;
       context.renderMusic();
-      context.$('#music-message').textContent = '顺序已调整，请保存排序';
+      context.notify('顺序已调整，请保存排序', 'info');
       return;
     }
     if (remove) {

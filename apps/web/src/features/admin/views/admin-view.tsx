@@ -149,8 +149,6 @@ export function AdminView() {
             </div>
           </div>
           <section id="admin-search-results" className="admin-search-results hidden" aria-label="后台搜索结果" aria-live="polite"></section>
-          <p id="admin-notice" className="admin-notice" role="status" aria-live="polite"></p>
-
           <LoginPanel />
 
           <DashboardPanel />

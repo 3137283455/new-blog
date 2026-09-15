@@ -40,7 +40,7 @@ for (const width of [1440,390]) test(width + ' workspace, editor and import', as
   await page.locator('#content').fill('新的草稿正文');
   let saved:any; await page.route('**/api/admin/articles/1',route=>{saved=route.request().postDataJSON();return route.fulfill({json:{success:true,data:article}});});
   await page.locator('#save-draft').click(); await expect(page.locator('#save-status')).toHaveText('草稿保存成功');
-  await expect(page.locator('#writer-publish-feedback')).toHaveText('草稿保存成功');
+  await expect(page.locator('.global-toast--success')).toContainText('草稿保存成功');
   expect(saved.content).toBe('新的草稿正文'); expect(saved.status).toBe('draft');
   await page.locator('#toggle-preview').click(); await expect(page.locator('#preview-panel')).toBeVisible();
   const noOverflow=await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth);expect(noOverflow).toBe(true);

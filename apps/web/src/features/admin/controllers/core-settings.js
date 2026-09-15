@@ -283,7 +283,7 @@ export function register(context) {
       body: JSON.stringify({ settings: { font_library: context.state.fontLibrary } }),
     });
     context.state.settings.font_library = context.state.fontLibrary;
-    context.$('#font-library-message').textContent = '字体库已保存';
+    context.notify('字体库已保存');
   };
   context.addFontEntry = function addFontEntry(
     family,
@@ -291,7 +291,7 @@ export function register(context) {
     message = '字体已加入，记得保存字体库',
   ) {
     if (!family || !url) {
-      context.$('#font-library-message').textContent = '请填写字体名称和字体文件地址';
+      context.notify('请填写字体名称和字体文件地址', 'warning');
       return false;
     }
     const fonts = Array.isArray(context.state.fontLibrary) ? context.state.fontLibrary : [];
@@ -299,7 +299,7 @@ export function register(context) {
     next.push({ family, url });
     context.state.fontLibrary = next;
     context.renderFontLibrary();
-    context.$('#font-library-message').textContent = message;
+    context.notify(message, 'info');
     return true;
   };
   context.addFontToLibrary = function addFontToLibrary() {
@@ -317,8 +317,7 @@ export function register(context) {
     context.$('#font-url-input').value = font.url || '';
     context.state.fontLibrary.splice(Number(index), 1);
     context.renderFontLibrary();
-    context.$('#font-library-message').textContent =
-      '已载入到左侧表单，修改后点击“加入字体库”，最后保存字体库';
+    context.notify('已载入编辑表单，修改后请重新加入并保存字体库', 'info');
   };
   context.renderThemes = function renderThemes() {
     const list = context.$('#themes-list');
@@ -367,7 +366,7 @@ export function register(context) {
   context.installTheme = async function installTheme(event) {
     event.preventDefault();
     const fields = event.currentTarget.elements;
-    context.$('#theme-message').textContent = '正在安装主题...';
+    context.notify('正在安装主题…', 'info');
     try {
       await context.request('/admin/themes/install', {
         method: 'POST',
@@ -380,12 +379,10 @@ export function register(context) {
         }),
       });
       event.currentTarget.reset();
-      context.$('#theme-message').textContent = '主题已安装';
       await context.loadThemes();
       context.notify('主题已安装');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#theme-message').textContent = error.message || '主题安装失败';
       context.notify(error.message || '主题安装失败', true);
     }
   };
@@ -395,11 +392,9 @@ export function register(context) {
         method: 'POST',
         body: JSON.stringify({}),
       });
-      context.$('#theme-message').textContent = '主题预览已开启，刷新前台查看';
-      context.notify('主题预览已开启');
+      context.notify('主题预览已开启，刷新前台查看');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#theme-message').textContent = error.message || '主题预览失败';
       context.notify(error.message || '主题预览失败', true);
     }
   };
@@ -407,11 +402,9 @@ export function register(context) {
     try {
       await context.request(`/admin/themes/${id}/activate`, { method: 'PUT' });
       await Promise.all([context.loadThemes(), context.loadSettings()]);
-      context.$('#theme-message').textContent = '主题已切换';
       context.notify('主题已切换');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#theme-message').textContent = error.message || '主题切换失败';
       context.notify(error.message || '主题切换失败', true);
     }
   };
@@ -420,18 +413,16 @@ export function register(context) {
     try {
       await context.request(`/admin/themes/${id}`, { method: 'DELETE' });
       await context.loadThemes();
-      context.$('#theme-message').textContent = '主题已删除';
       context.notify('主题已删除');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#theme-message').textContent = error.message || '主题删除失败';
       context.notify(error.message || '主题删除失败', true);
     }
   };
   context.installPlugin = async function installPlugin(event) {
     event.preventDefault();
     const fields = event.currentTarget.elements;
-    context.$('#plugin-message').textContent = '正在安装插件...';
+    context.notify('正在安装插件…', 'info');
     try {
       await context.request('/admin/plugins/install', {
         method: 'POST',
@@ -442,12 +433,10 @@ export function register(context) {
         }),
       });
       event.currentTarget.reset();
-      context.$('#plugin-message').textContent = '插件已安装';
       await context.loadPlugins();
       context.notify('插件已安装');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#plugin-message').textContent = error.message || '插件安装失败';
       context.notify(error.message || '插件安装失败', true);
     }
   };
@@ -455,11 +444,9 @@ export function register(context) {
     try {
       await context.request(`/admin/plugins/${id}/toggle`, { method: 'PUT' });
       await context.loadPlugins();
-      context.$('#plugin-message').textContent = '插件状态已更新';
       context.notify('插件状态已更新');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#plugin-message').textContent = error.message || '插件状态更新失败';
       context.notify(error.message || '插件状态更新失败', true);
     }
   };
@@ -468,11 +455,10 @@ export function register(context) {
     const fields = event.currentTarget.elements;
     const password = fields.namedItem('password').value;
     if (password && password.length < 8) {
-      context.$('#account-message').textContent = '新密码不能少于 8 位';
-      context.notify('新密码不能少于 8 位', true);
+      context.notify('新密码不能少于 8 位', 'warning');
       return;
     }
-    context.$('#account-message').textContent = '正在保存后台账号...';
+    context.notify('正在保存后台账号…', 'info');
     try {
       const payload = {
         nickname: fields.namedItem('nickname').value.trim(),
@@ -485,20 +471,16 @@ export function register(context) {
       });
       context.state.user = json.data;
       context.renderAccount();
-      context.$('#account-message').textContent = password
-        ? '后台账号已保存，密码已更新'
-        : '后台账号已保存';
-      context.notify('后台账号已保存');
+      context.notify(password ? '后台账号已保存，密码已更新' : '后台账号已保存');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#account-message').textContent = error.message || '后台账号保存失败';
       context.notify(error.message || '后台账号保存失败', true);
     }
   };
   context.saveProfile = async function saveProfile(event) {
     event.preventDefault();
     const fields = event.currentTarget.elements;
-    context.$('#profile-message').textContent = '正在保存资料卡...';
+    context.notify('正在保存资料卡…', 'info');
     try {
       await context.request('/admin/settings', {
         method: 'PUT',
@@ -510,19 +492,17 @@ export function register(context) {
           },
         }),
       });
-      context.$('#profile-message').textContent = '前台资料卡已保存';
       await context.loadSettings();
       context.notify('前台资料卡已保存');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#profile-message').textContent = error.message || '资料卡保存失败';
       context.notify(error.message || '资料卡保存失败', true);
     }
   };
   context.saveSiteSettings = async function saveSiteSettings(event) {
     event.preventDefault();
     const fields = event.currentTarget.elements;
-    context.$('#settings-message').textContent = '正在保存站点设置...';
+    context.notify('正在保存站点设置…', 'info');
     try {
       await context.request('/admin/settings', {
         method: 'PUT',
@@ -554,12 +534,10 @@ export function register(context) {
           },
         }),
       });
-      context.$('#settings-message').textContent = '站点设置已保存';
       await context.loadSettings();
       context.notify('站点设置已保存');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.$('#settings-message').textContent = error.message || '站点设置保存失败';
       context.notify(error.message || '站点设置保存失败', true);
     }
   };
@@ -577,9 +555,9 @@ export function register(context) {
       });
       context.state.settings.memory_warn_mb = warn;
       context.state.settings.memory_critical_mb = critical;
-      if (message) message.textContent = `内存告警阈值已保存：${warn} / ${critical} MB`;
+      context.notify(`内存告警阈值已保存：${warn} / ${critical} MB`);
     } catch (error) {
-      if (message) message.textContent = error.message || '阈值保存失败';
+      context.notify(error.message || '阈值保存失败', true);
     }
   };
   context.parseSetting = function parseSetting(row) {

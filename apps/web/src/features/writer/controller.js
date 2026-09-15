@@ -1,4 +1,5 @@
 import { writerUtils } from './markdown';
+import { toast } from '../../shared/ui/toast';
 export function mount(scope) {
   // @ts-nocheck
   const API_BASE = document.body.dataset.apiBase || '/api';
@@ -48,6 +49,13 @@ export function mount(scope) {
   }
   function setMessage(text) {
     $('#save-status').textContent = text || '未保存';
+  }
+  function actionFeedback(text, kind = 'success') {
+    setMessage(text);
+    if (kind === 'error') toast.error(text);
+    else if (kind === 'warning') toast.warning(text);
+    else if (kind === 'info') toast.info(text);
+    else toast.success(text);
   }
   function autosaveKey(id = articleId) {
     return `boke_writer_autosave_${id || 'new'}`;
@@ -110,7 +118,7 @@ export function mount(scope) {
       try {
         localStorage.setItem(autosaveKey(), JSON.stringify(draft));
       } catch {
-        setMessage('本地自动保存失败，请手动保存文章');
+        toast.error('本地自动保存失败，请手动保存文章');
         return;
       }
       setMessage(
@@ -132,6 +140,7 @@ export function mount(scope) {
         applyLocalDraft(draft);
         isDirty = true;
         setMessage('已恢复本地临时稿');
+        toast.info('已恢复本地临时稿');
       }
     } catch {
       if (scope.disposed) return;
@@ -269,7 +278,7 @@ export function mount(scope) {
   }
   async function request(path, options = {}) {
     if (!token) {
-      setMessage('请先回后台登录');
+      actionFeedback('请先回后台登录', 'error');
       throw new Error('请先登录后台');
     }
     const headers = {
@@ -375,17 +384,9 @@ export function mount(scope) {
   }
   let savingArticle = false;
   function publishFeedback(text, kind = 'pending') {
-    let feedback = $('#writer-publish-feedback');
-    if (!feedback) {
-      feedback = document.createElement('div');
-      feedback.id = 'writer-publish-feedback';
-      feedback.setAttribute('role', 'status');
-      feedback.setAttribute('aria-live', 'polite');
-      $('#save-status').parentElement.appendChild(feedback);
-    }
-    feedback.textContent = text;
-    feedback.dataset.kind = kind;
     setMessage(text);
+    if (kind === 'success') toast.success(text);
+    else if (kind === 'error') toast.error(text);
   }
   async function saveArticle(statusOverride) {
     if (savingArticle) return;
@@ -456,7 +457,7 @@ export function mount(scope) {
     if (selected) {
       const cleaned = unwrapInlineFont(selected);
       textarea.setRangeText(cleaned, start, end, 'select');
-      setMessage(cleaned === selected ? '选中内容没有局部字体标签' : '已移除选中内容的局部字体');
+      actionFeedback(cleaned === selected ? '选中内容没有局部字体标签' : '已移除选中内容的局部字体', cleaned === selected ? 'warning' : 'success');
     } else if (enclosing) {
       textarea.setRangeText(
         unwrapInlineFont(value.slice(enclosing.start, enclosing.end)),
@@ -464,9 +465,9 @@ export function mount(scope) {
         enclosing.end,
         'select',
       );
-      setMessage('已移除局部字体');
+      actionFeedback('已移除局部字体');
     } else {
-      setMessage('请选中内容，或把光标放在已有局部字体文字中');
+      actionFeedback('请选中内容，或把光标放在已有局部字体文字中', 'warning');
       textarea.focus();
       return;
     }
@@ -487,7 +488,7 @@ export function mount(scope) {
     const end = textarea.selectionEnd || start;
     const selected = textarea.value.slice(start, end);
     if (!selected) {
-      setMessage('请先选中要更换字体的文字');
+      actionFeedback('请先选中要更换字体的文字', 'warning');
       select.value = '';
       textarea.focus();
       return;
@@ -495,7 +496,7 @@ export function mount(scope) {
     const cleanSelected = unwrapInlineFont(selected);
     if (!font.family) {
       textarea.setRangeText(cleanSelected, start, end, 'select');
-      setMessage('已移除选中文字的局部字体');
+      actionFeedback('已移除选中文字的局部字体');
     } else {
       textarea.setRangeText(
         `<span data-font="${html(font.family)}" data-font-url="${html(font.url)}">${cleanSelected}</span>`,
@@ -503,7 +504,7 @@ export function mount(scope) {
         end,
         'select',
       );
-      setMessage(`已应用局部字体：${font.family}`);
+      actionFeedback(`已应用局部字体：${font.family}`);
       if (!previewEnabled) setPreviewState(true);
     }
     select.value = '';
@@ -538,7 +539,7 @@ export function mount(scope) {
     if (!file) return;
     const allowed = /\.(txt|md|markdown)$/i.test(file.name) || /^text\//i.test(file.type || '');
     if (!allowed) {
-      setMessage('只支持 txt、md、markdown 文本文件');
+      actionFeedback('只支持 txt、md、markdown 文本文件', 'warning');
       return;
     }
     const reader = new FileReader();
@@ -551,15 +552,15 @@ export function mount(scope) {
         : text;
       updateWordCount();
       updatePreview();
-      setMessage(`已导入：${file.name}`);
+      actionFeedback(`已导入：${file.name}`);
     };
-    reader.onerror = () => setMessage('文本读取失败');
+    reader.onerror = () => actionFeedback('文本读取失败', 'error');
     reader.readAsText(file, 'utf-8');
   }
   async function importEpubFile(file) {
     if (!file) return;
     if (!/\.epub$/i.test(file.name)) {
-      setMessage('只支持 .epub 文件');
+      actionFeedback('只支持 .epub 文件', 'warning');
       return;
     }
     if (isDirty && ($('#title').value.trim() || $('#content').value.trim())) {
@@ -585,10 +586,10 @@ export function mount(scope) {
       updatePreview(true);
       if (!previewEnabled) setPreviewState(true);
       markDirty();
-      setMessage(`${json.message || 'EPUB 已导入'}，请检查并选择专题/卷序后保存`);
+      actionFeedback(`${json.message || 'EPUB 已导入'}，请检查并选择专题/卷序后保存`);
     } catch (error) {
       if (scope.disposed) return;
-      setMessage(error.message || 'EPUB 导入失败');
+      actionFeedback(error.message || 'EPUB 导入失败', 'error');
     }
   }
   function updateWordCount() {
@@ -750,12 +751,12 @@ export function mount(scope) {
       history.pushState(null, '', '/admin/write/editor');
       fillArticle(null);
     }
-    setMessage('已移入回收站');
+    actionFeedback('已移入回收站');
     await loadArticles();
   }
   async function restoreArticle(id) {
     await request(`/admin/articles/${id}/restore`, { method: 'PUT' });
-    setMessage('已恢复文章');
+    actionFeedback('已恢复文章');
     await loadArticles();
   }
   async function forceDeleteArticle(id) {
@@ -765,7 +766,7 @@ export function mount(scope) {
       history.pushState(null, '', '/admin/write/editor');
       fillArticle(null);
     }
-    setMessage('已永久删除');
+    actionFeedback('已永久删除');
     await loadArticles();
   }
   function setPreviewState(enabled) {
@@ -802,11 +803,11 @@ export function mount(scope) {
   function enterImmersive() {
     setPreviewState(true);
     document.body.classList.add('immersive');
-    setMessage('沉浸模式，按 Esc 退出');
+    actionFeedback('沉浸模式，按 Esc 退出', 'info');
   }
   function exitImmersive() {
     document.body.classList.remove('immersive');
-    setMessage('已退出沉浸模式');
+    actionFeedback('已退出沉浸模式', 'info');
   }
   function scheduleEditorUpdate() {
     markDirty();
@@ -860,7 +861,7 @@ export function mount(scope) {
     markDirty();
     updateWordCount();
     if (previewEnabled) updatePreview();
-    setMessage('网页内容已插入，保存文章后生效');
+    actionFeedback('网页内容已插入，保存文章后生效');
   });
   scope.listen(document, 'keydown', (event) => {
     if (event.key === 'Escape' && document.body.classList.contains('immersive')) {
@@ -890,11 +891,11 @@ export function mount(scope) {
       const media = await uploadFile(file, '正在上传插图...');
       if (media?.url) {
         insertText('\n![', file.name.replace(/\.[^.]+$/, '') || '图片', `](${media.url})\n`);
-        setMessage('插图已插入');
+        actionFeedback('插图已插入');
       }
     } catch (error) {
       if (scope.disposed) return;
-      setMessage(error.message || '插图上传失败');
+      actionFeedback(error.message || '插图上传失败', 'error');
     }
     event.target.value = '';
   });
@@ -902,10 +903,10 @@ export function mount(scope) {
     try {
       const media = await uploadFile(event.target.files?.[0], '正在上传封面...');
       if (media?.url) $('#cover').value = media.url;
-      setMessage('封面已上传');
+      actionFeedback('封面已上传');
     } catch (error) {
       if (scope.disposed) return;
-      setMessage(error.message || '封面上传失败');
+      actionFeedback(error.message || '封面上传失败', 'error');
     }
     event.target.value = '';
   });
@@ -952,7 +953,7 @@ export function mount(scope) {
           await loadArticles({ includeTrash: true });
         } catch (error) {
           if (scope.disposed) return;
-          if (error?.name !== 'AbortError') setMessage(error.message || '回收站读取失败');
+          if (error?.name !== 'AbortError') actionFeedback(error.message || '回收站读取失败', 'error');
         }
         return;
       }
@@ -979,7 +980,7 @@ export function mount(scope) {
     } catch (error) {
       if (scope.disposed) return;
       if (error?.name === 'AbortError') return;
-      setMessage(error.message || '操作失败');
+      actionFeedback(error.message || '操作失败', 'error');
     }
   });
   scope.listen(window, 'popstate', () => {
@@ -1001,7 +1002,7 @@ export function mount(scope) {
       if (articleId) setMessage('已载入文章');
     } catch (error) {
       if (scope.disposed) return;
-      setMessage(error.message || '后端未连接');
+      actionFeedback(error.message || '后端未连接', 'error');
     }
   })();
 
