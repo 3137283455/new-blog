@@ -45,6 +45,7 @@ export function register(context) {
     });
   };
   context.switchPanel = function switchPanel(panel) {
+    if (context.root) context.root.dataset.activePanel = panel;
     context.ensurePanelTabs();
     context.$$('.admin-panel').forEach((el) => el.classList.add('hidden'));
     context.$(`#${panel}-panel`)?.classList.remove('hidden');

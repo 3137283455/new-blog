@@ -241,6 +241,10 @@ export function restoreBook(req: AuthRequest, res: Response) {
   if (!result.changes) return error(res,'书籍不存在','NOT_FOUND',404)
   return success(res,null,'书籍已恢复')
 }
+export function permanentlyRemoveBook(req: AuthRequest, res: Response) {
+  const result = db.prepare('DELETE FROM books WHERE id=? AND deleted_at IS NOT NULL').run(integer(req.params.id))
+  return result.changes ? success(res,null,'书籍及章节记录已彻底删除') : error(res,'请先将书籍移入回收站','VALIDATION_ERROR')
+}
 export function createVolume(req: AuthRequest, res: Response) {
   const bookId=integer(req.params.id), title=text(req.body?.title,200)
   if(!db.prepare('SELECT 1 FROM books WHERE id=?').get(bookId)) return error(res,'书籍不存在','NOT_FOUND',404)

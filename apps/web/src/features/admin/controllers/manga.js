@@ -4,7 +4,7 @@ export function mount(scope) {
     if (!root) return;
     const base = root.dataset.apiBase || '/api';
     const token = () => localStorage.getItem('boke_admin_token') || '';
-    const state = { items: [] };
+    const state = { items: [], trash: false };
     const $ = (selector) => scope.query(selector);
     const html = (value) =>
       String(value ?? '').replace(
@@ -27,9 +27,9 @@ export function mount(scope) {
       return json.data;
     }
     function updateStats() {
-      const local = state.items.filter((item) => item.library_type === 'local').length;
-      const network = state.items.filter((item) => item.library_type === 'network').length;
-      const visible = state.items.filter((item) => item.is_active).length;
+      const local = state.items.filter((item) => !item.deleted_at && item.library_type === 'local').length;
+      const network = state.items.filter((item) => !item.deleted_at && item.library_type === 'network').length;
+      const visible = state.items.filter((item) => !item.deleted_at && item.is_active).length;
       $('#manga-local-count') && ($('#manga-local-count').textContent = String(local));
       $('#manga-network-count') && ($('#manga-network-count').textContent = String(network));
       $('#manga-visible-count') && ($('#manga-visible-count').textContent = String(visible));
@@ -39,9 +39,9 @@ export function mount(scope) {
       updateStats();
       if (!list) return;
       list.innerHTML =
-        state.items
+        state.items.filter(item => Boolean(item.deleted_at) === state.trash)
           .map(
-            (item) =>
+            (item) => item.deleted_at ? '<article class="admin-personal-item"><header><span>回收站</span></header><strong>'+html(item.title)+'</strong><footer><button data-manga-restore="'+item.id+'">恢复</button><button class="is-danger" data-manga-permanent="'+item.id+'">彻底删除</button></footer></article>' :
               `<article class="admin-personal-item"><header><span>${item.library_type === 'local' ? '本地条目' : '兼容网络条目'}</span><small>${html(statusLabel[item.status] || '在读')} · ${item.is_active ? '前台显示' : '已隐藏'}</small></header><strong>${html(item.title)}</strong><p>${html(item.author || item.original_title || '未填写作者')}</p><footer><button data-manga-settings="${item.id}" type="button">基础设置</button><a href="/manga/${encodeURIComponent(item.slug)}" target="_blank" rel="noreferrer">查看</a><button class="is-danger" data-manga-delete="${item.id}" type="button">删除</button></footer></article>`,
           )
           .join('') ||
@@ -102,7 +102,20 @@ export function mount(scope) {
           openSettings(
             state.items.find((item) => String(item.id) === target.dataset.mangaSettings),
           );
-        if (target.dataset.mangaDelete && confirm('确定删除这部漫画吗？')) {
+        if (target.id === 'manga-trash-toggle') {
+          state.trash = !state.trash;
+          target.textContent = state.trash ? '返回漫画库' : '回收站';
+          await load();
+        }
+        if (target.dataset.mangaRestore) {
+          await api('/admin/manga/' + target.dataset.mangaRestore + '/restore', {method:'PUT'});
+          await load();
+        }
+        if (target.dataset.mangaPermanent && confirm('彻底删除漫画及章节、阅读记录？此操作无法恢复。')) {
+          await api('/admin/manga/' + target.dataset.mangaPermanent + '/permanent', {method:'DELETE'});
+          await load();
+        }
+        if (target.dataset.mangaDelete && confirm('将这部漫画移入回收站？之后可以恢复。')) {
           await api('/admin/manga/' + target.dataset.mangaDelete, { method: 'DELETE' });
           await load();
         }

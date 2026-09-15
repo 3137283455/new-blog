@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import '../styles/ReaderControls.css';
 import type { SourceKind } from '../source-detail';
 import type { SourceReader } from '../source-reader';
 import { useSourceReader } from '../use-source-reader';
@@ -63,6 +64,24 @@ export function SourceReaderPage({
   sourceLabel: string;
 }) {
   const pages = reader.pages || [];
+  const [appearance, setAppearance] = useState({ theme: 'night', width: 980 });
+  const appearanceDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('source-reader-appearance') || '{}');
+      setAppearance({
+        theme: ['night', 'paper', 'light'].includes(saved.theme) ? saved.theme : 'night',
+        width: Math.max(560, Math.min(1400, Number(saved.width) || 980)),
+      });
+    } catch {}
+  }, []);
+  const changeAppearance = (values: Partial<typeof appearance>) => {
+    const next = { ...appearance, ...values };
+    setAppearance(next);
+    try {
+      localStorage.setItem('source-reader-appearance', JSON.stringify(next));
+    } catch {}
+  };
   const state = useSourceReader(kind === 'manga' ? pages.length : 0);
   const backUrl = `/source/${encodeURIComponent(kind)}/${encodeURIComponent(source)}/${encodeURIComponent(workId)}`;
   const mediaUrl = (url: string) =>
@@ -73,8 +92,13 @@ export function SourceReaderPage({
       data-source-reader={kind === 'manga' && pages.length ? 'manga' : undefined}
       data-page-count={kind === 'manga' ? pages.length : 0}
       data-mode={kind === 'manga' && pages.length ? state.mode : undefined}
+      data-reading-theme={appearance.theme}
+      style={{ '--source-reading-width': appearance.width + 'px' } as CSSProperties}
       onClick={(event) => {
-        if (state.mode !== 'paged' || (event.target as HTMLElement).closest('button,a,figcaption'))
+        if (
+          state.mode !== 'paged' ||
+          (event.target as HTMLElement).closest('button,a,figcaption,dialog,input,select,label')
+        )
           return;
         const box = event.currentTarget.getBoundingClientRect();
         state.go(state.current + (event.clientX - box.left < box.width / 2 ? -1 : 1));
@@ -105,6 +129,9 @@ export function SourceReaderPage({
       ) : kind === 'manga' && pages.length ? (
         <>
           <nav className="source-reader-controls" aria-label="漫画阅读控制">
+            <button type="button" onClick={() => appearanceDialog.current?.showModal()}>
+              设置
+            </button>
             <div className="source-reader-mode">
               <button
                 type="button"
@@ -167,6 +194,51 @@ export function SourceReaderPage({
           <p>{reader.content || '源站没有返回可读内容。'}</p>
         </article>
       )}
+      <dialog
+        ref={appearanceDialog}
+        className="source-appearance-dialog"
+        aria-labelledby="source-appearance-title"
+      >
+        <form method="dialog">
+          <header>
+            <h2 id="source-appearance-title">漫画阅读设置</h2>
+            <button aria-label="关闭阅读设置">×</button>
+          </header>
+          <label>
+            页面宽度 <output>{appearance.width}px</output>
+            <input
+              type="range"
+              min="560"
+              max="1400"
+              step="40"
+              value={appearance.width}
+              onChange={(event) => changeAppearance({ width: Number(event.target.value) })}
+            />
+          </label>
+          <label>
+            背景
+            <select
+              value={appearance.theme}
+              onChange={(event) => changeAppearance({ theme: event.target.value })}
+            >
+              <option value="light">日间</option>
+              <option value="paper">纸张</option>
+              <option value="night">夜间</option>
+            </select>
+          </label>
+          <label>
+            阅读方式
+            <select
+              value={state.mode}
+              onChange={(event) => state.choose(event.target.value as 'scroll' | 'paged')}
+            >
+              <option value="scroll">连续滚动</option>
+              <option value="paged">单页翻阅</option>
+            </select>
+          </label>
+          <button className="source-appearance-done">完成</button>
+        </form>
+      </dialog>
     </main>
   );
 }

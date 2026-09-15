@@ -865,6 +865,8 @@ export function migrate() {
   addColumn('books', 'reading_url', "TEXT DEFAULT ''")
   addColumn('books', 'source_format', "TEXT DEFAULT 'epub'")
   addColumn('manga_items', 'library_type', "TEXT DEFAULT 'network'")
+  addColumn('manga_items', 'deleted_at', 'TEXT DEFAULT NULL')
+  addColumn('manga_items', 'active_before_delete', 'INTEGER DEFAULT 1')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS album_export_records (

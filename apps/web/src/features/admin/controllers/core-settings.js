@@ -13,6 +13,10 @@ export function register(context) {
         context.request('/admin/logs/stats'),
       ]);
       context.renderLogs(logJson.data || { items: [], sources: [] }, statJson.data || {});
+      const retention = context.$('#logs-retention-days');
+      if (retention && document.activeElement !== retention) retention.value = statJson.data?.retention_days || 30;
+      const usage = context.$('#logs-storage-usage');
+      if (usage) usage.textContent = '已用 ' + ((statJson.data?.used_bytes || 0) / 1048576).toFixed(1) + ' MB / 约 110 MB';
     } catch (error) {
       if (context.scope.disposed) return;
       const list = context.$('#admin-log-list');

@@ -5,10 +5,14 @@ export function ArticlesPanel() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-2xl font-black">文章管理</h2>
-            <p className="text-sm text-base-content/50">读取与写入后端 SQLite 文章表。</p>
+            <p className="text-sm text-base-content/50">管理发布状态、草稿与回收站。</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <select id="status-filter" className="select select-bordered select-sm rounded-xl">
+            <select
+              id="status-filter"
+              aria-label="文章状态"
+              className="select select-bordered select-sm rounded-xl"
+            >
               <option value="">全部状态</option>
               <option value="published">已发布</option>
               <option value="draft">草稿</option>
@@ -32,6 +36,7 @@ export function ArticlesPanel() {
                 <th>
                   <input
                     id="select-all-articles"
+                    aria-label="选择全部文章"
                     className="checkbox checkbox-sm"
                     type="checkbox"
                   />

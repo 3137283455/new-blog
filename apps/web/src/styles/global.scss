@@ -70,6 +70,12 @@ body {
   animation: fade-in-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
+/* A retained transform would anchor fixed reader controls to the whole chapter. */
+.layout-full-bleed .page-content-animate {
+  animation: none;
+  transform: none;
+}
+
 .site-nav {
   background: transparent;
   backdrop-filter: none;

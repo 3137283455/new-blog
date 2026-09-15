@@ -9,7 +9,7 @@ export function mount(scope) {
         /[&<>"']/g,
         (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
       );
-    const state = { books: [], preview: null, previewKind: 'epub', active: null };
+    const state = { books: [], preview: null, previewKind: 'epub', active: null, trash: false };
     const notify = (message, failed = false) => scope.notify(message, failed);
     function deviceClientId() {
       const key = 'boke_private_device_client_id';
@@ -41,7 +41,7 @@ export function mount(scope) {
       const list = $('#admin-book-list');
       if (!list) return;
       list.innerHTML =
-        state.books
+        state.books.filter(book => Boolean(book.deleted_at) === state.trash)
           .map(
             (book) =>
               '<article class="admin-personal-item ' +
@@ -56,7 +56,7 @@ export function mount(scope) {
               html(book.author || '作者未填写') +
               '</p><footer>' +
               (book.deleted_at
-                ? '<button data-book-restore="' + book.id + '">恢复</button>'
+                ? '<button data-book-restore="' + book.id + '">恢复</button><button class="is-danger" data-book-permanent="' + book.id + '">彻底删除</button>'
                 : '<button data-book-edit="' +
                   book.id +
                   '">编辑分卷</button><a href="/books/' +
@@ -303,6 +303,15 @@ export function mount(scope) {
         if (button.closest('[data-panel-tab="books"]')) await loadBooks();
         if (button.closest('[data-personal-tab="devices"]')) await loadDevices();
         if (button.dataset.bookEdit) await editBook(button.dataset.bookEdit);
+        if (button.id === 'books-trash-toggle') {
+          state.trash = !state.trash;
+          button.textContent = state.trash ? '返回书库' : '回收站';
+          await loadBooks();
+        }
+        if (button.dataset.bookPermanent && confirm('彻底删除这本书及章节、阅读记录？此操作无法恢复。')) {
+          await api('/admin/books/' + button.dataset.bookPermanent + '/permanent', { method: 'DELETE' });
+          await loadBooks();
+        }
         if (button.dataset.bookDelete && confirm('把这本书移入回收站吗？')) {
           await api('/admin/books/' + button.dataset.bookDelete, { method: 'DELETE' });
           await loadBooks();

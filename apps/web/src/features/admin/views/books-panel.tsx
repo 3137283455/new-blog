@@ -10,6 +10,7 @@ export function BooksPanel() {
               小说与普通文章分开管理。先预览结构，确认分卷和章节后再写入。
             </p>
           </div>
+          <button className="ryu-btn btn-sm" id="books-trash-toggle" type="button">回收站</button>
           <a className="ryu-btn btn-sm" href="/books" target="_blank">
             查看前台书库 ↗
           </a>

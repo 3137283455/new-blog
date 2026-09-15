@@ -20,6 +20,7 @@ export function SiteFrame({
   const localReader = /^\/manga\/[^/]+\/[^/]+\/[^/]+\/?$/.test(path);
   const readingHub = path === '/reading';
   const bookPage = path === '/books' || path.startsWith('/books/');
+  const bookReader = /^\/books\/[^/]+\/[^/]+\/[^/]+\/?$/.test(path);
   const mangaPage = path === '/manga' || path.startsWith('/manga/') || path === '/source' || path.startsWith('/source/');
   const mangaReader = sourceReader || localReader;
   const mangaPortalPage = mangaPage && !mangaReader;
@@ -40,8 +41,8 @@ export function SiteFrame({
     path === '/reading' ||
     /^\/books\/[^/]+\/?$/.test(path);
   const publicPage = !admin && !sourceReader && !localReader && !mangaPage;
-  const fullBleed = mangaReader;
-  const showSiteNavigation = publicPage || mangaPortalPage || readingHub || bookPage;
+  const fullBleed = mangaReader || bookReader;
+  const showSiteNavigation = !bookReader && (publicPage || mangaPortalPage || readingHub || bookPage);
   useEffect(() => {
     document.documentElement.dataset.siteLayout = admin ? 'admin' : 'public';
     document.body.className = admin
@@ -68,7 +69,7 @@ export function SiteFrame({
           </main>
         </div>
       </div>
-      {(publicPage || mangaPortalPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
+      {!bookReader && (publicPage || mangaPortalPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
       {(publicPage || mangaPage || readingHub || bookPage) && <MusicPlayer tracks={tracks} />}
     </>
   );

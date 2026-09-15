@@ -5,16 +5,27 @@ export function ContentCenterPanel() {
         <header className="flex flex-wrap items-end justify-between gap-3 px-1">
           <div>
             <p className="text-xs font-black tracking-[.18em] text-primary">PERSONAL CONTENT HUB</p>
-            <h2 className="mt-1 text-2xl font-black">图书、媒体与内容关联</h2>
+            <h2 className="mt-1 text-2xl font-black">导入与关系</h2>
             <p className="text-sm text-base-content/50">
-              漫画探索与搜索已经移到前台；这里处理图书、普通媒体、订阅和跨内容关系。
+              导入内容、整理更新订阅，建立内容之间的关联。
             </p>
           </div>
           <a className="ryu-btn btn-sm" href="/reading">
             继续阅读 ↗
           </a>
         </header>
-        <section className="ryu-card p-5">
+        <nav className="admin-content-sections" aria-label="导入与关系工作区">
+          <button type="button" data-content-section="import" aria-pressed="true">
+            文件导入
+          </button>
+          <button type="button" data-content-section="subscriptions" aria-pressed="false">
+            更新订阅
+          </button>
+          <button type="button" data-content-section="relations" aria-pressed="false">
+            内容关系
+          </button>
+        </nav>
+        <section className="ryu-card p-5" data-content-view="import">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <div>
               <h3 className="text-xl font-black">图书与媒体导入</h3>
@@ -55,8 +66,8 @@ export function ContentCenterPanel() {
             </aside>
           </div>
         </section>
-        <div className="grid gap-5 xl:grid-cols-2">
-          <section className="ryu-card p-5">
+        <div className="admin-content-secondary">
+          <section className="ryu-card p-5" data-content-view="subscriptions" hidden>
             <div>
               <h3 className="text-xl font-black">更新订阅</h3>
               <p className="text-sm text-base-content/50">收集小说、漫画、番剧或网页的更新入口。</p>
@@ -90,7 +101,7 @@ export function ContentCenterPanel() {
             </form>
             <div id="content-subscriptions" className="mt-4 grid gap-2"></div>
           </section>
-          <section className="ryu-card p-5">
+          <section className="ryu-card p-5" data-content-view="relations" hidden>
             <div>
               <h3 className="text-xl font-black">内容关系</h3>
               <p className="text-sm text-base-content/50">

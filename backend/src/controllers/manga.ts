@@ -58,12 +58,23 @@ export function create(req: AuthRequest, res: Response) {
   return success(res, attach(db.prepare('SELECT * FROM manga_items WHERE id=?').get(result),true), '漫画已添加')
 }
 export function update(req: AuthRequest, res: Response) {
-  const id = integer(req.params.id); const row = db.prepare('SELECT * FROM manga_items WHERE id=?').get(id) as any; if (!row) return error(res, '漫画不存在', 'NOT_FOUND', 404)
+  const id = integer(req.params.id); const row = db.prepare('SELECT * FROM manga_items WHERE id=? AND deleted_at IS NULL').get(id) as any; if (!row) return error(res, '漫画不存在或已在回收站', 'NOT_FOUND', 404)
   const title = clean(req.body?.title ?? row.title, 160); if (!title) return error(res, '漫画标题不能为空'); const type=libraryType(req.body?.library_type??row.library_type)
   db.transaction(() => { db.prepare("UPDATE manga_items SET title=?,slug=?,original_title=?,author=?,cover=?,description=?,external_id=?,source=?,source_url=?,status=?,progress=?,rating=?,publication=?,sort_order=?,is_active=?,library_type=?,updated_at=datetime('now') WHERE id=?").run(title, uniqueSlug(req.body?.slug ?? row.slug, id), clean(req.body?.original_title ?? row.original_title, 160), clean(req.body?.author ?? row.author, 160), clean(req.body?.cover ?? row.cover, 1000), clean(req.body?.description ?? row.description, 4000), clean(req.body?.external_id ?? row.external_id, 40), clean(req.body?.source ?? row.source, 40), validUrl(req.body?.source_url ?? row.source_url), status(req.body?.status ?? row.status), clean(req.body?.progress ?? row.progress, 80), Math.max(0, Math.min(10, number(req.body?.rating ?? row.rating))), clean(req.body?.publication ?? row.publication, 80), integer(req.body?.sort_order ?? row.sort_order), req.body?.is_active === undefined ? row.is_active : (req.body.is_active ? 1 : 0),type,id); if (type==='network'&&req.body?.read_sources !== undefined) replaceSources(id, req.body.read_sources) })()
   return success(res, attach(db.prepare('SELECT * FROM manga_items WHERE id=?').get(id),true), '漫画已保存')
 }
-export function remove(req: AuthRequest, res: Response) { const result = db.prepare('DELETE FROM manga_items WHERE id=?').run(integer(req.params.id)); return result.changes ? success(res, null, '漫画已删除') : error(res, '漫画不存在', 'NOT_FOUND', 404) }
+export function remove(req: AuthRequest, res: Response) {
+  const result = db.prepare("UPDATE manga_items SET deleted_at=datetime('now'),active_before_delete=is_active,is_active=0,updated_at=datetime('now') WHERE id=? AND deleted_at IS NULL").run(integer(req.params.id))
+  return result.changes ? success(res, null, '漫画已移入回收站') : error(res, '漫画不存在', 'NOT_FOUND', 404)
+}
+export function restore(req: AuthRequest, res: Response) {
+  const result = db.prepare("UPDATE manga_items SET deleted_at=NULL,is_active=active_before_delete,updated_at=datetime('now') WHERE id=? AND deleted_at IS NOT NULL").run(integer(req.params.id))
+  return result.changes ? success(res, null, '漫画已恢复') : error(res, '回收站中没有这部漫画', 'NOT_FOUND', 404)
+}
+export function permanentlyRemove(req: AuthRequest, res: Response) {
+  const result = db.prepare('DELETE FROM manga_items WHERE id=? AND deleted_at IS NOT NULL').run(integer(req.params.id))
+  return result.changes ? success(res, null, '漫画及章节记录已彻底删除') : error(res, '请先将漫画移入回收站', 'VALIDATION_ERROR')
+}
 
 type MangaPageSource = { relativePath: string; originalName: string; writeTo(target: string): void }
 type MangaImportGroup = { volume: string; chapter: string; items: MangaPageSource[] }
@@ -112,7 +123,7 @@ function looseFileGroups(files: Express.Multer.File[], fallbackVolume: string) {
 export function importLocal(req: AuthRequest, res: Response) {
   const uploaded=uploadedMangaFiles(req)
   if(!uploaded.length) return error(res,'请选择漫画文件','VALIDATION_ERROR')
-  const requestedId=integer(req.body?.manga_id),existing=requestedId?db.prepare("SELECT * FROM manga_items WHERE id=? AND library_type='local'").get(requestedId) as any:null
+  const requestedId=integer(req.body?.manga_id),existing=requestedId?db.prepare("SELECT * FROM manga_items WHERE id=? AND library_type='local' AND deleted_at IS NULL").get(requestedId) as any:null
   if(requestedId&&!existing){uploaded.forEach((file)=>fs.rmSync(file.path,{force:true}));return error(res,'要追加的本地漫画不存在','NOT_FOUND',404)}
   const title=clean(req.body?.title||existing?.title||path.parse(uploaded[0].originalname).name,160),author=clean(req.body?.author||existing?.author,160),fallbackVolume=clean(req.body?.volume_title,160)||'正文'
   let groups:MangaImportGroup[];try{groups=looseFileGroups(uploaded,fallbackVolume)}catch(cause){uploaded.forEach((file)=>fs.rmSync(file.path,{force:true}));return error(res,cause instanceof Error?cause.message:'漫画文件解析失败','IMPORT_FAILED')}

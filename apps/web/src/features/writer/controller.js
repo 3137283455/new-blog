@@ -373,17 +373,38 @@ export function mount(scope) {
     isDirty = false;
     renderArticleList();
   }
+  let savingArticle = false;
+  function publishFeedback(text, kind = 'pending') {
+    let feedback = $('#writer-publish-feedback');
+    if (!feedback) {
+      feedback = document.createElement('div');
+      feedback.id = 'writer-publish-feedback';
+      feedback.setAttribute('role', 'status');
+      feedback.setAttribute('aria-live', 'polite');
+      $('#save-status').parentElement.appendChild(feedback);
+    }
+    feedback.textContent = text;
+    feedback.dataset.kind = kind;
+    setMessage(text);
+  }
   async function saveArticle(statusOverride) {
+    if (savingArticle) return;
     const payload = collectPayload(statusOverride);
     if (!payload.title) {
-      setMessage('请先填写标题');
+      publishFeedback('请先填写标题', 'error');
       return;
     }
     if (!payload.content) {
-      setMessage('请先填写正文');
+      publishFeedback('请先填写正文', 'error');
       return;
     }
-    setMessage('正在保存...');
+    savingArticle = true;
+    const buttons = [$('#save-draft'), $('#publish-article')].filter(Boolean);
+    const labels = buttons.map(button => button.textContent);
+    buttons.forEach(button => { button.disabled = true; });
+    const activeButton = statusOverride === 'published' ? $('#publish-article') : $('#save-draft');
+    if (activeButton) activeButton.textContent = statusOverride === 'published' ? '发布中…' : '保存中…';
+    publishFeedback(statusOverride === 'published' ? '正在发布文章…' : '正在保存草稿…');
     try {
       const json = await request(articleId ? `/admin/articles/${articleId}` : '/admin/articles', {
         method: articleId ? 'PUT' : 'POST',
@@ -399,11 +420,14 @@ export function mount(scope) {
       clearLocalDraft(articleId);
       isDirty = false;
       window.clearTimeout(autosaveTimer);
-      setMessage(payload.status === 'published' ? '已发布' : '已保存草稿');
-      await loadArticles();
+      publishFeedback(payload.status === 'published' ? '发布成功' : '草稿保存成功', 'success');
+      await loadArticles().catch(() => {});
     } catch (error) {
       if (scope.disposed) return;
-      setMessage(error.message || '保存失败');
+      publishFeedback((statusOverride === 'published' ? '发布失败：' : '保存失败：') + (error.message || '请检查网络后重试'), 'error');
+    } finally {
+      savingArticle = false;
+      buttons.forEach((button, index) => { button.disabled = false; button.textContent = labels[index]; });
     }
   }
   function insertText(before, text, after = '') {

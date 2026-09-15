@@ -278,3 +278,4 @@ export function LocalReaderPage({ data }: { data: LocalReaderData }) {
     </div>
   );
 }
+import '../styles/ReaderControls.css';

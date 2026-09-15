@@ -81,9 +81,8 @@ function write(level: LogLevel, message: string, context: LogContext = {}, cause
     ...redact(errorParts(cause)) as Record<string, string | undefined>,
   }
   rotateIfNeeded()
-  fs.appendFile(logPath, `${JSON.stringify(entry)}\n`, (err) => {
-    if (err) console.error('写入日志失败:', err)
-  })
+  try { fs.appendFileSync(logPath, `${JSON.stringify(entry)}\n`) }
+  catch (err) { console.error('写入日志失败:', err) }
   const consoleMessage = `[${level.toUpperCase()}] ${entry.message}`
   if (level === 'error') console.error(consoleMessage, cause || '')
   else if (level === 'warn') console.warn(consoleMessage)
@@ -123,6 +122,9 @@ export function logStats() {
   const entries = readLogs({ limit: 10000 }).items
   return {
     total: entries.length,
+    retention_days: numberSetting('logs_retention_days', 30),
+    max_bytes: maxFileBytes * (maxFiles + 1),
+    used_bytes: logFiles().reduce((sum, file) => sum + fs.statSync(file).size, 0),
     errors_24h: entries.filter((item) => item.level === 'error' && now - Date.parse(item.timestamp) <= 86400000).length,
     warnings_24h: entries.filter((item) => item.level === 'warn' && now - Date.parse(item.timestamp) <= 86400000).length,
     latest_at: entries[0]?.timestamp || '',
@@ -135,17 +137,19 @@ export const logger = {
   error(message: string, cause?: unknown, context: LogContext = {}) { write('error', message, context, cause) },
   request(req: { method: string; path: string; requestId?: string }, status: number, durationMs: number) {
     if (status < 400) return
-    write(status >= 500 ? 'error' : 'warn', `HTTP ${status} ${req.method} ${req.path}`, {
+    // Missing pages, unauthenticated polling and validation failures are not system warnings.
+    write(status >= 500 ? 'error' : status === 429 ? 'warn' : 'info', `HTTP ${status} ${req.method} ${req.path}`, {
       source: 'http', request_id: req.requestId || '', method: req.method, path: req.path,
       status, duration_ms: Math.round(durationMs),
     })
   },
-  checkMemory() {
+  checkMemory(record = true) {
     const used = process.memoryUsage()
     const rssMB = Math.round((used.rss / 1024 / 1024) * 100) / 100
     const heapMB = Math.round((used.heapUsed / 1024 / 1024) * 100) / 100
     const warnMB = numberSetting('memory_warn_mb', 512)
     const criticalMB = Math.max(warnMB + 1, numberSetting('memory_critical_mb', 768))
+    if (!record) return { rss: rssMB, heap: heapMB }
     if (rssMB >= warnMB) {
       memoryOverThresholdCount += 1
       if (memoryOverThresholdCount >= 3 && !memoryAlertActive) {
@@ -164,4 +168,18 @@ export const logger = {
   },
 }
 
-setInterval(() => logger.checkMemory(), 60000)
+export function cleanLogs(all = false) {
+  const cutoff = Date.now() - numberSetting('logs_retention_days', 30) * 86400000
+  let removed = 0
+  for (const file of logFiles()) {
+    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(Boolean)
+    const kept = all ? [] : lines.filter(line => {
+      try { return Date.parse(JSON.parse(line).timestamp) >= cutoff } catch { return false }
+    })
+    removed += lines.length - kept.length
+    if (kept.length !== lines.length) fs.writeFileSync(file, kept.length ? kept.join('\n') + '\n' : '')
+  }
+  return { removed }
+}
+setInterval(() => logger.checkMemory(), 60000).unref()
+setInterval(() => { try { cleanLogs() } catch (cause) { console.error('日志清理失败', cause) } }, 3600000).unref()

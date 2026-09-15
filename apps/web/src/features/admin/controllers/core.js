@@ -6,6 +6,7 @@ import { register as register4 } from './core-content';
 import { register as register5 } from './core-comments';
 import { register as register6 } from './core-music';
 import { register as register7 } from './core-backup';
+import { register as registerUI } from './ui-workspace';
 export function mount(scope) {
   const context = { scope };
   register0(context);
@@ -16,6 +17,7 @@ export function mount(scope) {
   register5(context);
   register6(context);
   register7(context);
+  registerUI(context);
   context.root = context.scope.query('.admin-shell');
   context.API_BASE = context.root?.dataset.apiBase || '/api';
   context.tokenKey = 'boke_admin_token';
@@ -69,6 +71,8 @@ export function mount(scope) {
   context.mediaPanels = ['media', 'fonts'];
   context.settingsPanels = [
     'settings',
+    'storage',
+    'logs',
     'personal',
     'appearance',
     'taxonomy',
@@ -77,6 +81,8 @@ export function mount(scope) {
     'plugins',
   ];
   context.navPanelMap = {
+    storage: 'settings',
+    logs: 'settings',
     'content-center': 'articles',
     series: 'articles',
     books: 'articles',
@@ -107,6 +113,8 @@ export function mount(scope) {
   };
   context.mediaLabels = { media: '文件资源', fonts: '字体库' };
   context.settingsLabels = {
+    storage: '存储空间',
+    logs: '日志与诊断',
     settings: '站点与账号',
     personal: '个人与同步',
     appearance: '主题外观',
@@ -116,6 +124,8 @@ export function mount(scope) {
     plugins: '插件',
   };
   context.panelTitles = {
+    storage: '存储空间',
+    logs: '日志与诊断',
     dashboard: '概览',
     'content-center': '个人内容中枢',
     articles: '文章管理',
@@ -340,11 +350,11 @@ export function mount(scope) {
   });
   context.scope.listen(context.$('#admin-search-toggle'), 'click', context.openAdminSettingsSearch);
   context.scope.listen(context.$('#admin-global-settings-search'), 'input', (event) => {
-    context.switchPanel('settings');
-    context.syncGlobalSettingsSearch(event.currentTarget.value || '');
+    context.searchAdmin(event.currentTarget.value || '');
   });
   context.scope.listen(context.$('#admin-global-settings-search'), 'keydown', (event) => {
     if (event.key === 'Escape') {
+      context.$('#admin-search-results')?.classList.add('hidden');
       context.scope.query('.admin-topbar')?.classList.remove('is-searching');
       event.currentTarget.blur();
     }
@@ -502,25 +512,29 @@ export function mount(scope) {
   });
   context.scope.listen(context.$('#media-context-menu'), 'click', async (event) => {
     const action = event.target.closest('[data-media-context]')?.dataset.mediaContext;
-    const context = context.state.mediaContext;
-    if (!action || !context) return;
-    const entry = context.mediaExplorerEntry(context.kind, context.id);
+    const selected = context.state.mediaContext;
+    if (!action || !selected) return;
+    const entry = context.mediaExplorerEntry(selected.kind, selected.id);
     context.closeMediaExplorerContext();
     if (!entry) return;
-    if (action === 'open') context.openMediaExplorerEntry(context.kind, entry);
-    if (action === 'rename') context.renameMediaExplorerEntry(context.kind, entry);
-    if (action === 'move') context.moveMediaExplorerEntry(context.kind, entry);
-    if (action === 'copy' && context.kind === 'file') {
-      await navigator.clipboard?.writeText(entry.url || `/uploads/${entry.path}`);
+    try {
+    if (action === 'open') await context.openMediaExplorerEntry(selected.kind, entry);
+    if (action === 'rename') await context.renameMediaExplorerEntry(selected.kind, entry);
+    if (action === 'move') await context.moveMediaExplorerEntry(selected.kind, entry);
+    if (action === 'copy' && selected.kind === 'file') {
+      const url = new URL(entry.url || `/uploads/${entry.path}`, location.origin).href;
+      if (!navigator.clipboard?.writeText) { window.prompt('复制媒体链接', url); return; }
+      await navigator.clipboard.writeText(url);
       context.notify('\u5a92\u4f53\u94fe\u63a5\u5df2\u590d\u5236');
     }
-    if (action === 'font' && context.kind === 'file') context.addFontFromMedia(entry.id);
+    if (action === 'font' && selected.kind === 'file') await context.addFontFromMedia(entry.id);
     if (action === 'delete')
-      context.kind === 'folder'
-        ? context.deleteMediaExplorerFolder(entry)
-        : context.deleteMedia(entry.id);
-    if (action === 'restore' && context.kind === 'file') context.restoreMedia(entry.id);
-    if (action === 'force-delete' && context.kind === 'file') context.forceDeleteMedia(entry.id);
+      selected.kind === 'folder'
+        ? await context.deleteMediaExplorerFolder(entry)
+        : await context.deleteMedia(entry.id);
+    if (action === 'restore' && selected.kind === 'file') await context.restoreMedia(entry.id);
+    if (action === 'force-delete' && selected.kind === 'file') await context.forceDeleteMedia(entry.id);
+    } catch (error) { context.notify(error.message || '操作失败，请重试', true); }
   });
   context.scope.listen(document, 'click', (event) => {
     if (!event.target.closest('#media-context-menu')) context.closeMediaExplorerContext();

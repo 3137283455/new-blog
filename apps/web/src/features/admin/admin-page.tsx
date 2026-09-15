@@ -1,4 +1,5 @@
 'use client';
+import './ui-refinements.css';
 import { useEffect, useRef } from 'react';
 import { AdminView } from './views/admin-view';
 import { createAdminScope } from './admin-scope';

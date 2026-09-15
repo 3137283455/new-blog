@@ -19,6 +19,7 @@ export function MangaPanel() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button id="manga-trash-toggle" type="button" className="ryu-btn">回收站</button>
             <a className="ryu-btn" href="/manga" target="_blank">
               打开前台漫画站 ↗
             </a>

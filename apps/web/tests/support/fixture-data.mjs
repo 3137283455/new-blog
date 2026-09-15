@@ -64,6 +64,10 @@ export function results(query = '星海漫游') {
 }
 
 export function fixtureResponse(url) {
+  if (url.pathname === '/api/books/ui-fixture/volume/chapter') {
+    const chapter = { id: 1, volume_id: 1, slug: 'chapter', title: '清晨的书页', volume_slug: 'volume', volume_title: '第一卷', content_html: Array.from({length:50}, (_, i) => '<p>' + (i + 1) + ' · 窗外的风吹过树梢，我们在安静的清晨打开书页。阅读让零散的时光有了清晰的方向。</p>').join('') };
+    return { book: {id: 1, slug: 'ui-fixture', title: '阅读测试', volumes: []}, chapter, navigation: [chapter] };
+  }
   const path = url.pathname;
   if (path === '/api/settings/public')
     return { site_title: 'My Blog', site_language: 'zh-CN', site_start_date: '2026-01-01' };

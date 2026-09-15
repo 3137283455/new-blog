@@ -15,6 +15,7 @@ import { CommentsPanel } from './comments-panel';
 import { AppearancePanel } from './appearance-panel';
 import { PluginsPanel } from './plugins-panel';
 import { SettingsPanel } from './settings-panel';
+import { StoragePanel, LogsPanel } from './system-panels';
 import { SearchSourcesPanel } from './search-sources-panel';
 import { NavigationPanel } from './navigation-panel';
 import { BangumiPanel } from './bangumi-panel';
@@ -82,7 +83,7 @@ export function AdminView() {
               <strong id="admin-page-title">概览</strong>
             </div>
             <div className="admin-topbar-actions">
-              <label className="admin-global-search" aria-label="搜索设置">
+              <label className="admin-global-search" aria-label="后台全局搜索">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="11" cy="11" r="6.5" />
                   <path d="m16 16 4 4" />
@@ -90,7 +91,7 @@ export function AdminView() {
                 <input
                   id="admin-global-settings-search"
                   type="search"
-                  placeholder="搜索设置"
+                  placeholder="搜索文章、专题、媒体、设置"
                   autoComplete="off"
                 />
                 <kbd>Ctrl K</kbd>
@@ -99,8 +100,8 @@ export function AdminView() {
                 id="admin-search-toggle"
                 className="admin-icon-button"
                 type="button"
-                aria-label="搜索设置"
-                title="搜索设置（Ctrl+K）"
+                aria-label="后台全局搜索"
+                title="后台全局搜索（Ctrl+K）"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <circle cx="11" cy="11" r="6.5" />
@@ -147,6 +148,7 @@ export function AdminView() {
               </details>
             </div>
           </div>
+          <section id="admin-search-results" className="admin-search-results hidden" aria-label="后台搜索结果" aria-live="polite"></section>
           <p id="admin-notice" className="admin-notice" role="status" aria-live="polite"></p>
 
           <LoginPanel />
@@ -179,6 +181,8 @@ export function AdminView() {
           <PluginsPanel />
 
           <SettingsPanel />
+          <StoragePanel />
+          <LogsPanel />
           <SearchSourcesPanel />
 
           <NavigationPanel />

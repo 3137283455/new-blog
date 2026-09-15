@@ -1,0 +1,141 @@
+.comic .settings,
+.source-appearance-dialog {
+  max-height: 85dvh;
+  overflow: auto;
+  border: 1px solid #8883;
+  border-radius: 14px;
+}
+.comic .settings header {
+  align-items: center;
+}
+.comic .settings h2 {
+  font: 600 20px/1.5 system-ui;
+}
+.comic .settings header button,
+.comic .catalog header button,
+.source-appearance-dialog header button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid #8883;
+  border-radius: 50%;
+  font: 24px/1 Arial;
+}
+.comic .settings label {
+  font-size: 14px;
+  gap: 10px;
+  margin-top: 20px;
+}
+.comic .settings select {
+  font-size: 14px;
+  padding: 0 10px;
+  min-height: 42px;
+}
+.comic .settings input[type='range'] {
+  width: 100%;
+}
+.source-reader-manga[data-reading-theme='night'] {
+  background: #171a18;
+  color: #dfe7e1;
+}
+.source-reader-manga[data-reading-theme='paper'] {
+  background: #f5eddc;
+  color: #37352d;
+}
+.source-reader-manga[data-reading-theme='light'] {
+  background: #f7f8f5;
+  color: #27352c;
+}
+.source-reader-manga .source-reader-pages {
+  max-width: min(var(--source-reading-width, 980px), 100%);
+  margin-inline: auto;
+}
+.source-appearance-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(440px, calc(100vw - 32px));
+  padding: 24px;
+  background: #fafbf8;
+  color: #27352c;
+}
+.source-appearance-dialog::backdrop {
+  background: #11221966;
+}
+.source-appearance-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.source-appearance-dialog h2 {
+  font: 600 20px/1.5 system-ui;
+}
+.source-appearance-dialog label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 24px 0;
+  font-size: 14px;
+}
+.source-appearance-dialog input[type='range'] {
+  width: 100%;
+  accent-color: #16785d;
+}
+.source-appearance-dialog select {
+  font: inherit;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid #8884;
+  border-radius: 6px;
+  background: transparent;
+}
+.source-appearance-done {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: #16785d;
+  color: white;
+  border-radius: 8px;
+}
+@media (max-width: 760px) {
+  .comic .settings,
+  .source-appearance-dialog {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .comic .settings form {
+    padding: 20px;
+  }
+  .comic .trigger,
+  .comic.controls .trigger {
+    display: grid;
+    place-items: center;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    right: 16px;
+  }
+  .comic.controls .mobile {
+    bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+  .source-reader-manga .source-reader-controls {
+    flex-wrap: wrap;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    gap: 4px;
+  }
+  .source-reader-manga .source-reader-controls button {
+    font-size: 12px;
+  }
+  .source-appearance-dialog {
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+}

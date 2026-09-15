@@ -4,7 +4,7 @@ export function PersonalPanel() {
       <header className="admin-personal-hero">
         <div>
           <p>PERSONAL WORKSPACE</p>
-          <h2>个人博客长期中心</h2>
+          <h2>个人与同步</h2>
           <span>统一整理灵感、待办、年度记录、主题外观与私人设备。</span>
         </div>
         <a className="ryu-btn" href="/memories" target="_blank">

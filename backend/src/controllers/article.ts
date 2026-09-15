@@ -249,8 +249,9 @@ export function detail(req: AuthRequest, res: Response) {
     LEFT JOIN categories c ON a.category_id = c.id
     LEFT JOIN article_series s ON a.series_id = s.id
     LEFT JOIN music_tracks mt ON a.music_track_id = mt.id
-    WHERE a.slug = ? AND a.status = 'published' AND a.visibility = 'public' AND a.deleted_at IS NULL
-  `).get(slug) as any
+    WHERE (a.slug = ? OR a.id = ?) AND a.status = 'published' AND a.visibility = 'public' AND a.deleted_at IS NULL
+    ORDER BY CASE WHEN a.slug = ? THEN 0 ELSE 1 END LIMIT 1
+  `).get(slug, /^\d+$/.test(String(slug)) ? Number(slug) : -1, slug) as any
 
   if (!article) {
     return error(res, '文章不存在', 'NOT_FOUND', 404)
@@ -513,7 +514,7 @@ export function update(req: AuthRequest, res: Response) {
   }
 
   let slug = existing.slug
-  if (title && title !== existing.title) {
+  if (!slug && title) {
     slug = generateSlug(title)
     const dup = db.prepare('SELECT id FROM articles WHERE slug = ? AND id != ?').get(slug, Number(id))
     if (dup) slug = slug + '-' + Date.now()

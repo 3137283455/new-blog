@@ -6,7 +6,16 @@ const api = () => internalApiOrigin();
 const request = <T>(path: string) => getJson<T>(`${api()}/api${path}`, AbortSignal.timeout(15000));
 
 export const loadArticles = cache(async (query = '') => request<any>(`/articles${query}`).catch(() => []));
-export const loadArticle = cache(async (slug: string) => request<any>(`/articles/${encodeURIComponent(slug)}`).catch(() => null));
+export const loadArticle = cache(async (slug: string) => {
+  // Route parameters may still contain percent-encoded Chinese characters.
+  let normalized = slug;
+  try { normalized = decodeURIComponent(slug); } catch {}
+  const response = await fetch(`${api()}/api/articles/${encodeURIComponent(normalized)}`, {cache:'no-store',signal:AbortSignal.timeout(15000)});
+  if (response.status === 404) return null;
+  const result = await response.json();
+  if (!response.ok || result.success === false || !result.data) throw new Error(result.message || '文章暂时无法加载，请稍后重试');
+  return result.data;
+});
 export const loadSeries = cache(async () => request<any[]>('/series').catch(() => []));
 export const loadSeriesDetail = cache(async (slug: string) => request<any>(`/series/${encodeURIComponent(slug)}`).catch(() => null));
 export const loadNavigation = cache(async () => request<any[]>('/navigation').catch(() => []));
