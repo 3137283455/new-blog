@@ -287,9 +287,56 @@ export function HomePage({
 }
 
 export function ArchivePage({ articles, category = '', settings = {} }: { articles: any[]; category?: string; settings?: PublicPageSettings }) {
-  const groups = useMemo(() => articles.reduce<Record<string, any[]>>((all, item) => { const year = new Date(item.published_at || item.created_at).getFullYear().toString(); (all[year] ||= []).push(item); return all; }, {}), [articles]);
+  const groups = useMemo(() => articles.reduce<Record<string, any[]>>((all, item) => {
+    const year = new Date(item.published_at || item.created_at).getFullYear().toString();
+    (all[year] ||= []).push(item);
+    return all;
+  }, {}), [articles]);
   const yearEntries = Object.entries(groups).sort(([a], [b]) => Number(b) - Number(a));
-  return <BannerPage title="归档" subtitle={category ? `分类：${category}` : '按时间回看所有文章'} settings={settings}><PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '文章', value: articles.length }, { label: '年份', value: yearEntries.length }, { label: '当前', value: category || '全部' }]} sidebarSections={[{ title: '归档视图', marker: '▣', tone: 'primary', items: yearEntries.map(([year, posts]) => ({ label: year, href: `#archive-year-${year}`, value: posts.length })) }]} />}><section className="archive-page"><header className="archive-hero"><p>ALL NOTES · {category || 'PUBLIC ARCHIVE'}</p><h1>归档</h1><span>{category ? `分类：${category}` : '按时间回看所有文章'}</span></header><div className="archive-list">{yearEntries.map(([year, posts]) => <section key={year} id={`archive-year-${year}`}><a href={`#archive-year-${year}`}><strong>{year}</strong><span>{posts.length} 篇</span></a><div>{posts.map((post) => <a key={post.id} href={`/article/${href(post.slug)}`}><span>{post.title}</span><time>{date(post.published_at || post.created_at)}</time></a>)}</div></section>)}{!articles.length && <p className="empty-feature">还没有符合条件的文章。</p>}</div></section></PublicPageLayout></BannerPage>;
+  const latest = articles[0]?.published_at || articles[0]?.created_at;
+  const formatArchiveDate = (value?: string) => {
+    const parsed = value ? new Date(value) : null;
+    if (!parsed || Number.isNaN(parsed.getTime())) return { day: '--/--', weekday: '日期待定' };
+    return {
+      day: parsed.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }),
+      weekday: parsed.toLocaleDateString('zh-CN', { weekday: 'short' }),
+    };
+  };
+  return <BannerPage title="归档" subtitle={category ? `分类：${category}` : '按时间回看所有文章'} settings={settings}>
+    <PublicPageLayout sidebar={<PublicSidebar settings={settings} statItems={[{ label: '文章', value: articles.length }, { label: '年份', value: yearEntries.length }, { label: '当前', value: category || '全部' }]} sidebarSections={[{ title: '归档视图', marker: '▣', tone: 'primary', items: yearEntries.map(([year, posts]) => ({ label: year, href: `#archive-year-${year}`, value: posts.length })) }]} />}>
+      <section className="archive-page">
+        <header className="archive-hero ryu-card">
+          <div className="archive-hero-copy">
+            <p>PUBLIC ARCHIVE · {category || 'ALL NOTES'}</p>
+            <h1>文章年表</h1>
+            <span>{category ? `正在回看「${category}」下的文章。` : '把散落的记录放回时间里，从最新一篇开始回看。'}</span>
+          </div>
+          <div className="archive-hero-stats" aria-label="归档统计">
+            <div><strong>{articles.length}</strong><small>篇文章</small></div>
+            <div><strong>{yearEntries.length}</strong><small>个年份</small></div>
+            <div><strong>{latest ? date(latest) : '—'}</strong><small>最近更新</small></div>
+          </div>
+        </header>
+        {!!yearEntries.length && <nav className="archive-year-nav" aria-label="年份导航"><span>跳转到年份</span>{yearEntries.map(([year, posts]) => <a key={year} href={`#archive-year-${year}`}>{year}<small>{posts.length}</small></a>)}</nav>}
+        <div className="archive-list">
+          {yearEntries.map(([year, posts], yearIndex) => <section className="archive-year" key={year} id={`archive-year-${year}`}>
+            <header className="archive-year-heading"><div><span>{String(yearIndex + 1).padStart(2, '0')}</span><div><p>YEAR IN NOTES</p><h2>{year}</h2></div></div><strong>{posts.length}<small>篇文章</small></strong></header>
+            <div className="archive-posts">
+              {posts.map((post, index) => {
+                const archiveDate = formatArchiveDate(post.published_at || post.created_at);
+                return <a className="archive-post-row" key={post.id} href={`/article/${href(post.slug)}`}>
+                  <time><strong>{archiveDate.day}</strong><small>{archiveDate.weekday}</small></time>
+                  <span className="archive-post-copy"><span className="archive-post-meta"><i>{post.category_name || '随笔'}</i><em>{date(post.published_at || post.created_at)}</em></span><strong>{post.title}</strong><small>{post.excerpt || '打开文章，阅读这段时间留下的记录。'}</small></span>
+                  <span className="archive-post-index">{String(index + 1).padStart(2, '0')}<b>↗</b></span>
+                </a>;
+              })}
+            </div>
+          </section>)}
+          {!articles.length && <p className="empty-feature">还没有符合条件的文章。</p>}
+        </div>
+      </section>
+    </PublicPageLayout>
+  </BannerPage>;
 }
 
 export function SearchPage({ settings = {} }: { settings?: PublicPageSettings }) {
