@@ -9,6 +9,7 @@ import { ensurePrivateDeviceToken } from '../../shared/device/private-device';
 const href = (value: string) => encodeURIComponent(value);
 const date = (value?: string) => value ? new Date(value).toLocaleDateString('zh-CN') : '未标注日期';
 const media = (value?: string) => value || '';
+const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320));
 
 type PublicPageSettings = {
   profile_name?: string;
@@ -205,8 +206,6 @@ export function HomePage({
   );
   const totalViews = articles.reduce((sum, post) => sum + Number(post.view_count || 0), 0);
   const totalComments = articles.reduce((sum, post) => sum + Number(post.comment_count || 0), 0);
-  const readingTime = (text = '') => Math.max(1, Math.ceil(text.length / 320));
-
   useEffect(() => {
     try {
       const historyValue = JSON.parse(localStorage.getItem('boke-reading-history-v1') || '[]');
@@ -326,7 +325,7 @@ export function ArchivePage({ articles, category = '', settings = {} }: { articl
                 const archiveDate = formatArchiveDate(post.published_at || post.created_at);
                 return <a className="archive-post-row" key={post.id} href={`/article/${href(post.slug)}`}>
                   <time><strong>{archiveDate.day}</strong><small>{archiveDate.weekday}</small></time>
-                  <span className="archive-post-copy"><span className="archive-post-meta"><i>{post.category_name || '随笔'}</i><em>{date(post.published_at || post.created_at)}</em></span><strong>{post.title}</strong><small>{post.excerpt || '打开文章，阅读这段时间留下的记录。'}</small></span>
+                  <span className="archive-post-copy"><span className="archive-post-meta"><i>{post.category_name || '随笔'}</i><em>{readingTime(`${post.title}${post.excerpt || ''}`)} 分钟 · {post.view_count || 0} 阅读</em></span><strong>{post.title}</strong><small>{post.excerpt || '打开文章，阅读这段时间留下的记录。'}</small></span>
                   <span className="archive-post-index">{String(index + 1).padStart(2, '0')}<b>↗</b></span>
                 </a>;
               })}

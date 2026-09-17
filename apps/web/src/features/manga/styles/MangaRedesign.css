@@ -15,6 +15,35 @@
 .manga-redesign [hidden] {
   display: none !important;
 }
+.manga-redesign .manga-shelf[data-view='grid'] .manga-tile {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+.manga-redesign .manga-shelf[data-view='grid'] .manga-tile-copy {
+  display: flex;
+  height: 8rem;
+  min-height: 8rem;
+  flex-direction: column;
+}
+.manga-redesign .manga-shelf[data-view='grid'] .manga-tile-copy h3 {
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.manga-redesign .manga-shelf[data-view='grid'] .manga-tile-copy > p {
+  display: -webkit-box;
+  min-height: 2.9em;
+  max-height: 2.9em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.manga-redesign .manga-shelf[data-view='grid'] .manga-tile-copy footer {
+  margin-top: auto;
+}
 .manga-redesign :is(a, button, input, select):focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 3px;

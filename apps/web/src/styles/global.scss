@@ -6716,3 +6716,64 @@ select {
   .archive-hero-stats strong { font-size: 1.15rem; }
   .archive-post-copy > small { display: none; }
 }
+
+/* Archive refinement: compact overview and a real year rail. */
+.archive-page { gap: .85rem; }
+.archive-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(17rem, .8fr);
+  min-height: 10rem;
+  gap: 1.5rem;
+  padding: 1.35rem 1.5rem;
+}
+.archive-hero::after { right: -.5rem; bottom: -1.3rem; font-size: clamp(4.5rem, 10vw, 7.5rem); opacity: .72; }
+.archive-hero-copy h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.archive-hero-copy > span { margin-top: .6rem; }
+.archive-hero-stats { align-self: center; border: 1px solid color-mix(in srgb, var(--line) 78%, transparent); border-radius: .9rem; background: color-mix(in srgb, var(--surface-solid) 68%, transparent); padding: .8rem .25rem; backdrop-filter: blur(10px); }
+.archive-year-nav { position: sticky; top: 4.25rem; z-index: 8; box-shadow: 0 8px 24px rgb(26 33 27 / .045); backdrop-filter: blur(14px); }
+.archive-year { display: grid; grid-template-columns: 8.25rem minmax(0, 1fr); scroll-margin-top: 8rem; }
+.archive-year-heading { align-items: flex-start; flex-direction: column; justify-content: space-between; border-right: 1px solid color-mix(in srgb, var(--line) 78%, transparent); background: linear-gradient(155deg, color-mix(in srgb, var(--brand) 7%, transparent), transparent 72%); padding: 1.2rem; }
+.archive-year-heading > div { align-items: flex-start; flex-direction: column; gap: .65rem; }
+.archive-year-heading > div > span { width: 1.85rem; height: 1.85rem; }
+.archive-year-heading h2 { font-size: 2rem; }
+.archive-year-heading > strong { flex-direction: column; gap: .18rem; }
+.archive-posts { min-width: 0; padding: 0 1.2rem; }
+.archive-post-row { height: 6rem; padding: .8rem 0; }
+.archive-post-copy > small { max-width: 42rem; }
+
+/* Shared list-card rhythm: summaries never move actions out of line. */
+.bangumi-grid-compact { align-items: stretch; grid-auto-rows: 1fr; }
+.bangumi-card-compact { height: 100%; min-height: 0; }
+.bangumi-card-main { display: flex; min-height: 0; flex-direction: column; }
+.bangumi-card-compact .bangumi-info { display: grid; height: 5.55rem; min-height: 5.55rem; grid-template-rows: 2.2rem 2.1rem; align-content: start; }
+.bangumi-card-compact .bangumi-info h2,
+.bangumi-card-compact .bangumi-info > p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; }
+.bangumi-card-compact .bangumi-info h2 { line-height: 1.25; -webkit-line-clamp: 2; }
+.bangumi-card-compact .bangumi-info > p { line-height: 1.45; -webkit-line-clamp: 2; }
+
+.album-showcase-grid { align-items: stretch; }
+.album-showcase-card { display: flex; height: 100%; flex-direction: column; }
+.album-showcase-copy { display: flex; height: 9.4rem; min-height: 9.4rem; flex-direction: column; }
+.album-showcase-copy footer { margin-top: auto; }
+
+.home-series-card { height: 13rem; min-height: 13rem; }
+.home-series-card h3,
+.home-series-card p,
+.series-card h2,
+.series-card p { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.series-card { height: 18rem; min-height: 18rem; }
+
+@media (max-width: 720px) {
+  .archive-hero { grid-template-columns: 1fr; min-height: 0; padding: 1.15rem; }
+  .archive-year-nav { top: 3.75rem; }
+  .archive-year { grid-template-columns: 1fr; }
+  .archive-year-heading { align-items: center; flex-direction: row; border-right: 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 78%, transparent); padding: .85rem .9rem; }
+  .archive-year-heading > div { align-items: center; flex-direction: row; }
+  .archive-year-heading > strong { align-items: baseline; flex-direction: row; }
+  .archive-posts { padding-inline: .9rem; }
+  .archive-post-row { height: 5.6rem; }
+}
+
+@media (max-width: 480px) {
+  .archive-hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .archive-hero-stats > div:last-child { display: none; }
+}
