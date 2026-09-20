@@ -96,12 +96,21 @@ export function seed() {
 // ===== 预置主题 =====
 function seedThemes() {
   const themes = [
-    { id: 'default', name: '经典蓝', primary: '#3b82f6', hover: '#2563eb', light: '#dbeafe' },
-    { id: 'sunset', name: '日落橙', primary: '#f97316', hover: '#ea580c', light: '#ffedd5' },
-    { id: 'forest', name: '森林绿', primary: '#16a34a', hover: '#15803d', light: '#dcfce7' },
-    { id: 'violet', name: '紫罗兰', primary: '#8b5cf6', hover: '#7c3aed', light: '#ede9fe' },
-    { id: 'ocean', name: '海洋青', primary: '#0891b2', hover: '#0e7490', light: '#cffafe' },
-    { id: 'rose', name: '玫瑰粉', primary: '#e11d48', hover: '#be123c', light: '#ffe4e6' },
+    {
+      id: 'boke-green', name: '纸张绿', primary: '#5e7c61', hover: '#456249', light: '#e8f2e8',
+      description: '前台明亮外观，纸张质感与自然绿色。',
+      config: { card_radius: 22, card_opacity: 0.86, content_width: 72 },
+    },
+    {
+      id: 'boke-night', name: '深海蓝', primary: '#7aa2d6', hover: '#5e8fcf', light: '#17243a',
+      description: '前台暗色外观，适合夜间阅读。',
+      config: { card_radius: 18, card_opacity: 0.86, content_width: 72 },
+    },
+    {
+      id: 'boke-punk', name: '霓虹紫', primary: '#c86b9b', hover: '#d946ef', light: '#32133f',
+      description: '前台高对比外观，紫色霓虹与青色点缀。',
+      config: { card_radius: 12, card_opacity: 0.88, content_width: 72 },
+    },
   ]
 
   const stmt = db.prepare(`INSERT OR IGNORE INTO themes (id, name, version, author, description, screenshot, is_active, config)
@@ -112,9 +121,22 @@ function seedThemes() {
       primary: t.primary,
       primary_hover: t.hover,
       primary_light: t.light,
+      body_font: 'system-ui',
+      title_font: 'Georgia, serif',
+      season: 'custom',
+      ...t.config,
     })
-    stmt.run(t.id, t.name, '1.0.0', 'Boke', `${t.name}主题`, '', t.id === 'default' ? 1 : 0, config)
+    stmt.run(t.id, t.name, '1.0.0', 'Boke', t.description, '', 0, config)
   }
+
+  const ids = themes.map((theme) => theme.id)
+  const savedDefault = db.prepare("SELECT value FROM settings WHERE key = 'active_theme'").get() as { value?: string } | undefined
+  const activeRow = db.prepare(`SELECT id FROM themes WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')}) LIMIT 1`).get(...ids) as { id?: string } | undefined
+  const preferred = ids.includes(String(savedDefault?.value || ''))
+    ? String(savedDefault?.value)
+    : (activeRow?.id || 'boke-green')
+  db.prepare('UPDATE themes SET is_active = CASE WHEN id = ? THEN 1 ELSE 0 END').run(preferred)
+  db.prepare("INSERT OR REPLACE INTO settings (key, value, type, description) VALUES ('active_theme', ?, 'string', '前台默认外观')").run(preferred)
 }
 
 // ===== 预置插件 =====

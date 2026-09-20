@@ -39,20 +39,39 @@ export interface ThemeConfig {
   season?: string;
 }
 
+export interface PublicTheme {
+  id: 'boke-green' | 'boke-night' | 'boke-punk';
+  name: string;
+  description?: string;
+  is_active?: boolean;
+  theme_type: 'light' | 'dark';
+  note: string;
+  config: ThemeConfig;
+}
+
 export const internalApiOrigin = () => process.env.API_BASE_INTERNAL || 'http://127.0.0.1:3001';
 
 export const getSiteSettings = cache(async () => {
-  const [settings, theme] = await Promise.all([
+  const [settings, theme, themes] = await Promise.all([
     getJson<SiteSettings>(
       `${internalApiOrigin()}/api/settings/public`,
       AbortSignal.timeout(10000),
     ).catch(() => ({}) as SiteSettings),
-    getJson<{ config?: ThemeConfig } | null>(
+    getJson<(PublicTheme & { isPreview?: boolean }) | null>(
       `${internalApiOrigin()}/api/themes/active`,
       AbortSignal.timeout(10000),
     ).catch(() => null),
+    getJson<PublicTheme[]>(
+      `${internalApiOrigin()}/api/themes`,
+      AbortSignal.timeout(10000),
+    ).catch(() => []),
   ]);
-  return { settings, theme: theme?.config || {} };
+  return {
+    settings,
+    theme: theme?.config || {},
+    activeTheme: theme,
+    themes,
+  };
 });
 
 export function themeCss(theme: ThemeConfig) {
@@ -66,4 +85,16 @@ export function themeCss(theme: ThemeConfig) {
   // The legacy stylesheet's later light/dark editorial palette wins for --brand.
   // Next hoists CSS before inline styles, so redeclaring it here reverses that cascade.
   return `:root{--theme-primary:${primary};--theme-primary-hover:${hover};--theme-primary-light:${light};--brand:${primary};--theme-card-radius:${Number(theme.card_radius || 18)}px;--theme-card-opacity:${Number(theme.card_opacity || 0.86)};--theme-content-width:${Number(theme.content_width || 72)}rem;--theme-body-font:${font(theme.body_font || 'system-ui')};--theme-title-font:${font(theme.title_font || 'Georgia, serif')};}`;
+}
+
+export function appearanceThemesCss(themes: PublicTheme[]) {
+  return themes
+    .filter((theme) => /^boke-(green|night|punk)$/.test(theme.id))
+    .map((theme) =>
+      themeCss(theme.config).replace(
+        ':root{',
+        `:root[data-theme="${theme.id}"]:not([data-site-layout="admin"]){`,
+      ),
+    )
+    .join('');
 }

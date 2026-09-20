@@ -91,8 +91,8 @@ export function PersonalPanel() {
         <div className="admin-personal-columns">
           <form id="personal-theme-form" className="ryu-card grid gap-4 p-5">
             <div>
-              <h3 className="text-xl font-black">可视化主题编辑器</h3>
-              <p className="text-sm text-base-content/50">即时调整字体、圆角、透明度和页面宽度。</p>
+              <h3 className="text-xl font-black">前台外观快捷编辑</h3>
+              <p className="text-sm text-base-content/50">与“主题外观”页面及前台右上角的三种外观同步。</p>
             </div>
             <select
               id="personal-theme-select"
@@ -159,20 +159,8 @@ export function PersonalPanel() {
             </label>
             <div className="flex flex-wrap gap-2">
               <button className="ryu-btn-primary" type="submit">
-                保存配置
+                保存到前台
               </button>
-              <button id="personal-theme-export" className="ryu-btn" type="button">
-                导出
-              </button>
-              <label className="ryu-btn cursor-pointer">
-                导入
-                <input
-                  id="personal-theme-import"
-                  className="hidden"
-                  type="file"
-                  accept="application/json,.json"
-                />
-              </label>
             </div>
           </form>
           <section className="ryu-card p-5">

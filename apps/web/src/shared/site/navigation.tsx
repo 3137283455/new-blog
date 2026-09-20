@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { mountController } from './navigation-controller';
-import type { SiteSettings } from './settings';
+import type { PublicTheme, SiteSettings } from './settings';
 export interface SearchEngine {
   id: string;
   name: string;
@@ -11,9 +11,11 @@ export interface SearchEngine {
 }
 export function SiteNavigation({
   settings,
+  appearanceThemes,
   immersive = false,
 }: {
   settings: SiteSettings;
+  appearanceThemes: PublicTheme[];
   immersive?: boolean;
 }) {
   const pathname = usePathname();
@@ -28,6 +30,13 @@ export function SiteNavigation({
     Array.isArray(settings.nav_search_engines) && settings.nav_search_engines.length
       ? settings.nav_search_engines
       : defaultSearchEngines;
+  const themes = appearanceThemes.length
+    ? appearanceThemes
+    : [
+        { id: 'boke-green', name: '纸张绿', note: '明亮', config: { primary: '#5e7c61' } },
+        { id: 'boke-night', name: '深海蓝', note: '暗色', config: { primary: '#7aa2d6' } },
+        { id: 'boke-punk', name: '霓虹紫', note: '高对比', config: { primary: '#c86b9b' } },
+      ];
   const primaryItems = [
     { href: '/', label: '文章' },
     { href: '/archive', label: '归档' },
@@ -112,15 +121,12 @@ export function SiteNavigation({
               </summary>
               <div className="theme-panel dropdown-content">
                 <p>外观</p>
-                <button className="theme-option" data-theme-option="boke-green">
-                  <span className="theme-dot bg-[#5e7c61]"></span>纸张绿<small>明亮</small>
-                </button>
-                <button className="theme-option" data-theme-option="boke-night">
-                  <span className="theme-dot bg-[#7aa2d6]"></span>深海蓝<small>暗色</small>
-                </button>
-                <button className="theme-option" data-theme-option="boke-punk">
-                  <span className="theme-dot bg-[#c86b9b]"></span>霓虹紫<small>高对比</small>
-                </button>
+                {themes.map((theme) => (
+                  <button key={theme.id} className="theme-option" data-theme-option={theme.id}>
+                    <span className="theme-dot" style={{ backgroundColor: theme.config.primary }}></span>
+                    {theme.name}<small>{theme.note}</small>
+                  </button>
+                ))}
               </div>
             </details>
             <details className="site-more-menu dropdown dropdown-end">

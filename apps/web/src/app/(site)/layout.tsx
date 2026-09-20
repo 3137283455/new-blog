@@ -24,14 +24,14 @@ import '../../features/books/BookDetail.css';
 import '../../features/books/BookVolume.css';
 import '../../features/books/BookReader.css';
 export default async function SiteLayout({ children }: { children: ReactNode }) {
-  const { settings } = await getSiteSettings();
+  const { settings, themes } = await getSiteSettings();
   const music = await getJson<MusicTrack[]>(
     `${internalApiOrigin()}/api/music`,
     AbortSignal.timeout(10000),
   ).catch(() => []);
   return (
     <>
-      <SiteFrame settings={settings} tracks={music.length ? music : settings.music_playlist || []}>
+      <SiteFrame settings={settings} appearanceThemes={themes} tracks={music.length ? music : settings.music_playlist || []}>
         {children}
       </SiteFrame>
       <SiteEffects />

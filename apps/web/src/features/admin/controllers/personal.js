@@ -295,7 +295,7 @@ export function mount(scope) {
       $('#personal-theme-select').innerHTML = state.themes
         .map(
           (item) =>
-            `<option value="${html(item.id)}" ${item.is_active ? 'selected' : ''}>${html(item.name)}${item.is_active ? '（当前）' : ''}</option>`,
+            `<option value="${html(item.id)}" ${item.is_active ? 'selected' : ''}>${html(item.name)}${item.is_active ? '（前台默认）' : ''}</option>`,
         )
         .join('');
       fillTheme();
@@ -423,7 +423,7 @@ export function mount(scope) {
           body: JSON.stringify({ config }),
         });
         await loadThemes();
-        notice('主题配置已保存，刷新前台即可查看');
+        notice('已同步到前台对应外观，刷新前台即可查看');
       } catch (error) {
         if (scope.disposed) return;
         notice(error.message, true);
@@ -482,38 +482,6 @@ export function mount(scope) {
       } catch (error) {
         if (scope.disposed) return;
         notice(error.message, true);
-      }
-    });
-    scope.listen($('#personal-theme-export'), 'click', async () => {
-      try {
-        const id = $('#personal-theme-select').value;
-        const theme = await api(`/admin/themes/${encodeURIComponent(id)}/export`);
-        const blob = new Blob([JSON.stringify({ ...theme, is_active: false }, null, 2)], {
-          type: 'application/json',
-        });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${id}-theme.json`;
-        link.click();
-        URL.revokeObjectURL(link.href);
-      } catch (error) {
-        if (scope.disposed) return;
-        notice(error.message, true);
-      }
-    });
-    scope.listen($('#personal-theme-import'), 'change', async (event) => {
-      try {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        const theme = JSON.parse(await file.text());
-        await api('/admin/themes/import', { method: 'POST', body: JSON.stringify({ theme }) });
-        await loadThemes();
-        notice('主题配置已导入');
-      } catch (error) {
-        if (scope.disposed) return;
-        notice(error.message || '主题文件无效', true);
-      } finally {
-        event.target.value = '';
       }
     });
   })();

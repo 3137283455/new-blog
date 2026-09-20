@@ -3,15 +3,17 @@ import { useEffect, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { SiteNavigation } from './navigation';
 import { MusicPlayer, type MusicTrack } from './music-player';
-import type { SiteSettings } from './settings';
+import type { PublicTheme, SiteSettings } from './settings';
 import { SiteFooter } from './footer';
 export function SiteFrame({
   children,
   settings,
+  appearanceThemes,
   tracks,
 }: {
   children: ReactNode;
   settings: SiteSettings;
+  appearanceThemes: PublicTheme[];
   tracks: MusicTrack[];
 }) {
   const path = usePathname();
@@ -54,7 +56,7 @@ export function SiteFrame({
     <>
       <div className="site-bg-grid" aria-hidden="true" />
       {showSiteNavigation && (
-        <SiteNavigation settings={settings} immersive={bannerPage} />
+        <SiteNavigation settings={settings} appearanceThemes={appearanceThemes} immersive={bannerPage} />
       )}
       <div
         className={`page-content-animate mx-auto w-full flex-grow ${fullBleed || bannerPage ? 'max-w-none mt-0' : widePage || mangaPortalPage ? 'max-w-wide mt-24' : 'max-w-blog mt-24'}`}

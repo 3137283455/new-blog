@@ -10,6 +10,18 @@ const THEME_LIMITS = {
   description: 240,
 }
 
+const FRONTEND_THEMES = [
+  { id: 'boke-green', theme_type: 'light', note: '明亮' },
+  { id: 'boke-night', theme_type: 'dark', note: '暗色' },
+  { id: 'boke-punk', theme_type: 'dark', note: '高对比' },
+] as const
+
+const FRONTEND_THEME_IDS = FRONTEND_THEMES.map((theme) => theme.id)
+
+function isFrontendTheme(id: unknown): id is (typeof FRONTEND_THEMES)[number]['id'] {
+  return (FRONTEND_THEME_IDS as readonly string[]).includes(String(id))
+}
+
 function cleanText(value: unknown, max: number) {
   return String(value || '').trim().slice(0, max)
 }
@@ -31,30 +43,50 @@ function parseConfig(config: unknown) {
   }
 }
 
+function frontendThemeRows() {
+  const placeholders = FRONTEND_THEME_IDS.map(() => '?').join(',')
+  const rows = db.prepare(`SELECT * FROM themes WHERE id IN (${placeholders})`).all(...FRONTEND_THEME_IDS) as any[]
+  return FRONTEND_THEMES.flatMap((preset) => {
+    const row = rows.find((item) => item.id === preset.id)
+    return row ? [{
+      ...row,
+      is_active: !!row.is_active,
+      theme_type: preset.theme_type,
+      note: preset.note,
+      config: parseConfig(row.config),
+    }] : []
+  })
+}
+
 // ===== 公开：获取当前激活主题（支持预览 cookie） =====
 export function active(req: AuthRequest, res: Response) {
   const previewId = req.cookies?.theme_preview
   let theme: any = null
-  if (previewId) {
+  if (isFrontendTheme(previewId)) {
     theme = db.prepare('SELECT * FROM themes WHERE id = ?').get(previewId) as any
   }
   if (!theme) {
-    theme = db.prepare('SELECT * FROM themes WHERE is_active = 1').get() as any
+    const themes = frontendThemeRows()
+    theme = themes.find((item) => item.is_active) || themes[0]
   }
-  theme.config = parseConfig(theme?.config)
-  return success(res, { ...(theme || {}), isPreview: !!previewId })
+  if (!theme) return error(res, '前台外观尚未初始化', 'THEME_NOT_READY', 503)
+  const preset = FRONTEND_THEMES.find((item) => item.id === theme.id)
+  return success(res, {
+    ...theme,
+    theme_type: preset?.theme_type || theme.theme_type || 'light',
+    note: preset?.note || theme.note || '',
+    config: typeof theme.config === 'string' ? parseConfig(theme.config) : theme.config,
+    isPreview: isFrontendTheme(previewId),
+  })
+}
+
+export function publicList(_req: AuthRequest, res: Response) {
+  return success(res, frontendThemeRows())
 }
 
 // ===== 管理 =====
 export function list(_req: AuthRequest, res: Response) {
-  const themes = db.prepare('SELECT * FROM themes ORDER BY is_active DESC, name ASC').all()
-  // 解析 config
-  const result = themes.map((t: any) => ({
-    ...t,
-    is_active: !!t.is_active,
-    config: parseConfig(t.config),
-  }))
-  return success(res, result)
+  return success(res, frontendThemeRows())
 }
 
 export function install(req: AuthRequest, res: Response) {
@@ -99,6 +131,7 @@ export function install(req: AuthRequest, res: Response) {
 
 export function activate(req: AuthRequest, res: Response) {
   const { id } = req.params
+  if (!isFrontendTheme(id)) return error(res, '该主题不是前台外观选项', 'NOT_FOUND', 404)
   const theme = db.prepare('SELECT id FROM themes WHERE id = ?').get(id)
   if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
 
@@ -115,6 +148,7 @@ export function activate(req: AuthRequest, res: Response) {
 // 预览主题（设置临时 cookie，不保存到数据库）
 export function preview(req: AuthRequest, res: Response) {
   const { id } = req.params
+  if (!isFrontendTheme(id)) return error(res, '该主题不是前台外观选项', 'NOT_FOUND', 404)
   const theme = db.prepare('SELECT * FROM themes WHERE id = ?').get(id) as any
   if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
   theme.config = parseConfig(theme.config)
@@ -130,6 +164,7 @@ export function clearPreview(_req: AuthRequest, res: Response) {
 
 export function remove(req: AuthRequest, res: Response) {
   const { id } = req.params
+  if (isFrontendTheme(id)) return error(res, '前台内置外观不能删除')
   const theme = db.prepare('SELECT is_active FROM themes WHERE id = ?').get(id) as any
   if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
   if (theme.is_active) return error(res, '不能删除当前激活的主题')
@@ -159,6 +194,7 @@ function normalizeEditorConfig(input: any, current: any = {}) {
 }
 
 export function updateConfig(req: AuthRequest, res: Response) {
+  if (!isFrontendTheme(req.params.id)) return error(res, '该主题不是前台外观选项', 'NOT_FOUND', 404)
   const theme = db.prepare('SELECT * FROM themes WHERE id = ?').get(req.params.id) as any
   if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
   const config = normalizeEditorConfig(req.body?.config || req.body, parseConfig(theme.config))

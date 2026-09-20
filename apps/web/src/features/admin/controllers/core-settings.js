@@ -83,9 +83,13 @@ export function register(context) {
     await context.loadLogs();
   };
   context.loadThemes = async function loadThemes() {
+    const selectedId = context.$('#theme-form')?.elements.namedItem('editing_id')?.value;
     const json = await context.request('/admin/themes');
     context.state.themes = json.data || [];
     context.renderThemes();
+    const selected = context.state.themes.find((theme) => theme.id === selectedId);
+    const next = selected || context.state.themes.find((theme) => theme.is_active) || context.state.themes[0];
+    if (next) context.editTheme(next.id, false);
   };
   context.loadPlugins = async function loadPlugins() {
     const json = await context.request('/admin/plugins');
@@ -331,14 +335,13 @@ export function register(context) {
     <article class="admin-theme-card${theme.is_active ? ' is-active' : ''}">
       <i style="--theme-swatch:${context.escapeHtml(config.primary || '#2f6f4e')}"></i>
       <div class="admin-theme-card-copy">
-        <p><strong>${context.escapeHtml(theme.name)}</strong>${theme.is_active ? '<span>当前使用</span>' : ''}</p>
+        <p><strong>${context.escapeHtml(theme.name)}</strong>${theme.is_active ? '<span>前台默认</span>' : ''}</p>
         <small>${context.escapeHtml(theme.description || `${theme.id} · ${theme.author || '个人主题'}`)}</small>
-        <em>${Number(config.card_radius || 18)}px 圆角 · ${Number(config.content_width || 72)}rem 内容宽度</em>
+        <em>${context.escapeHtml(theme.note || '')} · ${Number(config.card_radius || 18)}px 圆角 · ${Number(config.content_width || 72)}rem 内容宽度</em>
       </div>
       <div class="admin-theme-card-actions">
-        <button type="button" data-edit-theme="${context.escapeHtml(theme.id)}">编辑</button>
-        ${theme.is_active ? '' : `<button type="button" data-activate-theme="${context.escapeHtml(theme.id)}">启用</button>`}
-        ${theme.is_active ? '' : `<button class="is-danger" type="button" data-delete-theme="${context.escapeHtml(theme.id)}">删除</button>`}
+        <button type="button" data-edit-theme="${context.escapeHtml(theme.id)}">编辑此项</button>
+        ${theme.is_active ? '' : `<button type="button" data-activate-theme="${context.escapeHtml(theme.id)}">设为默认</button>`}
       </div>
     </article>`;
           },
@@ -348,13 +351,10 @@ export function register(context) {
   context.resetThemeForm = function resetThemeForm() {
     const form = context.$('#theme-form');
     if (!form) return;
-    form.reset();
-    form.elements.namedItem('editing_id').value = '';
-    form.elements.namedItem('id').disabled = false;
-    context.$('#theme-form-title').textContent = '创建个人主题';
-    context.$('#theme-form-description').textContent = '创建后可在右侧启用，也可以随时重新编辑。';
-    context.$('#theme-submit').textContent = '创建主题';
-    context.previewThemeForm();
+    const selectedId = form.elements.namedItem('editing_id').value;
+    const selected = context.state.themes.find((theme) => theme.id === selectedId);
+    const next = selected || context.state.themes.find((theme) => theme.is_active) || context.state.themes[0];
+    if (next) context.editTheme(next.id, false);
   };
   context.previewThemeForm = function previewThemeForm() {
     const form = context.$('#theme-form');
@@ -367,9 +367,9 @@ export function register(context) {
     preview.style.setProperty('--preview-opacity', String(fields.namedItem('card_opacity').value || 0.86));
     preview.style.setProperty('--preview-body-font', fields.namedItem('body_font').value || 'system-ui');
     preview.style.setProperty('--preview-title-font', fields.namedItem('title_font').value || 'Georgia, serif');
-    context.$('#theme-preview-name').textContent = fields.namedItem('name').value.trim() || '个人主题';
+    context.$('#theme-preview-name').textContent = fields.namedItem('name').value.trim() || '前台外观';
   };
-  context.editTheme = function editTheme(id) {
+  context.editTheme = function editTheme(id, shouldScroll = true) {
     const theme = context.state.themes.find((item) => item.id === id);
     const form = context.$('#theme-form');
     if (!theme || !form) return;
@@ -394,12 +394,13 @@ export function register(context) {
       const field = form.elements.namedItem(name);
       if (field) field.value = value;
     });
-    form.elements.namedItem('id').disabled = true;
     context.$('#theme-form-title').textContent = `编辑「${theme.name}」`;
-    context.$('#theme-form-description').textContent = theme.is_active ? '这是当前主题，保存后刷新前台即可看到变化。' : '保存配置后再点击右侧“启用”应用到前台。';
-    context.$('#theme-submit').textContent = '保存外观';
+    context.$('#theme-form-description').textContent = theme.is_active
+      ? '这是新访客默认看到的外观；保存会同步更新前台对应选项。'
+      : '保存会同步更新前台对应选项，不需要先设为默认。';
+    context.$('#theme-submit').textContent = '保存到前台';
     context.previewThemeForm();
-    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (shouldScroll) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   context.renderPlugins = function renderPlugins() {
     const list = context.$('#plugins-list');
@@ -432,6 +433,10 @@ export function register(context) {
     event.preventDefault();
     const fields = event.currentTarget.elements;
     const editingId = fields.namedItem('editing_id').value;
+    if (!editingId) {
+      context.notify('请先选择一个前台外观', true);
+      return;
+    }
     const config = {
       primary: fields.namedItem('primary').value,
       primary_hover: fields.namedItem('primary_hover').value,
@@ -443,20 +448,19 @@ export function register(context) {
       content_width: Number(fields.namedItem('content_width').value),
       season: fields.namedItem('season').value,
     };
-    context.notify(editingId ? '正在保存外观…' : '正在创建主题…', 'info');
+    context.notify('正在同步前台外观…', 'info');
     try {
       const metadata = {
         name: fields.namedItem('name').value.trim(),
         author: fields.namedItem('author').value.trim(),
         description: fields.namedItem('description').value.trim(),
       };
-      await context.request(editingId ? `/admin/themes/${editingId}/config` : '/admin/themes/install', {
-        method: editingId ? 'PUT' : 'POST',
-        body: JSON.stringify(editingId ? { ...metadata, config } : { id: fields.namedItem('id').value.trim(), ...metadata, ...config }),
+      await context.request(`/admin/themes/${editingId}/config`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...metadata, config }),
       });
       await context.loadThemes();
-      context.resetThemeForm();
-      context.notify(editingId ? '外观已保存；如为当前主题，刷新前台即可查看' : '主题已创建，可在右侧启用');
+      context.notify('已同步到前台对应外观，刷新前台即可查看');
     } catch (error) {
       if (context.scope.disposed) return;
       context.notify(error.message || '主题保存失败', true);
@@ -478,7 +482,7 @@ export function register(context) {
     try {
       await context.request(`/admin/themes/${id}/activate`, { method: 'PUT' });
       await Promise.all([context.loadThemes(), context.loadSettings()]);
-      context.notify('主题已切换');
+      context.notify('已设为前台默认外观；访客自己的选择仍会保留');
     } catch (error) {
       if (context.scope.disposed) return;
       context.notify(error.message || '主题切换失败', true);

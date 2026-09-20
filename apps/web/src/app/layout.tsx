@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import type { Viewport } from 'next';
-import { getSiteSettings, themeCss } from '../shared/site/settings';
+import { appearanceThemesCss, getSiteSettings } from '../shared/site/settings';
 import { ToastProvider } from '../shared/ui/toast-provider';
 import '../shared/ui/toast.css';
 
@@ -11,23 +11,25 @@ export const metadata: Metadata = {
   icons: { icon: '/logo.png', apple: '/logo.png' },
 };
 
-const bootstrap = `try{var t=localStorage.getItem('theme')||'boke-green';document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-theme-type',({'boke-night':'dark','boke-punk':'dark','boke-green':'light'})[t]||'light')}catch{}window.__PUBLIC_API_BASE__='/api';`;
-
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  const { settings, theme } = await getSiteSettings();
+  const { settings, activeTheme, themes } = await getSiteSettings();
+  const themeTypes = { 'boke-green': 'light', 'boke-night': 'dark', 'boke-punk': 'dark' } as const;
+  const defaultTheme = activeTheme?.id && themeTypes[activeTheme.id] ? activeTheme.id : 'boke-green';
+  const defaultThemeType = themeTypes[defaultTheme];
+  const bootstrap = `try{var y={'boke-green':'light','boke-night':'dark','boke-punk':'dark'},d=${JSON.stringify(defaultTheme)},s=localStorage.getItem('theme'),t=y[s]?s:d;document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-theme-type',y[t])}catch{}window.__PUBLIC_API_BASE__='/api';`;
   return (
     <html
       lang={settings.site_language || 'zh-CN'}
-      data-theme="boke-green"
-      data-theme-type="light"
+      data-theme={defaultTheme}
+      data-theme-type={defaultThemeType}
       data-scroll-behavior="smooth"
-      data-personal-season={theme.season || 'custom'}
+      data-personal-season={activeTheme?.config?.season || 'custom'}
       suppressHydrationWarning
     >
       <head>
         <style
           dangerouslySetInnerHTML={{
-            __html: themeCss(theme).replace(':root{', ':root:not([data-site-layout="admin"]){'),
+            __html: appearanceThemesCss(themes),
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: bootstrap }} />
