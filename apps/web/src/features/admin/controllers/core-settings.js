@@ -325,40 +325,105 @@ export function register(context) {
     list.innerHTML =
       context.state.themes
         .map(
-          (theme) => `
-    <div class="rounded-2xl bg-base-100/65 p-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="font-black">${context.escapeHtml(theme.name)} ${theme.is_active ? '<span class="badge badge-primary">当前</span>' : ''}</p>
-          <p class="text-xs text-base-content/45">${context.escapeHtml(theme.id)} · ${context.escapeHtml(theme.author || '')}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button class="btn btn-xs rounded-lg" data-preview-theme="${theme.id}">预览</button>
-          <button class="btn btn-xs rounded-lg" data-activate-theme="${theme.id}">启用</button>
-          ${theme.is_active ? '' : `<button class="btn btn-xs btn-error rounded-lg" data-delete-theme="${theme.id}">删除</button>`}
-        </div>
+          (theme) => {
+            const config = theme.config || {};
+            return `
+    <article class="admin-theme-card${theme.is_active ? ' is-active' : ''}">
+      <i style="--theme-swatch:${context.escapeHtml(config.primary || '#2f6f4e')}"></i>
+      <div class="admin-theme-card-copy">
+        <p><strong>${context.escapeHtml(theme.name)}</strong>${theme.is_active ? '<span>当前使用</span>' : ''}</p>
+        <small>${context.escapeHtml(theme.description || `${theme.id} · ${theme.author || '个人主题'}`)}</small>
+        <em>${Number(config.card_radius || 18)}px 圆角 · ${Number(config.content_width || 72)}rem 内容宽度</em>
       </div>
-    </div>
-  `,
+      <div class="admin-theme-card-actions">
+        <button type="button" data-edit-theme="${context.escapeHtml(theme.id)}">编辑</button>
+        ${theme.is_active ? '' : `<button type="button" data-activate-theme="${context.escapeHtml(theme.id)}">启用</button>`}
+        ${theme.is_active ? '' : `<button class="is-danger" type="button" data-delete-theme="${context.escapeHtml(theme.id)}">删除</button>`}
+      </div>
+    </article>`;
+          },
         )
         .join('') || '<p class="text-base-content/45">暂无主题</p>';
+  };
+  context.resetThemeForm = function resetThemeForm() {
+    const form = context.$('#theme-form');
+    if (!form) return;
+    form.reset();
+    form.elements.namedItem('editing_id').value = '';
+    form.elements.namedItem('id').disabled = false;
+    context.$('#theme-form-title').textContent = '创建个人主题';
+    context.$('#theme-form-description').textContent = '创建后可在右侧启用，也可以随时重新编辑。';
+    context.$('#theme-submit').textContent = '创建主题';
+    context.previewThemeForm();
+  };
+  context.previewThemeForm = function previewThemeForm() {
+    const form = context.$('#theme-form');
+    const preview = context.$('#theme-live-preview');
+    if (!form || !preview) return;
+    const fields = form.elements;
+    preview.style.setProperty('--preview-primary', fields.namedItem('primary').value || '#2f6f4e');
+    preview.style.setProperty('--preview-light', fields.namedItem('primary_light').value || '#dcefe3');
+    preview.style.setProperty('--preview-radius', `${Number(fields.namedItem('card_radius').value || 18)}px`);
+    preview.style.setProperty('--preview-opacity', String(fields.namedItem('card_opacity').value || 0.86));
+    preview.style.setProperty('--preview-body-font', fields.namedItem('body_font').value || 'system-ui');
+    preview.style.setProperty('--preview-title-font', fields.namedItem('title_font').value || 'Georgia, serif');
+    context.$('#theme-preview-name').textContent = fields.namedItem('name').value.trim() || '个人主题';
+  };
+  context.editTheme = function editTheme(id) {
+    const theme = context.state.themes.find((item) => item.id === id);
+    const form = context.$('#theme-form');
+    if (!theme || !form) return;
+    const config = theme.config || {};
+    const values = {
+      editing_id: theme.id,
+      id: theme.id,
+      name: theme.name,
+      primary: config.primary || '#2f6f4e',
+      primary_hover: config.primary_hover || config.primary || '#245a3e',
+      primary_light: config.primary_light || '#dcefe3',
+      body_font: config.body_font || 'system-ui',
+      title_font: config.title_font || 'Georgia, serif',
+      card_radius: config.card_radius || 18,
+      card_opacity: config.card_opacity || 0.86,
+      content_width: config.content_width || 72,
+      season: config.season || 'custom',
+      author: theme.author || '',
+      description: theme.description || '',
+    };
+    Object.entries(values).forEach(([name, value]) => {
+      const field = form.elements.namedItem(name);
+      if (field) field.value = value;
+    });
+    form.elements.namedItem('id').disabled = true;
+    context.$('#theme-form-title').textContent = `编辑「${theme.name}」`;
+    context.$('#theme-form-description').textContent = theme.is_active ? '这是当前主题，保存后刷新前台即可看到变化。' : '保存配置后再点击右侧“启用”应用到前台。';
+    context.$('#theme-submit').textContent = '保存外观';
+    context.previewThemeForm();
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   context.renderPlugins = function renderPlugins() {
     const list = context.$('#plugins-list');
     if (!list) return;
+    const icons = {
+      'reading-progress': '↗',
+      'table-of-contents': '☷',
+      'word-count': '字',
+      'back-to-top': '↑',
+      'article-like': '♡',
+      'reading-history': '◷',
+      'article-bookmark': '☆',
+      'reading-mode': 'Aa',
+      'code-copy': '</>',
+    };
     list.innerHTML =
       context.state.plugins
         .map(
           (plugin) => `
-    <div class="rounded-2xl bg-base-100/65 p-4">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p class="font-black">${context.escapeHtml(plugin.name)} <span class="badge ${plugin.is_active ? 'badge-primary' : 'badge-ghost'}">${plugin.is_active ? '已启用' : '已停用'}</span></p>
-          <p class="text-xs text-base-content/45">${context.escapeHtml(plugin.id)} · ${context.escapeHtml(plugin.description || '')}</p>
-        </div>
-        <button class="btn btn-xs rounded-lg" data-toggle-plugin="${plugin.id}">${plugin.is_active ? '停用' : '启用'}</button>
-      </div>
-    </div>
+    <article class="admin-plugin-card${plugin.is_active ? ' is-active' : ''}">
+      <i>${context.escapeHtml(icons[plugin.id] || '•')}</i>
+      <span><strong>${context.escapeHtml(plugin.name)}</strong><small>${context.escapeHtml(plugin.description || '')}</small></span>
+      <button type="button" role="switch" aria-checked="${plugin.is_active ? 'true' : 'false'}" data-toggle-plugin="${context.escapeHtml(plugin.id)}"><b></b><em>${plugin.is_active ? '已启用' : '已停用'}</em></button>
+    </article>
   `,
         )
         .join('') || '<p class="text-base-content/45">暂无插件</p>';
@@ -366,24 +431,35 @@ export function register(context) {
   context.installTheme = async function installTheme(event) {
     event.preventDefault();
     const fields = event.currentTarget.elements;
-    context.notify('正在安装主题…', 'info');
+    const editingId = fields.namedItem('editing_id').value;
+    const config = {
+      primary: fields.namedItem('primary').value,
+      primary_hover: fields.namedItem('primary_hover').value,
+      primary_light: fields.namedItem('primary_light').value,
+      body_font: fields.namedItem('body_font').value.trim(),
+      title_font: fields.namedItem('title_font').value.trim(),
+      card_radius: Number(fields.namedItem('card_radius').value),
+      card_opacity: Number(fields.namedItem('card_opacity').value),
+      content_width: Number(fields.namedItem('content_width').value),
+      season: fields.namedItem('season').value,
+    };
+    context.notify(editingId ? '正在保存外观…' : '正在创建主题…', 'info');
     try {
-      await context.request('/admin/themes/install', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: fields.namedItem('id').value.trim(),
-          name: fields.namedItem('name').value.trim(),
-          primary: fields.namedItem('primary').value,
-          author: fields.namedItem('author').value.trim(),
-          description: fields.namedItem('description').value.trim(),
-        }),
+      const metadata = {
+        name: fields.namedItem('name').value.trim(),
+        author: fields.namedItem('author').value.trim(),
+        description: fields.namedItem('description').value.trim(),
+      };
+      await context.request(editingId ? `/admin/themes/${editingId}/config` : '/admin/themes/install', {
+        method: editingId ? 'PUT' : 'POST',
+        body: JSON.stringify(editingId ? { ...metadata, config } : { id: fields.namedItem('id').value.trim(), ...metadata, ...config }),
       });
-      event.currentTarget.reset();
       await context.loadThemes();
-      context.notify('主题已安装');
+      context.resetThemeForm();
+      context.notify(editingId ? '外观已保存；如为当前主题，刷新前台即可查看' : '主题已创建，可在右侧启用');
     } catch (error) {
       if (context.scope.disposed) return;
-      context.notify(error.message || '主题安装失败', true);
+      context.notify(error.message || '主题保存失败', true);
     }
   };
   context.previewTheme = async function previewTheme(id) {
@@ -417,27 +493,6 @@ export function register(context) {
     } catch (error) {
       if (context.scope.disposed) return;
       context.notify(error.message || '主题删除失败', true);
-    }
-  };
-  context.installPlugin = async function installPlugin(event) {
-    event.preventDefault();
-    const fields = event.currentTarget.elements;
-    context.notify('正在安装插件…', 'info');
-    try {
-      await context.request('/admin/plugins/install', {
-        method: 'POST',
-        body: JSON.stringify({
-          id: fields.namedItem('id').value.trim(),
-          name: fields.namedItem('name').value.trim(),
-          description: fields.namedItem('description').value.trim(),
-        }),
-      });
-      event.currentTarget.reset();
-      await context.loadPlugins();
-      context.notify('插件已安装');
-    } catch (error) {
-      if (context.scope.disposed) return;
-      context.notify(error.message || '插件安装失败', true);
     }
   };
   context.togglePlugin = async function togglePlugin(id) {

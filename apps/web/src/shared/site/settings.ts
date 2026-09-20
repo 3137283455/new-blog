@@ -30,6 +30,7 @@ export interface SiteSettings {
 export interface ThemeConfig {
   primary?: string;
   primary_hover?: string;
+  primary_light?: string;
   card_radius?: number;
   card_opacity?: number;
   content_width?: number;
@@ -60,8 +61,9 @@ export function themeCss(theme: ThemeConfig) {
     /[^#a-zA-Z0-9(),.%\s-]/g,
     '',
   );
+  const light = String(theme.primary_light || '#dcefe3').replace(/[^#a-zA-Z0-9(),.%\s-]/g, '');
   const font = (value: string) => value.replace(/[{};<>]/g, '');
   // The legacy stylesheet's later light/dark editorial palette wins for --brand.
   // Next hoists CSS before inline styles, so redeclaring it here reverses that cascade.
-  return `:root{--theme-primary:${primary};--theme-primary-hover:${hover};--theme-card-radius:${Number(theme.card_radius || 18)}px;--theme-card-opacity:${Number(theme.card_opacity || 0.86)};--theme-content-width:${Number(theme.content_width || 72)}rem;--theme-body-font:${font(theme.body_font || 'system-ui')};--theme-title-font:${font(theme.title_font || 'Georgia, serif')};}`;
+  return `:root{--theme-primary:${primary};--theme-primary-hover:${hover};--theme-primary-light:${light};--brand:${primary};--theme-card-radius:${Number(theme.card_radius || 18)}px;--theme-card-opacity:${Number(theme.card_opacity || 0.86)};--theme-content-width:${Number(theme.content_width || 72)}rem;--theme-body-font:${font(theme.body_font || 'system-ui')};--theme-title-font:${font(theme.title_font || 'Georgia, serif')};}`;
 }

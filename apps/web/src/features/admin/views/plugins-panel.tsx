@@ -1,39 +1,21 @@
 export function PluginsPanel() {
   return (
     <section id="plugins-panel" className="admin-panel hidden">
-      <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
-        <form id="plugin-form" className="ryu-card grid gap-4 p-5">
-          <div>
-            <h2 className="text-2xl font-black">安装插件</h2>
-            <p className="text-sm text-base-content/50">支持自定义插件登记、启用和停用。</p>
-          </div>
-          <input
-            className="input input-bordered rounded-xl"
-            name="id"
-            placeholder="插件 ID，如 reading-progress"
-            required
-          />
-          <input
-            className="input input-bordered rounded-xl"
-            name="name"
-            placeholder="插件名称"
-            required
-          />
-          <textarea
-            className="textarea textarea-bordered rounded-xl"
-            name="description"
-            placeholder="插件描述"
-          ></textarea>
-          <button className="ryu-btn-primary" type="submit">
-            安装插件
-          </button>
-          <p id="plugin-message" className="min-h-6 text-sm"></p>
-        </form>
-        <div className="ryu-card p-5">
-          <h3 className="text-xl font-black">插件列表</h3>
-          <div id="plugins-list" className="mt-4 grid gap-3"></div>
+      <header className="admin-feature-heading">
+        <div>
+          <p>FRONTEND FEATURES</p>
+          <h2>前台功能开关</h2>
+          <span>这里只显示已经接入前台的内置功能；启用或停用后，刷新文章页即可生效。</span>
         </div>
-      </div>
+        <a className="ryu-btn" href="/archive" target="_blank" rel="noreferrer">查看文章 ↗</a>
+      </header>
+      <section className="ryu-card admin-plugin-library">
+        <div className="admin-plugin-note">
+          <strong>这些不是占位插件</strong>
+          <span>每个开关都对应一项真实的文章阅读功能。暂不支持安装任意名称但没有代码的“插件”。</span>
+        </div>
+        <div id="plugins-list" className="admin-plugin-grid"></div>
+      </section>
     </section>
   );
 }

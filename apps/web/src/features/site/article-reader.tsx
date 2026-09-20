@@ -27,6 +27,18 @@ const defaultPreferences: ReadingPreferences = {
   focus: false,
 };
 
+const defaultFeatures = [
+  'reading-progress',
+  'table-of-contents',
+  'word-count',
+  'back-to-top',
+  'article-like',
+  'reading-history',
+  'article-bookmark',
+  'reading-mode',
+  'code-copy',
+];
+
 function extractHeadings(html: string): Heading[] {
   const headings: Heading[] = [];
   const expression = /<h([2-4])(?:\s[^>]*)?id=["']([^"']+)["'][^>]*>([\s\S]*?)<\/h\1>/gi;
@@ -40,46 +52,67 @@ function extractHeadings(html: string): Heading[] {
   return headings;
 }
 
-function ToolIcon({ name }: { name: 'toc' | 'bookmark' | 'share' | 'reading' | 'top' }) {
+function ToolIcon({ name }: { name: 'toc' | 'bookmark' | 'share' | 'reading' | 'top' | 'like' }) {
   if (name === 'toc') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>;
   if (name === 'bookmark') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.6L6 21V4.8Z" /></svg>;
   if (name === 'share') return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" /><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5" /></svg>;
   if (name === 'reading') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M9 18h6" /><circle cx="8" cy="6" r="1.5" /><circle cx="15" cy="12" r="1.5" /><circle cx="12" cy="18" r="1.5" /></svg>;
+  if (name === 'like') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z" /></svg>;
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6-6 6 6M12 4v16" /></svg>;
 }
 
 export function ArticleReader({ article }: { article: any }) {
   const html = article.content_html || `<p>${article.excerpt || ''}</p>`;
   const headings = useMemo(() => extractHeadings(html), [html]);
+  const wordCount = useMemo(() => html.replace(/<[^>]+>/g, '').replace(/\s+/g, '').length, [html]);
   const settingsDialog = useRef<HTMLDialogElement>(null);
+  const contentRef = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(Number(article.like_count || 0));
+  const [features, setFeatures] = useState(() => new Set(defaultFeatures));
   const [preferences, setPreferences] = useState<ReadingPreferences>(defaultPreferences);
   const [tocOpen, setTocOpen] = useState(false);
+  const hasFeature = (id: string) => features.has(id);
+  const tocEnabled = hasFeature('table-of-contents') && headings.length > 0;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch('/api/plugins/active', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const json = await response.json();
+        if (response.ok && Array.isArray(json.data)) setFeatures(new Set(json.data.map((item: any) => item.id)));
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('boke-reading-settings-v1') || '{}');
       setPreferences({ ...defaultPreferences, ...saved });
-      const bookmarks = JSON.parse(localStorage.getItem('boke-article-bookmarks-v1') || '[]');
-      setBookmarked(Array.isArray(bookmarks) && bookmarks.some((item) => item.slug === article.slug));
+      if (hasFeature('article-bookmark')) {
+        const bookmarks = JSON.parse(localStorage.getItem('boke-article-bookmarks-v1') || '[]');
+        setBookmarked(Array.isArray(bookmarks) && bookmarks.some((item) => item.slug === article.slug));
+      }
     } catch {}
-  }, [article.slug]);
+  }, [article.slug, features]);
 
   useEffect(() => {
-    document.body.classList.toggle('article-focus-mode', preferences.focus);
+    document.body.classList.toggle('article-focus-mode', hasFeature('reading-mode') && preferences.focus);
     try {
       localStorage.setItem('boke-reading-settings-v1', JSON.stringify(preferences));
     } catch {}
     return () => document.body.classList.remove('article-focus-mode');
-  }, [preferences]);
+  }, [preferences, features]);
 
   useEffect(() => {
     const update = () => {
       const maximum = document.documentElement.scrollHeight - window.innerHeight;
       const value = maximum > 0 ? Math.min(1, Math.max(0, window.scrollY / maximum)) : 0;
       setProgress(Math.round(value * 100));
-      try {
+      if (hasFeature('reading-history')) try {
         const key = 'boke-reading-history-v1';
         const history = JSON.parse(localStorage.getItem(key) || '[]');
         const next = [
@@ -98,7 +131,27 @@ export function ArticleReader({ article }: { article: any }) {
     update();
     window.addEventListener('scroll', update, { passive: true });
     return () => window.removeEventListener('scroll', update);
-  }, [article.slug, article.title]);
+  }, [article.slug, article.title, features]);
+
+  useEffect(() => {
+    if (!hasFeature('code-copy') || !contentRef.current) return;
+    const buttons: HTMLButtonElement[] = [];
+    contentRef.current.querySelectorAll('pre').forEach((block) => {
+      const source = block.querySelector('code')?.textContent || block.textContent || '';
+      const button = document.createElement('button');
+      button.className = 'article-code-copy';
+      button.type = 'button';
+      button.textContent = '复制代码';
+      button.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(source);
+        button.textContent = '已复制';
+        window.setTimeout(() => { button.textContent = '复制代码'; }, 1200);
+      });
+      block.appendChild(button);
+      buttons.push(button);
+    });
+    return () => buttons.forEach((button) => button.remove());
+  }, [html, features]);
 
   const toggleBookmark = () => {
     const nextState = !bookmarked;
@@ -120,6 +173,18 @@ export function ArticleReader({ article }: { article: any }) {
     } catch {}
   };
 
+  const likeArticle = async () => {
+    if (liked) return;
+    try {
+      const response = await fetch(`/api/articles/${article.id}/like`, { method: 'POST' });
+      const json = await response.json();
+      if (response.ok && json.data) {
+        setLiked(Boolean(json.data.liked));
+        setLikes(Number(json.data.like_count || likes));
+      }
+    } catch {}
+  };
+
   const contentStyle = {
     '--article-reader-size': `${preferences.fontSize}px`,
     '--article-reader-leading': String(preferences.lineHeight),
@@ -128,9 +193,9 @@ export function ArticleReader({ article }: { article: any }) {
 
   return (
     <>
-      <div className="article-reading-progress" aria-hidden="true">
+      {hasFeature('reading-progress') && <div className="article-reading-progress" aria-hidden="true">
         <span style={{ transform: `scaleX(${progress / 100})` }} />
-      </div>
+      </div>}
       <div className="article-reading-layout article-restored-layout" style={contentStyle}>
         <div className="article-reading-main">
           <article className="article-content-card ryu-card p-6 md:p-10">
@@ -143,7 +208,8 @@ export function ArticleReader({ article }: { article: any }) {
               <h1 className="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl">{article.title}</h1>
               <p className="mt-4 text-sm text-base-content/50">
                 {article.view_count || 0} 阅读 · {article.comment_count || 0} 评论
-                {article.like_count !== undefined && <> · {article.like_count || 0} 喜欢</>}
+                {hasFeature('word-count') && <> · {wordCount} 字 · 约 {Math.max(1, Math.ceil(wordCount / 400))} 分钟</>}
+                {hasFeature('article-like') && <> · {likes} 喜欢</>}
               </p>
             </header>
 
@@ -165,7 +231,7 @@ export function ArticleReader({ article }: { article: any }) {
               </aside>
             ) : null}
 
-            <article className="markdown-body prose prose-lg max-w-none article-restored-body" dangerouslySetInnerHTML={{ __html: html }} />
+            <article ref={contentRef} className="markdown-body prose prose-lg max-w-none article-restored-body" dangerouslySetInnerHTML={{ __html: html }} />
           </article>
 
           {(article.previous || article.next || article.related?.length || article.custom_relations?.length) && (
@@ -192,8 +258,8 @@ export function ArticleReader({ article }: { article: any }) {
           )}
         </div>
 
-        <aside className={`article-reading-side${headings.length ? ' has-toc' : ''}`} aria-label="文章侧栏">
-          {headings.length > 0 && (
+        <aside className={`article-reading-side${tocEnabled ? ' has-toc' : ''}`} aria-label="文章侧栏">
+          {tocEnabled && (
             <section className={`article-toc-card ryu-card p-5${tocOpen ? ' is-mobile-open' : ''}`}>
               <h2>文章目录</h2>
               <nav aria-label="文章目录">
@@ -203,17 +269,18 @@ export function ArticleReader({ article }: { article: any }) {
           )}
           <div className="article-action-wrap">
             <div className="article-action-dock" aria-label="文章操作">
-              {headings.length > 0 && <button type="button" title="文章目录" onClick={() => setTocOpen(!tocOpen)}><ToolIcon name="toc" /><span>目录</span></button>}
-              <button className={bookmarked ? 'is-bookmarked' : ''} type="button" title="收藏文章" aria-pressed={bookmarked} onClick={toggleBookmark}><ToolIcon name="bookmark" /><span>{bookmarked ? '已收藏' : '收藏'}</span></button>
+              {tocEnabled && <button type="button" title="文章目录" onClick={() => setTocOpen(!tocOpen)}><ToolIcon name="toc" /><span>目录</span></button>}
+              {hasFeature('article-like') && <button className={liked ? 'is-liked' : ''} type="button" title="喜欢文章" aria-pressed={liked} onClick={() => void likeArticle()}><ToolIcon name="like" /><span>{liked ? '已喜欢' : '喜欢'}</span></button>}
+              {hasFeature('article-bookmark') && <button className={bookmarked ? 'is-bookmarked' : ''} type="button" title="收藏文章" aria-pressed={bookmarked} onClick={toggleBookmark}><ToolIcon name="bookmark" /><span>{bookmarked ? '已收藏' : '收藏'}</span></button>}
               <button type="button" title="分享文章" onClick={() => void shareArticle()}><ToolIcon name="share" /><span>分享</span></button>
-              <button type="button" title="阅读设置" onClick={() => settingsDialog.current?.showModal()}><ToolIcon name="reading" /><span>阅读</span></button>
-              <button type="button" title="回到顶部" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><ToolIcon name="top" /><span>顶部</span><small>{progress}</small></button>
+              {hasFeature('reading-mode') && <button type="button" title="阅读设置" onClick={() => settingsDialog.current?.showModal()}><ToolIcon name="reading" /><span>阅读</span></button>}
+              {hasFeature('back-to-top') && <button type="button" title="回到顶部" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><ToolIcon name="top" /><span>顶部</span><small>{progress}</small></button>}
             </div>
           </div>
         </aside>
       </div>
 
-      <dialog ref={settingsDialog} className="reading-settings-dialog" aria-labelledby="reading-settings-title">
+      {hasFeature('reading-mode') && <dialog ref={settingsDialog} className="reading-settings-dialog" aria-labelledby="reading-settings-title">
         <div className="reading-settings-panel">
           <header>
             <div><small>READING MODE</small><h2 id="reading-settings-title">阅读设置</h2></div>
@@ -241,7 +308,7 @@ export function ArticleReader({ article }: { article: any }) {
             <button type="button" onClick={() => settingsDialog.current?.close()}>完成</button>
           </footer>
         </div>
-      </dialog>
+      </dialog>}
     </>
   );
 }

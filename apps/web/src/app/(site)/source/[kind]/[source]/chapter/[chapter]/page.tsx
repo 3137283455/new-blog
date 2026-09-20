@@ -19,7 +19,7 @@ export async function generateMetadata({
 }) {
   const p = await params,
     q = await searchParams;
-  if (!['manga', 'book', 'bangumi'].includes(p.kind) || typeof q.id !== 'string') return {};
+  if (!['manga', 'bangumi'].includes(p.kind) || typeof q.id !== 'string') return {};
   const data = await loadSourceReader(p.kind, decode(p.source), q.id, decode(p.chapter));
   return pageMetadata(
     (typeof q.title === 'string' ? q.title : '') || data?.reader?.title || '漫画阅读',
@@ -41,7 +41,7 @@ export default async function Page({
     kind = raw.kind;
   const id = typeof q.id === 'string' ? q.id : '',
     title = typeof q.title === 'string' ? q.title : '';
-  if (!['manga', 'book', 'bangumi'].includes(kind) || !id) notFound();
+  if (!['manga', 'bangumi'].includes(kind) || !id) notFound();
   const data = await loadSourceReader(kind, source, id, chapter);
   if (!data?.reader) notFound();
   const reader = { ...data.reader, title: title || data.reader.title || '漫画阅读' };

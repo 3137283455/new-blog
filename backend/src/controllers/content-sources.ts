@@ -22,7 +22,7 @@ import {
 function clean(value: unknown, max = 500) { return String(value ?? '').trim().slice(0, max) }
 function kind(value: unknown): ContentSearchKind | '' {
   const candidate = clean(value, 20)
-  return candidate === 'book' || candidate === 'bangumi' || candidate === 'manga' ? candidate : ''
+  return candidate === 'bangumi' || candidate === 'manga' ? candidate : ''
 }
 function requestHeaders(req: Request) {
   const incoming = clean(req.get('user-agent'), 500)
@@ -53,7 +53,7 @@ export function config(req: Request, res: Response) {
 
 export async function search(req: Request, res: Response) {
   const requestedKind = kind(req.query.kind), query = clean(req.query.q, 120), requestedSource = clean(req.query.source, 180)
-  if (!requestedKind) return error(res, 'kind 必须是 book、bangumi 或 manga', 'INVALID_SOURCE_KIND', 400)
+  if (!requestedKind) return error(res, 'kind 必须是 bangumi 或 manga；书库源功能已停用', 'INVALID_SOURCE_KIND', 400)
   if (!query) return error(res, '请输入搜索关键词', 'QUERY_REQUIRED', 400)
   try {
     if (requestedSource === 'all') {
@@ -84,7 +84,7 @@ export async function search(req: Request, res: Response) {
 
 export async function explore(req: Request, res: Response) {
   const requestedKind = kind(req.query.kind), requestedSource = clean(req.query.source, 180)
-  if (!requestedKind) return error(res, 'kind 必须是 book、bangumi 或 manga', 'INVALID_SOURCE_KIND', 400)
+  if (!requestedKind) return error(res, 'kind 必须是 bangumi 或 manga；书库源功能已停用', 'INVALID_SOURCE_KIND', 400)
   try {
     if (requestedKind === 'manga' && requestedSource.startsWith('venera:')) {
       const result = await exploreVeneraSource(requestedSource, Math.max(1, Number(req.query.page) || 1))

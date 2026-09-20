@@ -40,23 +40,25 @@ export function SettingsPanel() {
                 <b>后台头像</b>
                 <small>建议使用正方形图片。</small>
               </span>
-              <div className="join w-full">
+              <div className="admin-media-field">
                 <input
-                  className="input join-item input-bordered w-full"
+                  className="input input-bordered w-full"
                   name="avatar"
                   maxLength={500}
                   placeholder="/uploads/..."
                 />
-                <button
-                  className="btn join-item"
-                  type="button"
-                  data-pick-media
-                  data-target-form="account-form"
-                  data-target-field="avatar"
-                  data-media-type="image"
-                >
-                  选择
-                </button>
+                <div className="admin-media-actions">
+                  <button
+                    className="admin-media-button"
+                    type="button"
+                    data-pick-media
+                    data-target-form="account-form"
+                    data-target-field="avatar"
+                    data-media-type="image"
+                  >
+                    从媒体库选择
+                  </button>
+                </div>
               </div>
             </div>
             <label className="admin-setting-row">
@@ -110,27 +112,29 @@ export function SettingsPanel() {
                 <b>资料头像</b>
                 <small>首页、导航和音乐页共用。</small>
               </span>
-              <div className="join w-full">
+              <div className="admin-media-field">
                 <input
-                  className="input join-item input-bordered w-full"
+                  className="input input-bordered w-full"
                   name="profile_avatar"
                   maxLength={500}
                   placeholder="/uploads/..."
                 />
-                <button
-                  className="btn join-item"
-                  type="button"
-                  data-pick-media
-                  data-target-form="profile-form"
-                  data-target-field="profile_avatar"
-                  data-media-type="image"
-                >
-                  选择
-                </button>
-                <label className="btn join-item">
-                  上传
-                  <input id="avatar-upload" className="hidden" type="file" accept="image/*" />
-                </label>
+                <div className="admin-media-actions">
+                  <button
+                    className="admin-media-button"
+                    type="button"
+                    data-pick-media
+                    data-target-form="profile-form"
+                    data-target-field="profile_avatar"
+                    data-media-type="image"
+                  >
+                    从媒体库选择
+                  </button>
+                  <label className="admin-media-button is-primary">
+                    上传新图片
+                    <input id="avatar-upload" className="hidden" type="file" accept="image/*" />
+                  </label>
+                </div>
               </div>
             </div>
             <label className="admin-setting-row">

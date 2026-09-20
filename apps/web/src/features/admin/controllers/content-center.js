@@ -66,7 +66,7 @@ export function mount(scope) {
         if (node)
           node.innerHTML =
             rows
-              .slice(0, 8)
+              .slice(0, 4)
               .map(
                 (x) =>
                   '<article class="rounded-xl bg-base-200/55 p-3"><div class="flex justify-between gap-2"><b class="truncate">' +
@@ -220,13 +220,15 @@ export function mount(scope) {
                 escape(x.kind) +
                 ' · ' +
                 escape(x.url) +
+                '</small><small class="mt-1 block text-base-content/45">' +
+                (x.last_checked_at
+                  ? '上次检查 ' + new Date(x.last_checked_at + 'Z').toLocaleString('zh-CN')
+                  : '尚未检查，首次检查会建立更新基线') +
                 '</small></div><a class="btn btn-ghost btn-xs" href="' +
                 escape(x.url) +
                 '" target="_blank" rel="noopener">打开</a></div><footer class="mt-2 flex gap-2"><button class="btn btn-ghost btn-xs" data-subscription-update="' +
                 x.id +
-                '" data-count="' +
-                Number(x.unread_count || 0) +
-                '">标记有更新</button>' +
+                '">立即检查</button>' +
                 (x.unread_count
                   ? '<button class="btn btn-ghost btn-xs" data-subscription-read="' +
                     x.id +
@@ -291,6 +293,7 @@ export function mount(scope) {
       try {
         const rows = await api('/admin/content-relations'),
           node = q('#content-relations');
+        const relationLabels = { related: '相关内容', review: '观后感', adaptation: '改编作品', soundtrack: '背景音乐' };
         node.innerHTML =
           rows
             .map(
@@ -300,7 +303,7 @@ export function mount(scope) {
                 '</b> → <b>' +
                 escape(x.target_title || x.target_type + ' #' + x.target_id) +
                 '</b><small class="block text-base-content/45">' +
-                escape(x.relation_type + (x.note ? ' · ' + x.note : '')) +
+                escape((relationLabels[x.relation_type] || x.relation_type) + (x.note ? ' · ' + x.note : '')) +
                 '</small></span><button class="btn btn-ghost btn-xs text-error" data-relation-delete="' +
                 x.id +
                 '">删除</button></article>',
@@ -379,11 +382,16 @@ export function mount(scope) {
         loadContentOptions();
       }
       if (b.dataset.subscriptionUpdate) {
-        await api('/admin/subscriptions/' + b.dataset.subscriptionUpdate, {
-          method: 'PUT',
-          body: JSON.stringify({ unread_count: Number(b.dataset.count || 0) + 1 }),
-        });
-        loadSubscriptions();
+        b.disabled = true;
+        try {
+          const result = await api('/admin/subscriptions/' + b.dataset.subscriptionUpdate + '/check', { method: 'POST', body: '{}' });
+          scope.notify(result.changed ? '检测到更新，已加入未读' : '已检查，没有发现新变化');
+          await loadSubscriptions();
+        } catch (error) {
+          if (!scope.disposed) scope.notify(error.message || '订阅检查失败', true);
+        } finally {
+          b.disabled = false;
+        }
       }
       if (b.dataset.subscriptionRead) {
         await api('/admin/subscriptions/' + b.dataset.subscriptionRead, {
@@ -399,6 +407,20 @@ export function mount(scope) {
       if (b.dataset.relationDelete) {
         await api('/admin/content-relations/' + b.dataset.relationDelete, { method: 'DELETE' });
         loadRelations();
+      }
+    });
+    scope.listen(q('#content-subscriptions-check'), 'click', async (event) => {
+      event.currentTarget.disabled = true;
+      try {
+        const rows = await api('/admin/subscriptions/check', { method: 'POST', body: '{}' });
+        const changed = rows.filter((item) => item.changed).length;
+        const failed = rows.filter((item) => item.check_error).length;
+        scope.notify(`检查完成：${changed} 个有更新${failed ? `，${failed} 个失败` : ''}`);
+        await loadSubscriptions();
+      } catch (error) {
+        if (!scope.disposed) scope.notify(error.message || '订阅检查失败', true);
+      } finally {
+        event.currentTarget.disabled = false;
       }
     });
     renderQueue();

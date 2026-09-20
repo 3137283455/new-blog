@@ -194,6 +194,7 @@ export function HomePage({
 }) {
   const [readingHistory, setReadingHistory] = useState<any[]>([]);
   const [bookmarks, setBookmarks] = useState<any[]>([]);
+  const [personalFeatures, setPersonalFeatures] = useState({ history: true, bookmarks: true });
   const [randomStatus, setRandomStatus] = useState('换一篇故事');
   const featured = articles.find((item) => item.is_pinned || item.is_recommended) || articles[0];
   const regular = articles.filter((item) => item.id !== featured?.id);
@@ -207,12 +208,22 @@ export function HomePage({
   const totalViews = articles.reduce((sum, post) => sum + Number(post.view_count || 0), 0);
   const totalComments = articles.reduce((sum, post) => sum + Number(post.comment_count || 0), 0);
   useEffect(() => {
-    try {
-      const historyValue = JSON.parse(localStorage.getItem('boke-reading-history-v1') || '[]');
-      const bookmarkValue = JSON.parse(localStorage.getItem('boke-article-bookmarks-v1') || '[]');
-      setReadingHistory(Array.isArray(historyValue) ? historyValue.slice(0, 4) : []);
-      setBookmarks(Array.isArray(bookmarkValue) ? bookmarkValue.slice(0, 6) : []);
-    } catch {}
+    const controller = new AbortController();
+    void fetch('/api/plugins/active', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const json = await response.json();
+        const ids = response.ok && Array.isArray(json.data) ? new Set(json.data.map((item: any) => item.id)) : null;
+        const enabled = { history: ids ? ids.has('reading-history') : true, bookmarks: ids ? ids.has('article-bookmark') : true };
+        setPersonalFeatures(enabled);
+        try {
+          const historyValue = JSON.parse(localStorage.getItem('boke-reading-history-v1') || '[]');
+          const bookmarkValue = JSON.parse(localStorage.getItem('boke-article-bookmarks-v1') || '[]');
+          setReadingHistory(enabled.history && Array.isArray(historyValue) ? historyValue.slice(0, 4) : []);
+          setBookmarks(enabled.bookmarks && Array.isArray(bookmarkValue) ? bookmarkValue.slice(0, 6) : []);
+        } catch {}
+      })
+      .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   const randomArticle = async () => {
@@ -249,14 +260,14 @@ export function HomePage({
           </section>
         )}
 
-        {readingHistory.length > 0 && (
+        {personalFeatures.history && readingHistory.length > 0 && (
           <section className="home-reading-history" aria-label="最近阅读">
             <header className="section-heading"><div><span className="section-number">↺</span><div><p>Continue reading</p><h2>最近阅读</h2></div></div><button type="button" onClick={() => { localStorage.removeItem('boke-reading-history-v1'); setReadingHistory([]); }}>清除记录</button></header>
             <div>{readingHistory.map((item) => { const value = Math.max(0, Math.min(100, Math.round(Number(item.progress || 0) * 100))); return <a href={`/article/${href(item.slug || '')}`} key={item.slug}><span className="home-reading-index">{item.completed ? '✓' : String(value).padStart(2, '0')}</span><span className="home-reading-copy"><strong>{item.title || '未命名文章'}</strong><small>{item.completed ? '再次阅读' : value > 0 ? '继续上次的位置' : '开始阅读'}</small></span><span className="home-reading-state"><b>{item.completed ? '已读完' : `${value}%`}</b><i style={{ '--reading-value': `${value}%` } as React.CSSProperties} /></span></a>; })}</div>
           </section>
         )}
 
-        {bookmarks.length > 0 && (
+        {personalFeatures.bookmarks && bookmarks.length > 0 && (
           <section className="home-bookmarks" aria-label="我的收藏">
             <header className="section-heading"><div><span className="section-number">★</span><div><p>Saved stories</p><h2>我的收藏</h2></div></div><button type="button" onClick={() => { localStorage.removeItem('boke-article-bookmarks-v1'); setBookmarks([]); }}>清除收藏</button></header>
             <div>{bookmarks.map((item, index) => <a href={`/article/${href(item.slug || '')}`} key={item.slug}><span>{String(index + 1).padStart(2, '0')}</span><strong>{item.title || '未命名文章'}</strong><small>打开收藏 ↗</small></a>)}</div>

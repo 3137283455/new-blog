@@ -312,7 +312,8 @@ export function mount(scope) {
   });
   context.scope.listen(context.$('#comment-status-filter'), 'change', context.loadComments);
   context.scope.listen(context.$('#theme-form'), 'submit', context.installTheme);
-  context.scope.listen(context.$('#plugin-form'), 'submit', context.installPlugin);
+  context.scope.listen(context.$('#theme-form'), 'input', context.previewThemeForm);
+  context.scope.listen(context.$('#theme-reset'), 'click', context.resetThemeForm);
   context.scope.listen(context.$('#account-form'), 'submit', context.saveAccount);
   context.scope.listen(context.$('#profile-form'), 'submit', context.saveProfile);
   context.scope.listen(context.$('#site-settings-form'), 'submit', context.saveSiteSettings);
@@ -629,10 +630,10 @@ export function mount(scope) {
   });
   context.scope.listen(context.$('#comment-batch-delete'), 'click', context.batchDeleteComments);
   context.scope.listen(context.$('#themes-list'), 'click', (event) => {
-    const preview = event.target.closest('[data-preview-theme]');
+    const edit = event.target.closest('[data-edit-theme]');
     const activate = event.target.closest('[data-activate-theme]');
     const del = event.target.closest('[data-delete-theme]');
-    if (preview) context.previewTheme(preview.dataset.previewTheme);
+    if (edit) context.editTheme(edit.dataset.editTheme);
     if (activate) context.activateTheme(activate.dataset.activateTheme);
     if (del) context.deleteTheme(del.dataset.deleteTheme);
   });

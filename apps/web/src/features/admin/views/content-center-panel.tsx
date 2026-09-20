@@ -62,15 +62,21 @@ export function ContentCenterPanel() {
             </div>
             <aside>
               <h4 className="font-black">最近任务</h4>
+              <p className="mt-1 text-xs text-base-content/45">只保留最新 4 条，旧记录会自动清理。</p>
               <div id="content-import-jobs" className="mt-3 grid gap-2 text-sm"></div>
             </aside>
           </div>
         </section>
         <div className="admin-content-secondary">
           <section className="ryu-card p-5" data-content-view="subscriptions" hidden>
-            <div>
-              <h3 className="text-xl font-black">更新订阅</h3>
-              <p className="text-sm text-base-content/50">收集小说、漫画、番剧或网页的更新入口。</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-black">更新订阅</h3>
+                <p className="text-sm text-base-content/50">系统会读取订阅地址并比较最新内容；检测到变化后自动增加未读数。</p>
+              </div>
+              <button id="content-subscriptions-check" className="ryu-btn" type="button">
+                检查全部更新
+              </button>
             </div>
             <form
               id="content-subscription-form"
@@ -105,19 +111,13 @@ export function ContentCenterPanel() {
             <div>
               <h3 className="text-xl font-black">内容关系</h3>
               <p className="text-sm text-base-content/50">
-                例如番剧关联观后感、漫画关联文章、相册关联专题。
+                选择一篇文章或一本相册作为展示页，再指定要推荐的内容；保存后会出现在该详情页底部。
               </p>
             </div>
             <form id="content-relation-form" className="mt-4 grid grid-cols-[7rem_1fr] gap-2">
               <select className="select select-bordered rounded-xl" name="source_type">
                 <option value="article">文章</option>
-                <option value="page">页面</option>
-                <option value="book">书籍</option>
-                <option value="manga">漫画</option>
-                <option value="bangumi">番剧</option>
                 <option value="album">相册</option>
-                <option value="music">音乐</option>
-                <option value="series">专题</option>
               </select>
               <select className="select select-bordered rounded-xl" name="source_id" required>
                 <option value="">选择来源内容</option>
@@ -147,7 +147,7 @@ export function ContentCenterPanel() {
                 placeholder="备注（可选）"
               />
               <button className="ryu-btn-primary col-span-2" type="submit">
-                建立关系
+                建立并显示到前台
               </button>
             </form>
             <div id="content-relations" className="mt-4 grid gap-2"></div>

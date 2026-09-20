@@ -151,6 +151,8 @@ router.post('/admin/import-jobs', auth, contentCenterCtrl.createImportJob)
 router.put('/admin/import-jobs/:id', auth, contentCenterCtrl.updateImportJob)
 router.get('/admin/subscriptions', auth, contentCenterCtrl.subscriptions)
 router.post('/admin/subscriptions', auth, contentCenterCtrl.createSubscription)
+router.post('/admin/subscriptions/check', auth, contentCenterCtrl.checkSubscriptions)
+router.post('/admin/subscriptions/:id/check', auth, contentCenterCtrl.checkSubscription)
 router.put('/admin/subscriptions/:id', auth, contentCenterCtrl.updateSubscription)
 router.delete('/admin/subscriptions/:id', auth, contentCenterCtrl.removeSubscription)
 router.get('/admin/content-relations', auth, contentCenterCtrl.relations)
@@ -295,7 +297,6 @@ router.delete('/admin/themes/:id', auth, themeCtrl.remove)
 
 // 鎻掍欢绠＄悊
 router.get('/admin/plugins', auth, pluginCtrl.list)
-router.post('/admin/plugins/install', auth, pluginCtrl.install)
 router.put('/admin/plugins/:id/toggle', auth, pluginCtrl.toggle)
 
 // 绯荤粺璁剧疆

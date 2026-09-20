@@ -76,11 +76,12 @@ export function install(req: AuthRequest, res: Response) {
     return error(res, '该主题 ID 已存在', 'DUPLICATE_ERROR', 409)
   }
 
-  const config = JSON.stringify({
+  const config = JSON.stringify(normalizeEditorConfig({
+    ...req.body,
     primary: safePrimary,
     primary_hover: safeHover,
     primary_light: safeLight,
-  })
+  }))
 
   db.prepare(`INSERT INTO themes (id, name, version, author, description, screenshot, is_active, config)
     VALUES (?, ?, ?, ?, ?, ?, 0, ?)`).run(
@@ -161,8 +162,11 @@ export function updateConfig(req: AuthRequest, res: Response) {
   const theme = db.prepare('SELECT * FROM themes WHERE id = ?').get(req.params.id) as any
   if (!theme) return error(res, '主题不存在', 'NOT_FOUND', 404)
   const config = normalizeEditorConfig(req.body?.config || req.body, parseConfig(theme.config))
-  db.prepare('UPDATE themes SET config = ? WHERE id = ?').run(JSON.stringify(config), theme.id)
-  return success(res, { ...theme, config }, '主题外观已保存')
+  const name = cleanText(req.body?.name || theme.name, THEME_LIMITS.name)
+  const author = cleanText(req.body?.author ?? theme.author, THEME_LIMITS.author)
+  const description = cleanText(req.body?.description ?? theme.description, THEME_LIMITS.description)
+  db.prepare('UPDATE themes SET name = ?, author = ?, description = ?, config = ? WHERE id = ?').run(name, author, description, JSON.stringify(config), theme.id)
+  return success(res, { ...theme, name, author, description, config }, '主题外观已保存')
 }
 
 export function exportConfig(req: AuthRequest, res: Response) {

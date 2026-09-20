@@ -16,6 +16,7 @@ export async function generateMetadata({ params }: Props) {
   const { kind } = raw,
     source = decode(raw.source),
     id = decode(raw.id);
+  if (kind === 'book') return pageMetadata('书库', '本地书籍与阅读记录', '/books');
   const data = await loadSourceDetail(kind, source, id);
   return pageMetadata(
     data?.item?.title || '源站详情',
@@ -28,6 +29,7 @@ export default async function Page({ params }: Props) {
   const { kind } = raw,
     source = decode(raw.source),
     id = decode(raw.id);
+  if (kind === 'book') redirect('/books');
   const data = await loadSourceDetail(kind, source, id);
   if (!data?.item) redirect('/404');
   return <SourceDetailPage kind={kind as SourceKind} source={source} id={id} data={data} />;
