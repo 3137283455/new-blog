@@ -1,5 +1,6 @@
 import { Response } from 'express'
 import crypto from 'crypto'
+import fs from 'fs'
 import path from 'path'
 import db from '../config/database'
 import { config } from '../config'
@@ -94,6 +95,18 @@ export function commitTextBooks(req: AuthRequest, res: Response) {
 
 export function importPdf(req: AuthRequest, res: Response) {
   if (!req.file || !/\.pdf$/i.test(req.file.originalname)) return error(res, '请选择 PDF 文件', 'PDF_REQUIRED', 400)
+  const signature = Buffer.alloc(5)
+  let descriptor: number | undefined
+  try {
+    descriptor = fs.openSync(req.file.path, 'r')
+    fs.readSync(descriptor, signature, 0, signature.length, 0)
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor)
+  }
+  if (signature.toString('ascii') !== '%PDF-') {
+    fs.rmSync(req.file.path, { force: true })
+    return error(res, '文件内容不是有效的 PDF', 'PDF_INVALID', 400)
+  }
   const title = clean(req.body?.title || req.file.originalname.replace(/\.pdf$/i, ''), 200)
   const relative = path.relative(config.uploadDir, req.file.path).split(path.sep).join('/')
   const readingUrl = `/uploads/${relative}`

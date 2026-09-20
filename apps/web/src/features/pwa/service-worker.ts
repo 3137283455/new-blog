@@ -1,5 +1,5 @@
 export const serviceWorker = String.raw`
-const CACHE_NAME = 'boke-shell-v2';
+const CACHE_NAME = 'boke-shell-v3';
 const READING_CACHE = 'boke-reading-v1';
 // Only pre-cache routes served by the standalone Next deployment. The former
 // Only Next shell routes are part of the production service.
@@ -47,7 +47,11 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== location.origin || url.pathname.startsWith('/admin')) return;
   if (url.pathname === '/api/content-sources/media') { event.respondWith(caches.open(READING_CACHE).then(cache=>cache.match(request)).then(cached=>cached||fetch(request))); return; }
   if (url.pathname.startsWith('/api/')) return;
-  if (url.pathname.startsWith('/uploads/')) { event.respondWith(caches.match(request).then((cached) => cached || fetch(request))); return; }
+  if (url.pathname.startsWith('/uploads/')) {
+    if (/\.pdf$/i.test(url.pathname) || request.headers.has('range')) { event.respondWith(fetch(request)); return; }
+    event.respondWith(caches.match(request).then((cached) => cached || fetch(request)));
+    return;
+  }
 
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).then((response) => {

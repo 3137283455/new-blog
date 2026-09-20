@@ -16,13 +16,13 @@ function statusLabel(status?: string) {
 }
 
 function cardHref(book: BookSummary) {
-  return book.reading_mode === 'chapters' || !book.reading_mode
-    ? `/books/${encodeURIComponent(book.slug)}`
-    : book.reading_url || `/books/${encodeURIComponent(book.slug)}`;
+  return book.reading_mode === 'external'
+    ? book.reading_url || `/books/${encodeURIComponent(book.slug)}`
+    : `/books/${encodeURIComponent(book.slug)}`;
 }
 
 function isExternal(book: BookSummary) {
-  return book.reading_mode === 'external' || book.reading_mode === 'document';
+  return book.reading_mode === 'external';
 }
 
 function percent(progress?: BookProgress) {
@@ -181,7 +181,7 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
               return (
                 <article key={book.id} className="book-tile" data-book-card="" data-id={book.id} data-title={(book.title || '').toLocaleLowerCase()} data-author={(book.author || '').toLocaleLowerCase()} data-description={(book.description || '').toLocaleLowerCase()} data-status={book.reading_status || 'reading'} data-updated={book.updated_at || ''} data-chapters={book.chapter_count || 0} data-progress={percent(state)}>
                   <a className="book-tile-cover" href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{book.cover ? <img src={book.cover} alt={`${book.title}封面`} loading="lazy" decoding="async" /> : <span className="cover-fallback">{book.title.slice(0, 1)}</span>}<b>{modeLabel}</b><i className="cover-glow" /></a>
-                  <div className="book-tile-copy"><small>{book.author || '作者未填写'}</small><h3><a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{book.title}</a></h3><p>{book.description || `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</p><div className="book-progress" data-book-progress="" hidden={!state}><i style={{ width: `${Math.max(1, Math.round(percent(state) * 100))}%` }} /><span>全书 {Math.round(percent(state) * 100)}%</span></div><footer><span>{book.reading_mode === 'external' ? '外部链接' : book.reading_mode === 'document' ? `${(book.source_format || '文档').toUpperCase()} 文档` : `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</span><a data-book-action="" href={progressHref(state) || href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{state?.volume_slug && state.chapter_slug ? '继续 →' : book.reading_mode === 'external' ? '前往 ↗' : book.reading_mode === 'document' ? '打开 ↗' : '详情 →'}</a></footer></div>
+                  <div className="book-tile-copy"><small>{book.author || '作者未填写'}</small><h3><a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{book.title}</a></h3><p>{book.description || `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</p><div className="book-progress" data-book-progress="" hidden={!state}><i style={{ width: `${Math.max(1, Math.round(percent(state) * 100))}%` }} /><span>全书 {Math.round(percent(state) * 100)}%</span></div><footer><span>{book.reading_mode === 'external' ? '外部链接' : book.reading_mode === 'document' ? `${(book.source_format || '文档').toUpperCase()} 文档` : `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</span><a data-book-action="" href={progressHref(state) || href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{state?.volume_slug && state.chapter_slug ? '继续 →' : book.reading_mode === 'external' ? '前往 ↗' : book.reading_mode === 'document' ? '阅读 →' : '详情 →'}</a></footer></div>
                 </article>
               );
             })}

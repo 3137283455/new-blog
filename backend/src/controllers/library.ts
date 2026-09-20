@@ -1,6 +1,9 @@
 import { Response } from 'express'
 import crypto from 'crypto'
+import fs from 'fs'
+import path from 'path'
 import db from '../config/database'
+import { config } from '../config'
 import { AuthRequest } from '../middleware/auth'
 import { DeviceRequest, hashDeviceToken } from '../middleware/device'
 import { success, error } from '../utils/response'
@@ -158,6 +161,64 @@ export function bookDetail(req: DeviceRequest, res: Response) {
     'SELECT v.*, (SELECT COUNT(*) FROM book_chapters c WHERE c.volume_id=v.id) chapter_count FROM book_volumes v WHERE v.book_id=? AND v.deleted_at IS NULL ORDER BY v.sort_order, v.id'
   ).all(book.id)
   return success(res, book)
+}
+
+export function documentFile(req: DeviceRequest, res: Response) {
+  const book = publicBook(String(req.params.book))
+  if (!book || book.reading_mode !== 'document' || String(book.source_format).toLowerCase() !== 'pdf') {
+    return error(res, 'PDF 书籍不存在', 'NOT_FOUND', 404)
+  }
+  const readingUrl = String(book.reading_url || '')
+  if (!readingUrl.startsWith('/uploads/')) return error(res, 'PDF 文件地址无效', 'PDF_URL_INVALID', 400)
+
+  const uploadRoot = path.resolve(config.uploadDir)
+  const relative = decodeURIComponent(readingUrl.slice('/uploads/'.length)).replaceAll('/', path.sep)
+  const filePath = path.resolve(uploadRoot, relative)
+  if (filePath !== uploadRoot && !filePath.startsWith(uploadRoot + path.sep)) {
+    return error(res, 'PDF 文件地址无效', 'PDF_URL_INVALID', 400)
+  }
+
+  let size = 0
+  try {
+    const stat = fs.statSync(filePath)
+    if (!stat.isFile()) throw new Error('not a file')
+    size = stat.size
+  } catch {
+    return error(res, 'PDF 文件已丢失，请在后台重新导入', 'PDF_FILE_MISSING', 404)
+  }
+
+  const filename = `${String(book.title || 'book').replace(/[\\/"\r\n]/g, '_')}.pdf`
+  res.setHeader('Content-Type', 'application/pdf')
+  const disposition = req.query.download === '1' ? 'attachment' : 'inline'
+  res.setHeader('Content-Disposition', `${disposition}; filename="book.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`)
+  res.setHeader('Accept-Ranges', 'bytes')
+  res.setHeader('Cache-Control', 'private, max-age=3600')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+
+  const range = String(req.headers.range || '')
+  if (range) {
+    const match = range.match(/^bytes=(\d*)-(\d*)$/)
+    if (!match) {
+      res.setHeader('Content-Range', `bytes */${size}`)
+      return res.status(416).end()
+    }
+    const requestedStart = match[1] ? Number(match[1]) : 0
+    const requestedEnd = match[2] ? Number(match[2]) : size - 1
+    const start = Math.max(0, requestedStart)
+    const end = Math.min(size - 1, requestedEnd)
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {
+      res.setHeader('Content-Range', `bytes */${size}`)
+      return res.status(416).end()
+    }
+    res.status(206)
+    res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`)
+    res.setHeader('Content-Length', String(end - start + 1))
+    fs.createReadStream(filePath, { start, end }).pipe(res)
+    return
+  }
+
+  res.setHeader('Content-Length', String(size))
+  fs.createReadStream(filePath).pipe(res)
 }
 export function volumeDetail(req: DeviceRequest, res: Response) {
   const book = publicBook(String(req.params.book))
