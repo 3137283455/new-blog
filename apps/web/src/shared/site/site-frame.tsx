@@ -22,7 +22,7 @@ export function SiteFrame({
   const localReader = /^\/manga\/[^/]+\/[^/]+\/[^/]+\/?$/.test(path);
   const readingHub = path === '/reading';
   const bookPage = path === '/books' || path.startsWith('/books/');
-  const bookReader = /^\/books\/[^/]+\/(?:document|[^/]+\/[^/]+)\/?$/.test(path);
+  const bookReader = /^\/books\/[^/]+\/(?:read|[^/]+\/[^/]+)\/?$/.test(path);
   const mangaPage = path === '/manga' || path.startsWith('/manga/') || path === '/source' || path.startsWith('/source/');
   const mangaReader = sourceReader || localReader;
   const mangaPortalPage = mangaPage && !mangaReader;

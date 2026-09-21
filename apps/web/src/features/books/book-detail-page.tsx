@@ -44,7 +44,7 @@ export function BookDetailPage({ book, volumes }: { book: BookDetail; volumes: B
   const external = readingMode === 'external';
   const document = readingMode === 'document';
   const standalone = external || document;
-  const documentHref = `/books/${encode(book.slug)}/document`;
+  const documentHref = `/books/${encode(book.slug)}/read`;
   const startLabel = external ? '前往外部阅读' : document ? `在线阅读 ${(book.source_format || '文档').toUpperCase()}` : current ? '继续阅读' : first ? '开始阅读' : '暂无章节';
 
   return (
