@@ -30,8 +30,24 @@ function percent(progress?: BookProgress) {
 }
 
 function progressHref(progress?: BookProgress) {
-  if (!progress?.slug || !progress.volume_slug || !progress.chapter_slug) return '';
+  if (!progress?.slug) return '';
+  if (progress.reading_mode === 'document') return `/books/${encodeURIComponent(progress.slug)}/read`;
+  if (!progress.volume_slug || !progress.chapter_slug) return '';
   return `/books/${encodeURIComponent(progress.slug)}/${encodeURIComponent(progress.volume_slug)}/${encodeURIComponent(progress.chapter_slug)}?at=${Math.max(0, Math.min(1, Number(progress.chapter_progress) || 0))}`;
+}
+
+function localPdfProgress(books: BookSummary[]): BookProgress[] {
+  return books.flatMap((book) => {
+    if (book.reading_mode !== 'document') return [];
+    try {
+      const state = JSON.parse(localStorage.getItem(`boke-pdf-progress-v1:${book.id}`) || '{}');
+      const page = Math.max(1, Math.floor(Number(state.page) || 1));
+      const total = Math.max(page, Math.floor(Number(state.total) || page));
+      if (!(Number(state.page) > 0)) return [];
+      const position = total > 1 ? (page - 1) / (total - 1) : 1;
+      return [{ id: book.id, slug: book.slug, title: book.title, reading_mode: 'document', source_format: book.source_format, position, overall_progress: position, chapter_progress: position, chapter_number: page, chapter_count: total, chapter_title: `第 ${page} / ${total} 页`, volume_title: String(book.source_format || 'PDF').toUpperCase(), pdf_page: page, pdf_pages: total, progress_updated_at: new Date(Number(state.updatedAt) || 0).toISOString() }];
+    } catch { return []; }
+  });
 }
 
 export function BookLibrary({ books }: { books: BookSummary[] }) {
@@ -58,6 +74,8 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
   useEffect(() => {
     let disposed = false;
     const controller = new AbortController();
+    const localProgress = localPdfProgress(books);
+    setProgress(localProgress);
     void (async () => {
       const token = await ensurePrivateDeviceToken('/api');
       if (!token || disposed) return;
@@ -67,7 +85,10 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
           signal: controller.signal,
         });
         const json = await response.json();
-        if (!disposed && response.ok && Array.isArray(json.data)) setProgress(json.data);
+        if (!disposed && response.ok && Array.isArray(json.data)) {
+          const remoteIds = new Set(json.data.map((item: BookProgress) => String(item.id)));
+          setProgress([...json.data, ...localProgress.filter((item) => !remoteIds.has(String(item.id)))]);
+        }
       } catch {
         // A missing private device should not make the public shelf unusable.
       }
@@ -76,7 +97,7 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
       disposed = true;
       controller.abort();
     };
-  }, []);
+  }, [books]);
 
   const statusCounts = useMemo(
     () => ({
@@ -110,7 +131,7 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
     });
   }, [books, filter, progressMap, query, sort]);
 
-  const latest = progress.find((item) => item.volume_slug && item.chapter_slug);
+  const latest = progress.find((item) => item.reading_mode === 'document' || (item.volume_slug && item.chapter_slug));
   const latestBook = latest ? books.find((book) => String(book.id) === String(latest.id)) : undefined;
   const setShelfView = (next: 'grid' | 'list') => {
     setView(next);
@@ -148,7 +169,7 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
           <h2 data-continue-title="">{latest?.title || '继续阅读'}</h2>
           <span data-continue-chapter="">{latest ? `${latest.volume_title ? `${latest.volume_title} · ` : ''}${latest.chapter_title || '继续上次阅读'}` : '从上次停下的地方继续'}</span>
           <div className="continue-progress"><i data-continue-bar="" style={{ width: `${Math.max(1, Math.round(percent(latest) * 100))}%` }} /></div>
-          <small data-continue-progress="">{latest ? `第 ${latest.chapter_number || 1} / ${latest.chapter_count || 1} 章 · 全书 ${Math.round(percent(latest) * 100)}%` : ''}</small>
+          <small data-continue-progress="">{latest ? `第 ${latest.chapter_number || 1} / ${latest.chapter_count || 1} ${latest.reading_mode === 'document' ? '页' : '章'} · 全书 ${Math.round(percent(latest) * 100)}%` : ''}</small>
         </div>
         <a className="continue-link" data-continue-link="" href={progressHref(latest) || '/books'}>打开阅读 <span>→</span></a>
       </section>
@@ -181,7 +202,7 @@ export function BookLibrary({ books }: { books: BookSummary[] }) {
               return (
                 <article key={book.id} className="book-tile" data-book-card="" data-id={book.id} data-title={(book.title || '').toLocaleLowerCase()} data-author={(book.author || '').toLocaleLowerCase()} data-description={(book.description || '').toLocaleLowerCase()} data-status={book.reading_status || 'reading'} data-updated={book.updated_at || ''} data-chapters={book.chapter_count || 0} data-progress={percent(state)}>
                   <a className="book-tile-cover" href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{book.cover ? <img src={book.cover} alt={`${book.title}封面`} loading="lazy" decoding="async" /> : <span className="cover-fallback">{book.title.slice(0, 1)}</span>}<b>{modeLabel}</b><i className="cover-glow" /></a>
-                  <div className="book-tile-copy"><small>{book.author || '作者未填写'}</small><h3><a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{book.title}</a></h3><p>{book.description || `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</p><div className="book-progress" data-book-progress="" hidden={!state}><i style={{ width: `${Math.max(1, Math.round(percent(state) * 100))}%` }} /><span>全书 {Math.round(percent(state) * 100)}%</span></div><footer><span>{book.reading_mode === 'external' ? '外部链接' : book.reading_mode === 'document' ? `${(book.source_format || '文档').toUpperCase()} 文档` : `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</span><a data-book-action="" href={progressHref(state) || href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{state?.volume_slug && state.chapter_slug ? '继续 →' : book.reading_mode === 'external' ? '前往 ↗' : book.reading_mode === 'document' ? '阅读 →' : '详情 →'}</a></footer></div>
+                  <div className="book-tile-copy"><small>{book.author || '作者未填写'}</small><h3><a href={href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{book.title}</a></h3><p>{book.description || `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</p><div className="book-progress" data-book-progress="" hidden={!state}><i style={{ width: `${Math.max(1, Math.round(percent(state) * 100))}%` }} /><span>全书 {Math.round(percent(state) * 100)}%</span></div><footer><span>{book.reading_mode === 'external' ? '外部链接' : book.reading_mode === 'document' ? `${(book.source_format || '文档').toUpperCase()} 文档` : `${book.volume_count || 0} 卷 · ${book.chapter_count || 0} 章`}</span><a data-book-action="" href={progressHref(state) || href} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{state && (state.reading_mode === 'document' || (state.volume_slug && state.chapter_slug)) ? '继续 →' : book.reading_mode === 'external' ? '前往 ↗' : book.reading_mode === 'document' ? '阅读 →' : '详情 →'}</a></footer></div>
                 </article>
               );
             })}

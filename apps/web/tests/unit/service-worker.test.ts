@@ -47,6 +47,7 @@ function harness() {
     location: { origin: 'https://reader.test' },
     URL,
     Response,
+    Headers,
     AbortSignal,
     caches,
     fetch: async (input: string | Request) => {
@@ -137,7 +138,7 @@ test('offline media uses explicit reading cache and private API/Flight requests 
 
 test('activation retains reading and unrelated application caches', async () => {
   const h = harness();
-  for (const name of ['boke-reading-v1', 'boke-shell-v3', 'boke-shell-v2', 'another-app'])
+  for (const name of ['boke-reading-v1', 'boke-pdf-v1', 'boke-shell-v3', 'boke-shell-v2', 'another-app'])
     await h.caches.open(name);
   let job: Promise<void> | undefined;
   h.handlers.get('activate')!({
@@ -146,5 +147,22 @@ test('activation retains reading and unrelated application caches', async () => 
     },
   });
   await job;
-  assert.deepEqual([...h.stores.keys()], ['boke-reading-v1', 'boke-shell-v3', 'another-app']);
+  assert.deepEqual([...h.stores.keys()], ['boke-reading-v1', 'boke-pdf-v1', 'boke-shell-v3', 'another-app']);
+});
+
+test('PDF cache serves later byte ranges without another network request', async () => {
+  const h = harness();
+  const url = 'https://reader.test/api/books/demo/document/file?v=1';
+  const cache = await h.caches.open('boke-pdf-v1');
+  await cache.put(url, new Response('0123456789', { headers: { 'Content-Type': 'application/pdf' } }));
+  let response: Promise<Response> | undefined;
+  h.handlers.get('fetch')!({
+    request: new Request(url, { headers: { Range: 'bytes=3-6' } }),
+    respondWith: (value: Promise<Response>) => { response = value; },
+  });
+  const result = await response!;
+  assert.equal(result.status, 206);
+  assert.equal(result.headers.get('content-range'), 'bytes 3-6/10');
+  assert.equal(await result.text(), '3456');
+  assert.equal(h.fetched.length, 0);
 });

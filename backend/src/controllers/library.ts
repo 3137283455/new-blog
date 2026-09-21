@@ -129,7 +129,7 @@ function publicBook(slug: string) {
 }
 export function privateLibrary(req: DeviceRequest, res: Response) {
   const rows = db.prepare(
-    "SELECT b.id, b.slug, b.title, b.cover, s.volume_id, s.chapter_id, s.position chapter_progress, s.mode, s.updated_at progress_updated_at, " +
+    "SELECT b.id, b.slug, b.title, b.cover, b.reading_mode, b.source_format, s.volume_id, s.chapter_id, s.position chapter_progress, s.mode, s.settings, s.updated_at progress_updated_at, " +
     "v.slug volume_slug, v.title volume_title, c.slug chapter_slug, c.title chapter_title, " +
     "(SELECT COUNT(*) FROM book_chapters tc JOIN book_volumes tv ON tv.id=tc.volume_id WHERE tv.book_id=b.id AND tv.deleted_at IS NULL) chapter_count, " +
     "(SELECT COUNT(*) FROM book_chapters pc JOIN book_volumes pv ON pv.id=pc.volume_id WHERE pv.book_id=b.id AND pv.deleted_at IS NULL AND (pv.sort_order<v.sort_order OR (pv.id=v.id AND (pc.sort_order<c.sort_order OR (pc.sort_order=c.sort_order AND pc.id<c.id))))) chapters_before " +
@@ -137,6 +137,19 @@ export function privateLibrary(req: DeviceRequest, res: Response) {
     "WHERE s.user_id=? AND b.status='published' AND b.deleted_at IS NULL ORDER BY s.updated_at DESC"
   ).all(req.deviceUserId!) as any[]
   rows.forEach((row) => {
+    row.settings = json(row.settings)
+    if (row.reading_mode === 'document') {
+      row.pdf_page = Math.max(1, integer(row.settings?.pdfPage, 1))
+      row.pdf_pages = Math.max(row.pdf_page, integer(row.settings?.pdfPages, row.pdf_page))
+      row.chapter_progress = Math.max(0, Math.min(1, Number(row.chapter_progress) || 0))
+      row.overall_progress = row.chapter_progress
+      row.chapter_number = row.pdf_page
+      row.chapter_count = row.pdf_pages
+      row.chapter_title = `第 ${row.pdf_page} / ${row.pdf_pages} 页`
+      row.volume_title = String(row.source_format || 'PDF').toUpperCase()
+      delete row.chapters_before
+      return
+    }
     const total = Math.max(1, Number(row.chapter_count) || 1)
     const current = Math.max(0, Number(row.chapters_before) || 0)
     row.chapter_progress = Math.max(0, Math.min(1, Number(row.chapter_progress) || 0))
@@ -178,11 +191,12 @@ export function documentFile(req: DeviceRequest, res: Response) {
     return error(res, 'PDF 文件地址无效', 'PDF_URL_INVALID', 400)
   }
 
-  let size = 0
+  let size = 0, modifiedAt = new Date(0)
   try {
     const stat = fs.statSync(filePath)
     if (!stat.isFile()) throw new Error('not a file')
     size = stat.size
+    modifiedAt = stat.mtime
   } catch {
     return error(res, 'PDF 文件已丢失，请在后台重新导入', 'PDF_FILE_MISSING', 404)
   }
@@ -192,18 +206,24 @@ export function documentFile(req: DeviceRequest, res: Response) {
   const disposition = req.query.download === '1' ? 'attachment' : 'inline'
   res.setHeader('Content-Disposition', `${disposition}; filename="book.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`)
   res.setHeader('Accept-Ranges', 'bytes')
-  res.setHeader('Cache-Control', 'private, max-age=3600')
+  const etag = `"pdf-${size}-${Math.floor(modifiedAt.getTime())}"`
+  res.setHeader('Cache-Control', 'private, max-age=604800, stale-while-revalidate=2592000')
+  res.setHeader('ETag', etag)
+  res.setHeader('Last-Modified', modifiedAt.toUTCString())
   res.setHeader('X-Content-Type-Options', 'nosniff')
 
-  const range = String(req.headers.range || '')
+  let range = String(req.headers.range || '')
+  if (range && req.headers['if-range'] && ![etag, modifiedAt.toUTCString()].includes(String(req.headers['if-range']))) range = ''
+  if (!range && req.headers['if-none-match'] === etag) return res.status(304).end()
   if (range) {
     const match = range.match(/^bytes=(\d*)-(\d*)$/)
     if (!match) {
       res.setHeader('Content-Range', `bytes */${size}`)
       return res.status(416).end()
     }
-    const requestedStart = match[1] ? Number(match[1]) : 0
-    const requestedEnd = match[2] ? Number(match[2]) : size - 1
+    const suffixLength = !match[1] && match[2] ? Number(match[2]) : 0
+    const requestedStart = match[1] ? Number(match[1]) : Math.max(0, size - suffixLength)
+    const requestedEnd = match[1] && match[2] ? Number(match[2]) : size - 1
     const start = Math.max(0, requestedStart)
     const end = Math.min(size - 1, requestedEnd)
     if (!Number.isFinite(start) || !Number.isFinite(end) || start > end || start >= size) {

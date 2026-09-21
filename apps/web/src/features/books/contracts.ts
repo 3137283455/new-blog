@@ -62,4 +62,10 @@ export interface BookProgress {
   chapter_id?: number;
   position?: number;
   revision?: number;
+  reading_mode?: string;
+  source_format?: string;
+  pdf_page?: number;
+  pdf_pages?: number;
+  settings?: Record<string, unknown>;
+  progress_updated_at?: string;
 }

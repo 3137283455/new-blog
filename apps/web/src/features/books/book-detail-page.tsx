@@ -14,6 +14,14 @@ export function BookDetailPage({ book, volumes }: { book: BookDetail; volumes: B
 
   useEffect(() => {
     let disposed = false;
+    if (book.reading_mode === 'document') {
+      try {
+        const saved = JSON.parse(localStorage.getItem(`boke-pdf-progress-v1:${book.id}`) || '{}');
+        const page = Math.max(1, Math.floor(Number(saved.page) || 1));
+        const total = Math.max(page, Math.floor(Number(saved.total) || page));
+        if (Number(saved.page) > 0) setProgress({ id: book.id, reading_mode: 'document', position: total > 1 ? (page - 1) / (total - 1) : 1, settings: { documentType: 'pdf', pdfPage: page, pdfPages: total } });
+      } catch {}
+    }
     void (async () => {
       const token = await ensurePrivateDeviceToken('/api');
       if (!token || disposed) return;
@@ -45,7 +53,7 @@ export function BookDetailPage({ book, volumes }: { book: BookDetail; volumes: B
   const document = readingMode === 'document';
   const standalone = external || document;
   const documentHref = `/books/${encode(book.slug)}/read`;
-  const startLabel = external ? '前往外部阅读' : document ? `在线阅读 ${(book.source_format || '文档').toUpperCase()}` : current ? '继续阅读' : first ? '开始阅读' : '暂无章节';
+  const startLabel = external ? '前往外部阅读' : document ? (progress ? `继续阅读 ${(book.source_format || '文档').toUpperCase()}` : `在线阅读 ${(book.source_format || '文档').toUpperCase()}`) : current ? '继续阅读' : first ? '开始阅读' : '暂无章节';
 
   return (
     <article className="book-page" data-book-contents="" data-book-id={book.id} data-book-slug={book.slug}>
@@ -53,7 +61,7 @@ export function BookDetailPage({ book, volumes }: { book: BookDetail; volumes: B
       <header className="book-hero">
         <div className="book-cover">{book.cover ? <img src={book.cover} alt={`${book.title}封面`} /> : <span>{book.title.slice(0, 1)}</span>}</div>
         <div className="book-summary"><small>PERSONAL LIBRARY</small><h1>{book.title}</h1><p className="book-author">{book.author || '作者未填写'}</p><p className="book-description">{book.description || '这本书还没有简介。'}</p>
-          <dl><div><dt>{standalone ? (external ? '站外' : '文档') : volumes.length}</dt><dd>{standalone ? '阅读方式' : '分卷'}</dd></div><div><dt>{standalone ? (external ? '外部' : (book.source_format || '文档').toUpperCase()) : (chapters.length || book.chapter_count || 0)}</dt><dd>{standalone ? '来源' : '章节'}</dd></div><div><dt data-reading-state="">{standalone ? '可直接打开' : stateLabel}</dt><dd>阅读状态</dd></div></dl>
+          <dl><div><dt>{standalone ? (external ? '站外' : '文档') : volumes.length}</dt><dd>{standalone ? '阅读方式' : '分卷'}</dd></div><div><dt>{standalone ? (external ? '外部' : (book.source_format || '文档').toUpperCase()) : (chapters.length || book.chapter_count || 0)}</dt><dd>{standalone ? '来源' : '章节'}</dd></div><div><dt data-reading-state="">{document && progress ? `第 ${Number(progress.settings?.pdfPage) || 1} 页` : standalone ? '可直接打开' : stateLabel}</dt><dd>阅读状态</dd></div></dl>
           <div className="book-actions"><a className="book-primary" href={external ? book.reading_url || '#' : document ? documentHref : startHref} target={external ? '_blank' : undefined} rel={external ? 'noopener noreferrer' : undefined}>{startLabel} <span>{external ? '↗' : '→'}</span></a>{!standalone && <a className="book-secondary" href="#contents">查看目录</a>}</div>
         </div>
       </header>

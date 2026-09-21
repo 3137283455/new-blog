@@ -3,11 +3,18 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import type { BookDetail } from './contracts';
+import { ensurePrivateDeviceToken } from '../../shared/device/private-device';
 import { MobileReaderShell } from '../../shared/reader/mobile-reader-shell';
 import { MobileReaderMusic } from '../../shared/reader/mobile-reader-music';
 import './reader-controls.css';
 
 const defaults = { theme: 'day', width: 860, margin: 16, zoom: 1 };
+const progressKey = (bookId: number) => `boke-pdf-progress-v1:${bookId}`;
+
+function storedPage(value: unknown) {
+  const page = Math.floor(Number(value) || 1);
+  return Math.max(1, page);
+}
 
 function PdfCanvasPage({
   pdf,
@@ -90,18 +97,28 @@ function PdfCanvasPage({
 
 export function PdfBookReaderPage({ book }: { book: BookDetail }) {
   const localDocument = String(book.reading_url || '').startsWith('/uploads/');
+  const version = encodeURIComponent(String(book.updated_at || '1'));
   const source = localDocument
-    ? `/api/books/${encodeURIComponent(book.slug)}/document/file`
+    ? `/api/books/${encodeURIComponent(book.slug)}/document/file?v=${version}`
     : String(book.reading_url || '');
-  const downloadUrl = localDocument ? `${source}?download=1` : source;
+  const downloadUrl = localDocument
+    ? `/api/books/${encodeURIComponent(book.slug)}/document/file?download=1`
+    : source;
   const contentsUrl = `/books/${encodeURIComponent(book.slug)}`;
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [prefs, setPrefs] = useState(defaults);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [progressReady, setProgressReady] = useState(false);
+  const [positionRestored, setPositionRestored] = useState(false);
+  const [cached, setCached] = useState(false);
   const settings = useRef<HTMLDialogElement>(null);
   const scrollFrame = useRef(0);
+  const resumePage = useRef(1);
+  const currentPageRef = useRef(1);
+  const progressRevision = useRef(0);
+  const deviceToken = useRef('');
 
   useEffect(() => {
     try {
@@ -114,6 +131,41 @@ export function PdfBookReaderPage({ book }: { book: BookDetail }) {
       });
     } catch {}
   }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let localPage = 1;
+    try {
+      localPage = storedPage(JSON.parse(localStorage.getItem(progressKey(book.id)) || '{}').page);
+    } catch {}
+    resumePage.current = localPage;
+    setCurrentPage(localPage);
+    currentPageRef.current = localPage;
+    void (async () => {
+      try {
+        const token = await ensurePrivateDeviceToken('/api');
+        if (!token || disposed) return;
+        deviceToken.current = token;
+        const response = await fetch(`/api/private/books/${book.id}/progress`, {
+          headers: { 'X-Device-Token': token },
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || !json.data || disposed) return;
+        progressRevision.current = Number(json.data.revision) || 0;
+        const serverPage = storedPage(json.data.settings?.pdfPage);
+        if (json.data.settings?.documentType === 'pdf' || Number(json.data.settings?.pdfPage) > 0) {
+          resumePage.current = serverPage;
+          setCurrentPage(serverPage);
+          currentPageRef.current = serverPage;
+        }
+      } catch {
+        /* Local progress remains available without private sync. */
+      } finally {
+        if (!disposed) setProgressReady(true);
+      }
+    })();
+    return () => { disposed = true; };
+  }, [book.id]);
 
   useEffect(() => {
     try {
@@ -151,11 +203,28 @@ export function PdfBookReaderPage({ book }: { book: BookDetail }) {
   }, [source]);
 
   useEffect(() => {
-    if (!pdf) return;
+    if (!pdf || !progressReady) return;
+    const page = Math.min(pdf.numPages, resumePage.current);
+    setCurrentPage(page);
+    currentPageRef.current = page;
+    const firstFrame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(`[data-pdf-page="${page}"]`)?.scrollIntoView({
+          behavior: 'auto',
+          block: 'start',
+        });
+        setPositionRestored(true);
+      });
+    });
+    return () => cancelAnimationFrame(firstFrame);
+  }, [pdf, progressReady]);
+
+  useEffect(() => {
+    if (!pdf || !positionRestored) return;
     const measure = () => {
       scrollFrame.current = 0;
       const middle = window.innerHeight / 2;
-      let closest = currentPage;
+      let closest = currentPageRef.current;
       let distance = Number.POSITIVE_INFINITY;
       document.querySelectorAll<HTMLElement>('[data-pdf-page]').forEach((page) => {
         const rect = page.getBoundingClientRect();
@@ -165,7 +234,10 @@ export function PdfBookReaderPage({ book }: { book: BookDetail }) {
           closest = Number(page.dataset.pdfPage) || 1;
         }
       });
-      setCurrentPage(closest);
+      if (closest !== currentPageRef.current) {
+        currentPageRef.current = closest;
+        setCurrentPage(closest);
+      }
     };
     const requestMeasure = () => {
       if (!scrollFrame.current) scrollFrame.current = requestAnimationFrame(measure);
@@ -178,12 +250,61 @@ export function PdfBookReaderPage({ book }: { book: BookDetail }) {
       window.removeEventListener('scroll', requestMeasure);
       window.removeEventListener('resize', requestMeasure);
     };
-  }, [pdf, currentPage]);
+  }, [pdf, positionRestored]);
+
+  useEffect(() => {
+    if (!pdf || !positionRestored) return;
+    const total = pdf.numPages;
+    const position = total > 1 ? (currentPage - 1) / (total - 1) : 1;
+    try {
+      localStorage.setItem(progressKey(book.id), JSON.stringify({ page: currentPage, total, updatedAt: Date.now() }));
+    } catch {}
+    const timer = window.setTimeout(async () => {
+      try {
+        const token = deviceToken.current || await ensurePrivateDeviceToken('/api');
+        if (!token) return;
+        deviceToken.current = token;
+        const response = await fetch(`/api/private/books/${book.id}/progress`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-Device-Token': token },
+          body: JSON.stringify({
+            position,
+            mode: 'scroll',
+            revision: progressRevision.current,
+            settings: { ...prefs, documentType: 'pdf', pdfPage: currentPage, pdfPages: total },
+          }),
+        });
+        const json = await response.json().catch(() => ({}));
+        if (response.ok) progressRevision.current = Number(json.data?.revision) || progressRevision.current;
+      } catch {
+        /* The local page is still restored when sync is unavailable. */
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [book.id, currentPage, pdf, positionRestored, prefs]);
+
+  useEffect(() => {
+    if (!pdf || !localDocument || !('serviceWorker' in navigator)) return;
+    let disposed = false;
+    void navigator.serviceWorker.ready.then((registration) => {
+      if (disposed || !registration.active) return;
+      const channel = new MessageChannel();
+      const timeout = window.setTimeout(() => channel.port1.close(), 120000);
+      channel.port1.onmessage = ({ data }) => {
+        if (data?.type === 'CACHE_PDF_DONE' && data.saved) setCached(true);
+        clearTimeout(timeout);
+        channel.port1.close();
+      };
+      registration.active.postMessage({ type: 'CACHE_PDF', url: source }, [channel.port2]);
+    }).catch(() => {});
+    return () => { disposed = true; };
+  }, [localDocument, pdf, source]);
 
   const update = (values: Partial<typeof defaults>) => setPrefs((old) => ({ ...old, ...values }));
   const goToPage = (page: number) => {
     const next = Math.max(1, Math.min(pdf?.numPages || 1, page));
     document.querySelector<HTMLElement>(`[data-pdf-page="${next}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    currentPageRef.current = next;
     setCurrentPage(next);
   };
   const colors: Record<string, string> = { day: '#fafaf8', paper: '#f6efdc', eye: '#e9f1e8', night: '#1d211f' };
@@ -205,7 +326,7 @@ export function PdfBookReaderPage({ book }: { book: BookDetail }) {
           <a href={contentsUrl}>← 返回书籍</a>
           <small>PDF DOCUMENT</small>
           <h1>{book.title}</h1>
-          <span>{total ? `第 ${currentPage} / ${total} 页` : '正在载入文档…'}</span>
+          <span>{total ? `第 ${currentPage} / ${total} 页${cached ? ' · 已缓存' : ''}` : '正在载入文档…'}</span>
         </header>
         {error && (
           <section className="pdf-reading-error">
