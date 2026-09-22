@@ -29,7 +29,7 @@ export function DashboardPanel() {
             </div>
             <div className="admin-storage-actions">
               <button className="admin-storage-manage" type="button" id="storage-refresh">刷新 ↻</button>
-              <a className="admin-storage-manage" href="#storage" id="storage-open-settings">存储设置 <span aria-hidden="true">→</span></a>
+              <button className="admin-storage-manage" type="button" data-panel-tab="storage" id="storage-open-settings">存储设置 <span aria-hidden="true">→</span></button>
             </div>
           </div>
           <div className="admin-storage-layout is-summary-only mt-4">
