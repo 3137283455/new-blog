@@ -4232,6 +4232,17 @@ h1, h2, h3, .site-title, .article-title { font-family: var(--theme-title-font, v
   --editorial-sans: Inter, 'SF Pro Display', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
+:root[data-site-layout="admin"] {
+  --theme-primary: #58705a;
+  --theme-primary-hover: #485f4b;
+  --theme-primary-light: #e5ede5;
+  --theme-card-radius: 18px;
+  --theme-card-opacity: .86;
+  --theme-content-width: 72rem;
+  --theme-body-font: var(--editorial-sans);
+  --theme-title-font: var(--editorial-serif);
+}
+
 [data-theme-type="dark"] {
   --paper: #111511;
   --ink: #edf1e9;

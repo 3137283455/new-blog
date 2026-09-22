@@ -46,11 +46,23 @@ export function SiteFrame({
   const fullBleed = mangaReader || bookReader;
   const showSiteNavigation = !bookReader && (publicPage || mangaPortalPage || readingHub || bookPage);
   useEffect(() => {
+    const themeTypes = {
+      'boke-green': 'light',
+      'boke-night': 'dark',
+      'boke-punk': 'dark',
+    } as const;
+    const defaultTheme = appearanceThemes.find((theme) => theme.is_active)?.id || 'boke-green';
+    const storedTheme = localStorage.getItem('theme');
+    const publicTheme = storedTheme && storedTheme in themeTypes
+      ? storedTheme as keyof typeof themeTypes
+      : defaultTheme;
     document.documentElement.dataset.siteLayout = admin ? 'admin' : 'public';
+    document.documentElement.dataset.theme = admin ? 'boke-admin' : publicTheme;
+    document.documentElement.dataset.themeType = admin ? 'light' : themeTypes[publicTheme];
     document.body.className = admin
       ? 'admin-body min-h-screen text-base-content'
       : `flex min-h-screen flex-col bg-[var(--banner-wave-bg)]${fullBleed ? ' layout-full-bleed' : ''}`;
-  }, [fullBleed, admin]);
+  }, [appearanceThemes, fullBleed, admin]);
   if (admin) return children;
   return (
     <>

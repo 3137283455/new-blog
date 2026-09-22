@@ -16,7 +16,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const themeTypes = { 'boke-green': 'light', 'boke-night': 'dark', 'boke-punk': 'dark' } as const;
   const defaultTheme = activeTheme?.id && themeTypes[activeTheme.id] ? activeTheme.id : 'boke-green';
   const defaultThemeType = themeTypes[defaultTheme];
-  const bootstrap = `try{var y={'boke-green':'light','boke-night':'dark','boke-punk':'dark'},d=${JSON.stringify(defaultTheme)},s=localStorage.getItem('theme'),t=y[s]?s:d;document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-theme-type',y[t])}catch{}window.__PUBLIC_API_BASE__='/api';`;
+  const bootstrap = `try{var y={'boke-green':'light','boke-night':'dark','boke-punk':'dark'},a=location.pathname==='/admin'||location.pathname.indexOf('/admin/')===0,d=${JSON.stringify(defaultTheme)},s=localStorage.getItem('theme'),t=a?'boke-admin':(y[s]?s:d);document.documentElement.setAttribute('data-site-layout',a?'admin':'public');document.documentElement.setAttribute('data-theme',t);document.documentElement.setAttribute('data-theme-type',a?'light':y[t])}catch{}window.__PUBLIC_API_BASE__='/api';`;
   return (
     <html
       lang={settings.site_language || 'zh-CN'}

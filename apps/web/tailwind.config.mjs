@@ -29,6 +29,26 @@ export default {
   daisyui: {
     themes: [
       {
+        'boke-admin': {
+          primary: '#58705a',
+          'primary-content': '#ffffff',
+          secondary: '#6e746d',
+          'secondary-content': '#ffffff',
+          accent: '#d7ff64',
+          'accent-content': '#182016',
+          neutral: '#1f241f',
+          'neutral-content': '#f4f2ea',
+          'base-100': '#fffefa',
+          'base-200': '#f4f2ea',
+          'base-300': '#e6e4dc',
+          'base-content': '#1f241f',
+          info: '#0284c7',
+          success: '#16834b',
+          warning: '#ca8a04',
+          error: '#dc2626',
+        },
+      },
+      {
         'boke-night': {
           primary: '#60a5fa',
           'primary-content': '#08111f',
