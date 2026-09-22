@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/auth'
 import { storageStats } from './storage'
 
 export function stats(_req: AuthRequest, res: Response) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
   const totalPosts = (db.prepare("SELECT COUNT(*) as cnt FROM articles WHERE status = 'published' AND deleted_at IS NULL").get() as any).cnt
   const totalAll = (db.prepare("SELECT COUNT(*) as cnt FROM articles WHERE deleted_at IS NULL").get() as any).cnt
   const draftPosts = (db.prepare("SELECT COUNT(*) as cnt FROM articles WHERE status = 'draft' AND deleted_at IS NULL").get() as any).cnt

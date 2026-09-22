@@ -60,6 +60,11 @@ export function register(context) {
     if (pageTitle) pageTitle.textContent = context.panelTitles[panel] || '后台管理';
     if (panel === 'search-sources')
       window.dispatchEvent(new CustomEvent('content-search-sources-request'));
+    if (
+      (panel === 'dashboard' || panel === 'storage') &&
+      context.state.token
+    )
+      context.scope.timeout(() => context.loadStorage?.().catch(() => {}), 0);
   };
   context.resolveHashPanel = function resolveHashPanel(value) {
     const panel = value === 'manga-sources' ? 'search-sources' : value;
@@ -133,11 +138,34 @@ export function register(context) {
     ]);
     if (statsResult.status === 'fulfilled') {
       context.state.stats = statsResult.value.data || {};
+      context.storageLoadedAt = Date.now();
     }
     if (chartsResult.status === 'fulfilled') {
       context.state.charts = chartsResult.value.data || {};
     }
     context.renderDashboard();
+  };
+  context.loadStorage = async function loadStorage(announce = false) {
+    if (context.storageLoadPromise) return context.storageLoadPromise;
+    const summary = context.$('#storage-summary');
+    const button = context.$('#storage-refresh');
+    if (announce && summary) summary.textContent = '正在重新扫描文件…';
+    if (button) button.disabled = true;
+    context.storageLoadPromise = context.request('/admin/storage')
+      .then((result) => {
+        context.state.stats = { ...(context.state.stats || {}), storage: result.data || {} };
+        context.storageLoadedAt = Date.now();
+        context.renderDashboard();
+      })
+      .catch((error) => {
+        context.renderDashboard();
+        throw error;
+      })
+      .finally(() => {
+        context.storageLoadPromise = null;
+        if (button) button.disabled = false;
+      });
+    return context.storageLoadPromise;
   };
   context.loadMe = async function loadMe() {
     const json = await context.request('/auth/me');

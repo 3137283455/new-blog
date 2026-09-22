@@ -197,6 +197,16 @@ export function mount(scope) {
     context.switchPanel('login');
   });
   context.scope.listen(context.$('#refresh-admin'), 'click', context.loadAll);
+  context.scope.listen(context.$('#storage-refresh'), 'click', () =>
+    context.loadStorage(true).catch((error) =>
+      context.notify(error.message || '存储统计刷新失败', true),
+    ),
+  );
+  context.scope.listen(window, 'focus', () => {
+    if (!['dashboard', 'storage'].includes(context.root?.dataset.activePanel || '')) return;
+    if (Date.now() - Number(context.storageLoadedAt || 0) < 2000) return;
+    context.loadStorage().catch(() => {});
+  });
   context.scope.listen(context.$('#status-filter'), 'change', context.loadArticles);
   context.scope.listen(context.$('#trash-filter'), 'change', context.loadArticles);
   context.scope.listen(context.$('#batch-delete'), 'click', context.batchDeleteArticles);

@@ -91,6 +91,7 @@ export function storageStats() {
 }
 
 export function stats(_req: AuthRequest, res: Response) {
+  res.setHeader('Cache-Control', 'no-store, max-age=0')
   return success(res, storageStats())
 }
 

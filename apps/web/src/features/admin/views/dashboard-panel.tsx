@@ -25,9 +25,12 @@ export function DashboardPanel() {
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-base-content/45">站点容量</p>
               <h2 className="mt-1 text-lg font-black">存储空间</h2>
-              <p id="storage-summary" className="admin-storage-summary mt-1 text-xs text-base-content/55">正在读取空间使用情况…</p>
+              <p id="storage-summary" className="admin-storage-summary mt-1 text-xs text-base-content/55" aria-live="polite">正在读取空间使用情况…</p>
             </div>
-            <a className="admin-storage-manage" href="#albums" id="storage-open-albums">相册管理 <span aria-hidden="true">→</span></a>
+            <div className="admin-storage-actions">
+              <button className="admin-storage-manage" type="button" id="storage-refresh">刷新 ↻</button>
+              <a className="admin-storage-manage" href="#albums" id="storage-open-albums">相册管理 <span aria-hidden="true">→</span></a>
+            </div>
           </div>
           <div className="admin-storage-layout is-summary-only mt-4">
             <div id="storage-pie" className="admin-storage-pie" aria-label="存储空间使用占比"><span>--</span></div>

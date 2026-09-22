@@ -65,6 +65,9 @@ async function main() {
     const audio = await upload('theme.mp3', 'audio/mpeg', Buffer.from('494433', 'hex'))
     const document = await upload('notes.txt', 'text/plain', 'hello', createdFolder.id)
     if (image.category !== 'image' || audio.category !== 'audio' || document.category !== 'document') throw new Error('上传文件没有按类型自动归类')
+    const initialStorageResponse = await fetch(`${origin}/api/admin/storage`, { headers: auth })
+    const initialStorage = (await initialStorageResponse.json()).data
+    if (initialStorageResponse.headers.get('cache-control') !== 'no-store, max-age=0' || initialStorage.fileCount !== 3 || initialStorage.usedBytes !== 12 || initialStorage.categories.resource !== 12) throw new Error(`上传后的存储统计没有实时更新：${JSON.stringify(initialStorage)}`)
 
     const foldersResponse = await fetch(`${origin}/api/admin/media/folders`, { headers: auth })
     const folders = (await foldersResponse.json()).data
@@ -89,6 +92,8 @@ async function main() {
     })
     const createdFile = (await createFileResponse.json()).data
     if (!createFileResponse.ok || createdFile?.folder_id !== createdFolder.id) throw new Error('Unable to create a file in the selected folder')
+    const updatedStorage = (await (await fetch(`${origin}/api/admin/storage`, { headers: auth })).json()).data
+    if (updatedStorage.fileCount !== 4 || updatedStorage.usedBytes <= initialStorage.usedBytes) throw new Error(`新增文件后的存储统计没有变化：${JSON.stringify(updatedStorage)}`)
 
     const occupiedDelete = await fetch(`${origin}/api/admin/media/folders/${createdFolder.id}`, { method: 'DELETE', headers: auth })
     if (occupiedDelete.ok) throw new Error('Non-empty folders must not be deleted')
