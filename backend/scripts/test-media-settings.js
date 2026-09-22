@@ -20,6 +20,8 @@ async function waitForServer(child) {
 }
 
 async function main() {
+  fs.mkdirSync(path.join(tempRoot, 'runtime'), { recursive: true })
+  fs.writeFileSync(path.join(tempRoot, 'runtime', 'app.js'), 'site-runtime')
   const child = spawn(process.execPath, ['dist/app.js'], {
     cwd: path.resolve(__dirname, '..'),
     env: {
@@ -32,6 +34,7 @@ async function main() {
       ADMIN_PASSWORD: 'media-test-password',
       DB_PATH: path.join(tempRoot, 'blog.db'),
       UPLOAD_DIR: path.join(tempRoot, 'uploads'),
+      SITE_ROOT: tempRoot,
       CORS_ORIGIN: origin,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -67,7 +70,7 @@ async function main() {
     if (image.category !== 'image' || audio.category !== 'audio' || document.category !== 'document') throw new Error('上传文件没有按类型自动归类')
     const initialStorageResponse = await fetch(`${origin}/api/admin/storage`, { headers: auth })
     const initialStorage = (await initialStorageResponse.json()).data
-    if (initialStorageResponse.headers.get('cache-control') !== 'no-store, max-age=0' || initialStorage.fileCount !== 3 || initialStorage.usedBytes !== 12 || initialStorage.categories.resource !== 12) throw new Error(`上传后的存储统计没有实时更新：${JSON.stringify(initialStorage)}`)
+    if (initialStorageResponse.headers.get('cache-control') !== 'no-store, max-age=0' || initialStorage.fileCount < 5 || initialStorage.categories.uploads !== 12 || initialStorage.categories.database <= 0 || initialStorage.categories.application !== Buffer.byteLength('site-runtime') || initialStorage.usedBytes !== Object.values(initialStorage.categories).reduce((sum, value) => sum + Number(value || 0), 0) || initialStorage.diskTotalBytes <= initialStorage.diskFreeBytes) throw new Error(`上传后的整站统计不正确：${JSON.stringify(initialStorage)}`)
 
     const foldersResponse = await fetch(`${origin}/api/admin/media/folders`, { headers: auth })
     const folders = (await foldersResponse.json()).data
@@ -93,7 +96,7 @@ async function main() {
     const createdFile = (await createFileResponse.json()).data
     if (!createFileResponse.ok || createdFile?.folder_id !== createdFolder.id) throw new Error('Unable to create a file in the selected folder')
     const updatedStorage = (await (await fetch(`${origin}/api/admin/storage`, { headers: auth })).json()).data
-    if (updatedStorage.fileCount !== 4 || updatedStorage.usedBytes <= initialStorage.usedBytes) throw new Error(`新增文件后的存储统计没有变化：${JSON.stringify(updatedStorage)}`)
+    if (updatedStorage.fileCount <= initialStorage.fileCount || updatedStorage.categories.uploads <= initialStorage.categories.uploads || updatedStorage.usedBytes <= initialStorage.usedBytes) throw new Error(`新增文件后的存储统计没有变化：${JSON.stringify(updatedStorage)}`)
 
     const occupiedDelete = await fetch(`${origin}/api/admin/media/folders/${createdFolder.id}`, { method: 'DELETE', headers: auth })
     if (occupiedDelete.ok) throw new Error('Non-empty folders must not be deleted')

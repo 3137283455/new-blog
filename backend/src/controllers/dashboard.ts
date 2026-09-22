@@ -34,7 +34,7 @@ export function stats(_req: AuthRequest, res: Response) {
   if (totalAll === 0) anomalies.push({ type: 'content', message: '还没有任何文章', level: 'info' })
   if (trashedMedia > 20) anomalies.push({ type: 'media', message: `媒体回收站有 ${trashedMedia} 个文件，可定期确认后永久删除`, level: 'info' })
   if (storage.level === 'warning') anomalies.push({ type: 'storage', message: `存储空间已使用 ${storage.percent}%，接近配额上限`, level: 'warning' })
-  if (storage.level === 'critical' || storage.level === 'full') anomalies.push({ type: 'storage', message: `存储空间已使用 ${storage.percent}%，请先导出并清理相册`, level: 'danger' })
+  if (storage.level === 'critical' || storage.level === 'full') anomalies.push({ type: 'storage', message: `站点总占用已达到配额的 ${storage.percent}%，请清理不需要的上传、日志或备份`, level: 'danger' })
 
   return success(res, {
     totalPosts, draftPosts, trashedPosts,

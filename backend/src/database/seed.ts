@@ -78,7 +78,7 @@ export function seed() {
   `).run()
   db.prepare(`
     INSERT OR IGNORE INTO settings (key, value, type, description)
-    VALUES ('storage_quota_bytes', ?, 'number', '全站资源存储配额（字节）')
+    VALUES ('storage_quota_bytes', ?, 'number', '站点总占用配额（字节）')
   `).run(String(15 * 1024 * 1024 * 1024))
   db.prepare(`
     INSERT OR IGNORE INTO settings (key, value, type, description)

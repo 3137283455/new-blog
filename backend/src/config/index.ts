@@ -10,6 +10,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   dbPath: process.env.DB_PATH || path.resolve(__dirname, '../../data/blog.db'),
   uploadDir: process.env.UPLOAD_DIR || path.resolve(__dirname, '../../uploads'),
+  siteRoot: process.env.SITE_ROOT || path.resolve(__dirname, '../../..'),
   maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10), // 10MB
   maxFontFileSize: parseInt(process.env.MAX_FONT_FILE_SIZE || '104857600', 10), // 100MB
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3100',

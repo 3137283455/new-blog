@@ -5,7 +5,7 @@ export function StoragePanel() {
         <div>
           <p>SYSTEM</p>
           <h2>存储空间</h2>
-          <span>查看配额与容量提醒。</span>
+          <span>查看整站占用、真实磁盘余量与容量提醒。</span>
         </div>
       </header>{' '}
       <form
@@ -16,7 +16,7 @@ export function StoragePanel() {
         <header>
           <div>
             <h3>存储空间</h3>
-            <p>设置全站文件配额与容量告警阈值。</p>
+            <p>配额包含上传资源、数据库、备份日志和程序运行文件。</p>
           </div>
         </header>
         <label className="admin-setting-row">

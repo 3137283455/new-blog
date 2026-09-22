@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import fs from 'node:fs'
+import fs, { type Dirent } from 'node:fs'
 import path from 'node:path'
 import { once } from 'node:events'
 import { Response } from 'express'
@@ -12,8 +12,8 @@ const DEFAULT_QUOTA = 15 * 1024 * 1024 * 1024
 const DEFAULT_WARN_PERCENT = 80
 const DEFAULT_CRITICAL_PERCENT = 90
 
-type StorageCategory = 'album_originals' | 'album_previews' | 'resource' | 'other'
-type PhysicalFile = { path: string; bytes: number; category: StorageCategory }
+type StorageCategory = 'uploads' | 'database' | 'backups_logs' | 'application'
+type Usage = { bytes: number; fileCount: number }
 
 function settingNumber(key: string, fallback: number) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value?: string } | undefined
@@ -28,53 +28,113 @@ function saveSetting(key: string, value: number, description: string) {
   `).run(key, String(value), description)
 }
 
+function inside(target: string, parent: string) {
+  const resolvedTarget = path.resolve(target)
+  const resolvedParent = path.resolve(parent)
+  return resolvedTarget === resolvedParent || resolvedTarget.startsWith(resolvedParent + path.sep)
+}
+
 function normalizeRelative(value: unknown) {
   return String(value || '').replace(/\\/g, '/').replace(/^\/+/, '').replace(/^uploads\//, '')
 }
 
-function* walkFiles(directory: string, prefix = ''): Generator<PhysicalFile> {
-  if (!fs.existsSync(directory)) return
-  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-    const relative = prefix ? `${prefix}/${entry.name}` : entry.name
-    const fullPath = path.join(directory, entry.name)
-    if (entry.isDirectory()) {
-      yield* walkFiles(fullPath, relative)
-      continue
+function directoryUsage(directory: string, skipped: string[] = []): Usage {
+  const usage: Usage = { bytes: 0, fileCount: 0 }
+  const root = path.resolve(directory)
+  if (!fs.existsSync(root)) return usage
+  const walk = (current: string) => {
+    let entries: Dirent[] = []
+    try { entries = fs.readdirSync(current, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name)
+      if (skipped.some((target) => inside(fullPath, target))) continue
+      if (entry.isDirectory()) {
+        walk(fullPath)
+        continue
+      }
+      if (!entry.isFile()) continue
+      try {
+        usage.bytes += fs.statSync(fullPath).size
+        usage.fileCount += 1
+      } catch { /* A concurrently removed file is absent from the next scan. */ }
     }
-    if (!entry.isFile()) continue
-    const bytes = fs.statSync(fullPath).size
-    const category: StorageCategory = relative.startsWith('albums/originals/')
-      ? 'album_originals'
-      : relative.startsWith('albums/previews/')
-        ? 'album_previews'
-        : 'other'
-    yield { path: relative, bytes, category }
   }
+  walk(root)
+  return usage
 }
 
-export function storageStats() {
-  const mediaPaths = new Set(
-    (db.prepare("SELECT path FROM media WHERE deleted_at IS NULL").all() as Array<{ path: string }>).map((row) => normalizeRelative(row.path)),
-  )
-  const categories: Record<StorageCategory, number> = { album_originals: 0, album_previews: 0, resource: 0, other: 0 }
-  let usedBytes = 0
-  let fileCount = 0
-  for (const file of walkFiles(config.uploadDir)) {
-    const category = file.category === 'other' && mediaPaths.has(file.path) ? 'resource' : file.category
-    categories[category] += file.bytes
-    usedBytes += file.bytes
-    fileCount += 1
+function filesUsage(files: string[]): Usage {
+  const usage: Usage = { bytes: 0, fileCount: 0 }
+  for (const file of new Set(files.map((item) => path.resolve(item)))) {
+    try {
+      const stat = fs.statSync(file)
+      if (!stat.isFile()) continue
+      usage.bytes += stat.size
+      usage.fileCount += 1
+    } catch { /* Optional runtime files may not exist yet. */ }
   }
+  return usage
+}
+
+function mergeUsage(items: Usage[]): Usage {
+  return items.reduce((total, item) => ({ bytes: total.bytes + item.bytes, fileCount: total.fileCount + item.fileCount }), { bytes: 0, fileCount: 0 })
+}
+
+let applicationUsageCache: Usage | null = null
+
+export function storageStats() {
+  const siteRoot = path.resolve(config.siteRoot)
+  const uploadRoot = path.resolve(config.uploadDir)
+  const databaseFile = path.resolve(config.dbPath)
+  const databaseFiles = [databaseFile, `${databaseFile}-wal`, `${databaseFile}-shm`]
+  const backupLogRoots = [
+    path.resolve(config.uploadDir, '../backups'),
+    path.join(siteRoot, 'logs'),
+    path.join(siteRoot, 'backend', 'logs'),
+  ].filter((item, index, items) => items.findIndex((other) => path.resolve(other) === path.resolve(item)) === index)
+  const uploads = directoryUsage(uploadRoot)
+  const database = filesUsage(databaseFiles)
+  const backupsLogs = mergeUsage(backupLogRoots.map((root) => directoryUsage(root)))
+  if (!applicationUsageCache) {
+    applicationUsageCache = directoryUsage(siteRoot, [
+      uploadRoot,
+      ...databaseFiles,
+      ...backupLogRoots,
+      path.join(siteRoot, '.git'),
+      path.join(siteRoot, '.npm-cache'),
+      path.join(siteRoot, 'test-results'),
+      path.join(siteRoot, 'playwright-report'),
+    ])
+  }
+  const categories: Record<StorageCategory, number> = {
+    uploads: uploads.bytes,
+    database: database.bytes,
+    backups_logs: backupsLogs.bytes,
+    application: applicationUsageCache.bytes,
+  }
+  const totals = mergeUsage([uploads, database, backupsLogs, applicationUsageCache])
+  const usedBytes = totals.bytes
+  const fileCount = totals.fileCount
   const quotaBytes = settingNumber('storage_quota_bytes', DEFAULT_QUOTA)
   const warnPercent = Math.min(99, Math.max(1, settingNumber('storage_warn_percent', DEFAULT_WARN_PERCENT)))
   const criticalPercent = Math.min(100, Math.max(warnPercent + 1, settingNumber('storage_critical_percent', DEFAULT_CRITICAL_PERCENT)))
   const percent = quotaBytes ? (usedBytes / quotaBytes) * 100 : 100
+  let diskTotalBytes = 0, diskFreeBytes = 0
+  try {
+    const disk = fs.statfsSync(siteRoot)
+    diskTotalBytes = Number(disk.blocks) * Number(disk.bsize)
+    diskFreeBytes = Number(disk.bavail) * Number(disk.bsize)
+  } catch { /* Disk totals are optional on unsupported filesystems. */ }
   const latestExport = db.prepare('SELECT * FROM album_export_records ORDER BY exported_at DESC LIMIT 1').get() as any
   return {
     quotaBytes,
     usedBytes,
-    freeBytes: Math.max(0, quotaBytes - usedBytes),
+    freeBytes: Math.max(0, Math.min(quotaBytes - usedBytes, diskTotalBytes ? diskFreeBytes : Number.POSITIVE_INFINITY)),
     percent: Number(percent.toFixed(2)),
+    diskTotalBytes,
+    diskFreeBytes,
+    diskUsedBytes: Math.max(0, diskTotalBytes - diskFreeBytes),
+    diskPercent: diskTotalBytes ? Number((((diskTotalBytes - diskFreeBytes) / diskTotalBytes) * 100).toFixed(2)) : 0,
     warnPercent,
     criticalPercent,
     level: percent >= 100 ? 'full' : percent >= criticalPercent ? 'critical' : percent >= warnPercent ? 'warning' : 'normal',
@@ -102,7 +162,7 @@ export function updateSettings(req: AuthRequest, res: Response) {
   if (!Number.isFinite(quotaGb) || quotaGb < 1 || quotaGb > 1024) return error(res, '存储配额必须在 1GB 到 1024GB 之间')
   if (!Number.isInteger(warnPercent) || warnPercent < 1 || warnPercent > 98) return error(res, '普通告警阈值无效')
   if (!Number.isInteger(criticalPercent) || criticalPercent <= warnPercent || criticalPercent > 100) return error(res, '严重告警阈值必须高于普通告警阈值')
-  saveSetting('storage_quota_bytes', Math.round(quotaGb * 1024 * 1024 * 1024), '全站资源存储配额（字节）')
+  saveSetting('storage_quota_bytes', Math.round(quotaGb * 1024 * 1024 * 1024), '站点总占用配额（字节）')
   saveSetting('storage_warn_percent', warnPercent, '存储空间普通告警阈值')
   saveSetting('storage_critical_percent', criticalPercent, '存储空间严重告警阈值')
   return success(res, storageStats(), '存储设置已保存')

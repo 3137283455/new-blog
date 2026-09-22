@@ -1103,7 +1103,7 @@ export function mount(scope) {
         if (value >= 1024 ** 2) return `${(value / 1024 ** 2).toFixed(1)} MB`;
         return `${Math.round(value / 1024)} KB`;
       };
-      if (summary) summary.textContent = `${formatBytes(storage.usedBytes)} / ${formatBytes(storage.quotaBytes)} · ${storage.percent || 0}% 已使用`;
+      if (summary) summary.textContent = `本站 ${formatBytes(storage.usedBytes)} / 配额 ${formatBytes(storage.quotaBytes)} · 磁盘可用 ${storage.diskFreeBytes ? formatBytes(storage.diskFreeBytes) : '未知'}`;
       const list = $('#album-export-list');
       if (list) {
         list.innerHTML = state.albums.map((album) => `<label class="flex cursor-pointer items-start gap-3 rounded-xl border border-base-content/10 bg-base-100/60 p-3"><input class="checkbox checkbox-sm mt-1" type="checkbox" value="${album.id}" data-album-export-select /><span class="min-w-0"><strong class="block truncate">${html(album.title)}</strong><small class="text-base-content/50">${html(album.album_time || album.latest_photo_at || album.event_date || album.created_at || '未标日期')} · ${(album.photos || []).length} 张原图</small></span></label>`).join('') || '<p class="text-sm text-base-content/45">暂无可导出的相册</p>';

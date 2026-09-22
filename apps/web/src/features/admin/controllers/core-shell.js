@@ -306,6 +306,7 @@ export function register(context) {
     const storageBytes = Number(storage.usedBytes || 0);
     const quotaBytes = Math.max(1, Number(storage.quotaBytes || 1));
     const storagePercent = Math.min(100, Number(storage.percent || 0));
+    const diskFreeBytes = Number(storage.diskFreeBytes || 0);
     const formatBytes = (bytes) => {
       const value = Number(bytes || 0);
       if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(2)} GB`;
@@ -313,10 +314,10 @@ export function register(context) {
       return `${Math.round(value / 1024)} KB`;
     };
     const categoryItems = [
-      ['相册原图', storage.categories?.album_originals || 0, '#84cc16'],
-      ['相册预览', storage.categories?.album_previews || 0, '#38bdf8'],
-      ['资源库', storage.categories?.resource || 0, '#a78bfa'],
-      ['其他文件', storage.categories?.other || 0, '#f59e0b'],
+      ['上传资源', storage.categories?.uploads || 0, '#84cc16'],
+      ['数据库', storage.categories?.database || 0, '#38bdf8'],
+      ['备份与日志', storage.categories?.backups_logs || 0, '#a78bfa'],
+      ['程序文件', storage.categories?.application || 0, '#f59e0b'],
     ];
     const pie = context.$('#storage-pie');
     if (pie) {
@@ -331,7 +332,7 @@ export function register(context) {
       pie.querySelector('span').textContent = `${storagePercent.toFixed(1)}%`;
     }
     const storageSummary = context.$('#storage-summary');
-    if (storageSummary) storageSummary.textContent = `${formatBytes(storageBytes)} / ${formatBytes(quotaBytes)} · ${storage.fileCount || 0} 个文件 · ${storage.photoCount || 0} 张相册照片`;
+    if (storageSummary) storageSummary.textContent = `本站 ${formatBytes(storageBytes)} / 配额 ${formatBytes(quotaBytes)} · 磁盘可用 ${diskFreeBytes ? formatBytes(diskFreeBytes) : '未知'} · ${Number(storage.fileCount || 0).toLocaleString('zh-CN')} 个文件`;
     const breakdown = context.$('#storage-breakdown');
     if (breakdown) breakdown.innerHTML = categoryItems.map(([label, bytes, color]) => `<div class="admin-storage-row"><span><i style="background:${color}"></i>${label}</span><strong>${formatBytes(bytes)}</strong></div>`).join('');
     const quotaInput = context.$('#storage-quota-gb');
