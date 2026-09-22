@@ -416,7 +416,7 @@ export function SeriesPage({ series, settings = {} }: { series: any[]; settings?
 export function SeriesDetailPage({ series, settings = {} }: { series: any; settings?: PublicPageSettings }) { return <BannerPage title={series.title} subtitle={series.description || '文章专题'} settings={settings}><article className={`series-detail${series.series_type === 'project' ? ' is-timeline' : ''}`}><header className="series-detail-hero"><div>{series.cover && <img src={media(series.cover)} alt="" />}</div><section><p>{series.series_type === 'project' ? 'PROJECT TIMELINE' : series.series_type === 'book' ? 'NOVEL BOOK' : 'ARTICLE COLLECTION'} · {series.article_count || 0} CHAPTERS</p><h1>{series.title}</h1><span>{series.description || '持续更新中的文章专题。'}</span>{series.linked_book && <a className="series-book-link" href={`/books/${href(series.linked_book.slug)}`}>打开独立书库版本 →</a>}</section></header><ol className="series-chapters">{(series.articles || []).map((item: any, index: number) => <li key={item.id}><a href={`/article/${href(item.slug)}`}><span>{String(index + 1).padStart(2, '0')}</span><div><h2>{item.title}</h2><p>{item.excerpt || '阅读这一章'}</p></div><small>{date(item.published_at || item.created_at)} · {item.view_count || 0} 阅读</small></a></li>)}</ol></article></BannerPage>; }
 
 export function ArticlePage({ article, settings = {} }: { article: any; settings?: PublicPageSettings }) {
-  return <BannerPage title={article.title} subtitle={article.excerpt || ''} settings={settings} wide><ArticleReader article={article} /></BannerPage>;
+  return <ArticleReader article={article} />;
 }
 
 type PendingAlbumPhoto = {

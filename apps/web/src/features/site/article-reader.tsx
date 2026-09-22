@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { MobileReaderShell } from '../../shared/reader/mobile-reader-shell';
+import { MobileReaderMusic } from '../../shared/reader/mobile-reader-music';
+import '../books/reader-controls.css';
 
 const articleHref = (value: string) => `/article/${encodeURIComponent(value)}`;
 const formatDate = (value?: string) =>
@@ -14,16 +17,24 @@ const relationLabels: Record<string, string> = {
 
 type Heading = { id: string; text: string; level: number };
 type ReadingPreferences = {
+  theme: string;
   fontSize: number;
   lineHeight: number;
   width: number;
+  margin: number;
+  font: string;
+  background: string;
   focus: boolean;
 };
 
 const defaultPreferences: ReadingPreferences = {
-  fontSize: 18,
-  lineHeight: 1.85,
-  width: 900,
+  theme: 'day',
+  fontSize: 20,
+  lineHeight: 1.9,
+  width: 760,
+  margin: 20,
+  font: 'serif',
+  background: '#f6efdc',
   focus: false,
 };
 
@@ -67,6 +78,7 @@ export function ArticleReader({ article }: { article: any }) {
   const wordCount = useMemo(() => html.replace(/<[^>]+>/g, '').replace(/\s+/g, '').length, [html]);
   const settingsDialog = useRef<HTMLDialogElement>(null);
   const contentRef = useRef<HTMLElement>(null);
+  const progressRestored = useRef(false);
   const [progress, setProgress] = useState(0);
   const [bookmarked, setBookmarked] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -74,6 +86,7 @@ export function ArticleReader({ article }: { article: any }) {
   const [features, setFeatures] = useState(() => new Set(defaultFeatures));
   const [preferences, setPreferences] = useState<ReadingPreferences>(defaultPreferences);
   const [tocOpen, setTocOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
   const hasFeature = (id: string) => features.has(id);
   const tocEnabled = hasFeature('table-of-contents') && headings.length > 0;
 
@@ -90,8 +103,18 @@ export function ArticleReader({ article }: { article: any }) {
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('boke-reading-settings-v1') || '{}');
-      setPreferences({ ...defaultPreferences, ...saved });
+      const legacy = JSON.parse(localStorage.getItem('boke-reading-settings-v1') || '{}');
+      const saved = JSON.parse(localStorage.getItem('boke-book-reader-appearance') || '{}');
+      setPreferences({
+        theme: ['day', 'paper', 'eye', 'night', 'custom'].includes(saved.theme) ? saved.theme : 'day',
+        fontSize: Math.max(14, Math.min(32, Number(saved.size || legacy.fontSize) || defaultPreferences.fontSize)),
+        lineHeight: Math.max(1.4, Math.min(2.6, Number(saved.line || legacy.lineHeight) || defaultPreferences.lineHeight)),
+        width: Math.max(560, Math.min(1040, Number(saved.width || legacy.width) || defaultPreferences.width)),
+        margin: Math.max(12, Math.min(48, Number(saved.margin) || defaultPreferences.margin)),
+        font: saved.font === 'sans-serif' ? 'sans-serif' : 'serif',
+        background: /^#[0-9a-f]{6}$/i.test(saved.background) ? saved.background : defaultPreferences.background,
+        focus: Boolean(legacy.focus),
+      });
       if (hasFeature('article-bookmark')) {
         const bookmarks = JSON.parse(localStorage.getItem('boke-article-bookmarks-v1') || '[]');
         setBookmarked(Array.isArray(bookmarks) && bookmarks.some((item) => item.slug === article.slug));
@@ -103,12 +126,49 @@ export function ArticleReader({ article }: { article: any }) {
     document.body.classList.toggle('article-focus-mode', hasFeature('reading-mode') && preferences.focus);
     try {
       localStorage.setItem('boke-reading-settings-v1', JSON.stringify(preferences));
+      const saved = JSON.parse(localStorage.getItem('boke-book-reader-appearance') || '{}');
+      localStorage.setItem('boke-book-reader-appearance', JSON.stringify({
+        ...saved,
+        theme: preferences.theme,
+        size: preferences.fontSize,
+        line: preferences.lineHeight,
+        width: preferences.width,
+        margin: preferences.margin,
+        font: preferences.font,
+        background: preferences.background,
+      }));
     } catch {}
     return () => document.body.classList.remove('article-focus-mode');
   }, [preferences, features]);
 
   useEffect(() => {
+    progressRestored.current = false;
+    let savedProgress = 0;
+    try {
+      const history = JSON.parse(localStorage.getItem('boke-reading-history-v1') || '[]');
+      const saved = Array.isArray(history) ? history.find((item) => item.slug === article.slug) : null;
+      savedProgress = Math.max(0, Math.min(1, Number(saved?.progress) || 0));
+    } catch {}
+    let restoreFrame = 0;
+    const frame = requestAnimationFrame(() => {
+      restoreFrame = requestAnimationFrame(() => {
+        progressRestored.current = true;
+        const maximum = document.documentElement.scrollHeight - window.innerHeight;
+        if (savedProgress > 0 && savedProgress < .97 && maximum > 0) {
+          window.scrollTo({ top: savedProgress * maximum, behavior: 'instant' });
+        }
+        setProgress(Math.round(savedProgress * 100));
+      });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(restoreFrame);
+    };
+  }, [article.slug]);
+
+  useEffect(() => {
     const update = () => {
+      if (!progressRestored.current) return;
       const maximum = document.documentElement.scrollHeight - window.innerHeight;
       const value = maximum > 0 ? Math.min(1, Math.max(0, window.scrollY / maximum)) : 0;
       setProgress(Math.round(value * 100));
@@ -128,7 +188,6 @@ export function ArticleReader({ article }: { article: any }) {
         localStorage.setItem(key, JSON.stringify(next));
       } catch {}
     };
-    update();
     window.addEventListener('scroll', update, { passive: true });
     return () => window.removeEventListener('scroll', update);
   }, [article.slug, article.title, features]);
@@ -186,27 +245,44 @@ export function ArticleReader({ article }: { article: any }) {
   };
 
   const contentStyle = {
+    '--reading-bg': ({ day: '#fafaf8', paper: '#f6efdc', eye: '#e9f1e8', night: '#1d211f', custom: preferences.background } as Record<string, string>)[preferences.theme] || '#fafaf8',
+    '--reading-size': `${preferences.fontSize}px`,
+    '--reading-line': String(preferences.lineHeight),
+    '--reading-width': `${preferences.width}px`,
+    '--reading-margin': `${preferences.margin}px`,
+    '--reading-font': preferences.font,
     '--article-reader-size': `${preferences.fontSize}px`,
     '--article-reader-leading': String(preferences.lineHeight),
     '--article-reader-width': `${preferences.width}px`,
   } as CSSProperties;
 
   return (
-    <>
+    <div
+      className="reading-workspace article-reader-workspace"
+      data-theme={preferences.theme}
+      data-controls={controlsOpen}
+      data-focus={preferences.focus || undefined}
+      style={contentStyle}
+      onClick={(event) => {
+        if (innerWidth > 760 || (event.target as HTMLElement).closest('a,button,input,select,dialog')) return;
+        const x = event.clientX / innerWidth;
+        if (x > .28 && x < .72) setControlsOpen((value) => !value);
+      }}
+    >
       {hasFeature('reading-progress') && <div className="article-reading-progress" aria-hidden="true">
         <span style={{ transform: `scaleX(${progress / 100})` }} />
       </div>}
-      <div className="article-reading-layout article-restored-layout" style={contentStyle}>
-        <div className="article-reading-main">
-          <article className="article-content-card ryu-card p-6 md:p-10">
-            <header className="article-content-head mb-10 border-b border-base-content/10 pb-8 text-center">
-              <div className="mb-4 flex flex-wrap justify-center gap-2">
+      <main className="reading-paper article-reading-main">
+          <article className="article-content-card article-reader-paper">
+            <header className="reading-heading article-content-head">
+              <a href="/">← 返回文章</a>
+              <div className="article-reader-meta">
                 {article.category_name && <span className="badge badge-primary badge-outline">{article.category_name}</span>}
                 {article.series_title && <a className="badge badge-secondary badge-outline" href={`/series/${encodeURIComponent(article.series_slug || '')}`}>专题 · {article.series_title}</a>}
                 <span className="badge badge-ghost">{formatDate(article.published_at || article.created_at)}</span>
               </div>
-              <h1 className="mx-auto max-w-3xl text-4xl font-black leading-tight md:text-5xl">{article.title}</h1>
-              <p className="mt-4 text-sm text-base-content/50">
+              <h1>{article.title}</h1>
+              <p className="article-reader-stats">
                 {article.view_count || 0} 阅读 · {article.comment_count || 0} 评论
                 {hasFeature('word-count') && <> · {wordCount} 字 · 约 {Math.max(1, Math.ceil(wordCount / 400))} 分钟</>}
                 {hasFeature('article-like') && <> · {likes} 喜欢</>}
@@ -231,7 +307,7 @@ export function ArticleReader({ article }: { article: any }) {
               </aside>
             ) : null}
 
-            <article ref={contentRef} className="markdown-body prose prose-lg max-w-none article-restored-body" dangerouslySetInnerHTML={{ __html: html }} />
+            <article ref={contentRef} className="markdown-body reading-prose article-restored-body" dangerouslySetInnerHTML={{ __html: html }} />
           </article>
 
           {(article.previous || article.next || article.related?.length || article.custom_relations?.length) && (
@@ -256,59 +332,53 @@ export function ArticleReader({ article }: { article: any }) {
               ) : null}
             </section>
           )}
-        </div>
+      </main>
 
-        <aside className={`article-reading-side${tocEnabled ? ' has-toc' : ''}`} aria-label="文章侧栏">
-          {tocEnabled && (
-            <section className={`article-toc-card ryu-card p-5${tocOpen ? ' is-mobile-open' : ''}`}>
-              <h2>文章目录</h2>
-              <nav aria-label="文章目录">
-                {headings.map((item) => <a className={`article-toc-link level-${item.level}`} href={`#${item.id}`} key={item.id} onClick={() => setTocOpen(false)}>{item.text}</a>)}
-              </nav>
-            </section>
-          )}
-          <div className="article-action-wrap">
-            <div className="article-action-dock" aria-label="文章操作">
-              {tocEnabled && <button type="button" title="文章目录" onClick={() => setTocOpen(!tocOpen)}><ToolIcon name="toc" /><span>目录</span></button>}
-              {hasFeature('article-like') && <button className={liked ? 'is-liked' : ''} type="button" title="喜欢文章" aria-pressed={liked} onClick={() => void likeArticle()}><ToolIcon name="like" /><span>{liked ? '已喜欢' : '喜欢'}</span></button>}
-              {hasFeature('article-bookmark') && <button className={bookmarked ? 'is-bookmarked' : ''} type="button" title="收藏文章" aria-pressed={bookmarked} onClick={toggleBookmark}><ToolIcon name="bookmark" /><span>{bookmarked ? '已收藏' : '收藏'}</span></button>}
-              <button type="button" title="分享文章" onClick={() => void shareArticle()}><ToolIcon name="share" /><span>分享</span></button>
-              {hasFeature('reading-mode') && <button type="button" title="阅读设置" onClick={() => settingsDialog.current?.showModal()}><ToolIcon name="reading" /><span>阅读</span></button>}
-              {hasFeature('back-to-top') && <button type="button" title="回到顶部" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><ToolIcon name="top" /><span>顶部</span><small>{progress}</small></button>}
-            </div>
-          </div>
-        </aside>
-      </div>
+      <aside className="reading-actions article-reader-actions" aria-label="文章阅读工具">
+        {tocEnabled && <button type="button" onClick={() => setTocOpen(true)}><ToolIcon name="toc" /><span>目录</span></button>}
+        {hasFeature('article-like') && <button className={liked ? 'is-liked' : ''} type="button" aria-pressed={liked} onClick={() => void likeArticle()}><ToolIcon name="like" /><span>{liked ? '已喜欢' : '喜欢'}</span></button>}
+        {hasFeature('article-bookmark') && <button className={bookmarked ? 'is-bookmarked' : ''} type="button" aria-pressed={bookmarked} onClick={toggleBookmark}><ToolIcon name="bookmark" /><span>{bookmarked ? '已收藏' : '收藏'}</span></button>}
+        <button type="button" onClick={() => void shareArticle()}><ToolIcon name="share" /><span>分享</span></button>
+        {hasFeature('reading-mode') && <button type="button" onClick={() => settingsDialog.current?.showModal()}><ToolIcon name="reading" /><span>设置</span></button>}
+        {hasFeature('back-to-top') && <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><ToolIcon name="top" /><span>顶部</span></button>}
+      </aside>
 
-      {hasFeature('reading-mode') && <dialog ref={settingsDialog} className="reading-settings-dialog" aria-labelledby="reading-settings-title">
-        <div className="reading-settings-panel">
-          <header>
-            <div><small>READING MODE</small><h2 id="reading-settings-title">阅读设置</h2></div>
-            <button type="button" aria-label="关闭阅读设置" onClick={() => settingsDialog.current?.close()}>×</button>
-          </header>
-          <label className="reading-range-control">
-            <span><b>正文字号</b><output>{preferences.fontSize}px</output></span>
-            <input type="range" min="16" max="24" step="1" value={preferences.fontSize} onChange={(event) => setPreferences((value) => ({ ...value, fontSize: Number(event.target.value) }))} />
-          </label>
-          <fieldset>
-            <legend>行间距</legend>
-            <div className="reading-segmented">
-              {[1.65, 1.85, 2.05].map((value) => <button className={preferences.lineHeight === value ? 'is-active' : ''} type="button" key={value} onClick={() => setPreferences((state) => ({ ...state, lineHeight: value }))}>{value === 1.65 ? '紧凑' : value === 1.85 ? '舒适' : '宽松'}</button>)}
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend>正文宽度</legend>
-            <div className="reading-segmented">
-              {[760, 900, 1040].map((value) => <button className={preferences.width === value ? 'is-active' : ''} type="button" key={value} onClick={() => setPreferences((state) => ({ ...state, width: value }))}>{value === 760 ? '专注' : value === 900 ? '标准' : '宽屏'}</button>)}
-            </div>
-          </fieldset>
-          <label className="reading-focus-toggle"><span><b>专注模式</b><small>隐藏横幅与页脚，只保留文章</small></span><input type="checkbox" checked={preferences.focus} onChange={(event) => setPreferences((value) => ({ ...value, focus: event.target.checked }))} /></label>
-          <footer>
-            <button type="button" onClick={() => setPreferences(defaultPreferences)}>恢复默认</button>
-            <button type="button" onClick={() => settingsDialog.current?.close()}>完成</button>
-          </footer>
-        </div>
+      <MobileReaderShell
+        open={controlsOpen}
+        onOpenChange={setControlsOpen}
+        backHref="/"
+        title={article.title}
+        subtitle={article.category_name || '文章阅读'}
+        progress={`${progress}%`}
+        actions={[
+          ...(tocEnabled ? [{ label: '目录', icon: '☰', onClick: () => setTocOpen(true) }] : []),
+          ...(hasFeature('article-bookmark') ? [{ label: bookmarked ? '已收藏' : '收藏', icon: '☆', onClick: toggleBookmark }] : []),
+          { label: '分享', icon: '↗', onClick: () => void shareArticle() },
+          ...(hasFeature('reading-mode') ? [{ label: '设置', icon: 'Aa', primary: true, onClick: () => settingsDialog.current?.showModal() }] : []),
+          { label: '顶部', icon: '↑', onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
+        ]}
+      />
+
+      <button className="reading-catalog-scrim" type="button" hidden={!tocOpen} aria-label="关闭文章目录" onClick={() => setTocOpen(false)} />
+      <aside className="reading-catalog" data-open={tocOpen} aria-label="文章目录">
+        <header><div><small>{article.category_name || '文章'}</small><h2>文章目录</h2></div><button type="button" aria-label="关闭文章目录" onClick={() => setTocOpen(false)}>×</button></header>
+        <nav>{headings.map((item, index) => <a className={`article-toc-link level-${item.level}`} href={`#${item.id}`} key={item.id} onClick={() => setTocOpen(false)}><span>{String(index + 1).padStart(2, '0')}</span><div><strong>{item.text}</strong><small>H{item.level}</small></div></a>)}</nav>
+      </aside>
+
+      {hasFeature('reading-mode') && <dialog ref={settingsDialog} className="reading-settings" aria-labelledby="reading-settings-title">
+        <form method="dialog">
+          <header><h2 id="reading-settings-title">文章阅读设置</h2><button aria-label="关闭阅读设置">×</button></header>
+          <label>字体<select value={preferences.font} onChange={(event) => setPreferences((value) => ({ ...value, font: event.target.value }))}><option value="serif">宋体 / 衬线</option><option value="sans-serif">黑体 / 无衬线</option></select></label>
+          <label>字号 <output>{preferences.fontSize}px</output><input type="range" min="14" max="32" value={preferences.fontSize} onChange={(event) => setPreferences((value) => ({ ...value, fontSize: Number(event.target.value) }))} /></label>
+          <label>行距 <output>{preferences.lineHeight.toFixed(1)}</output><input type="range" min="1.4" max="2.6" step=".1" value={preferences.lineHeight} onChange={(event) => setPreferences((value) => ({ ...value, lineHeight: Number(event.target.value) }))} /></label>
+          <label>正文宽度 <output>{preferences.width}px</output><input type="range" min="560" max="1040" step="40" value={preferences.width} onChange={(event) => setPreferences((value) => ({ ...value, width: Number(event.target.value) }))} /></label>
+          <label>页边距 <output>{preferences.margin}px</output><input type="range" min="12" max="48" step="2" value={preferences.margin} onChange={(event) => setPreferences((value) => ({ ...value, margin: Number(event.target.value) }))} /></label>
+          <fieldset><legend>阅读背景</legend><div className="reading-themes">{Object.entries({ day: '日间', paper: '纸张', eye: '护眼', night: '夜间', custom: '自定义' }).map(([key, label]) => <button type="button" key={key} aria-pressed={preferences.theme === key} onClick={() => setPreferences((value) => ({ ...value, theme: key }))}>{label}</button>)}</div>{preferences.theme === 'custom' && <label>背景颜色<input type="color" value={preferences.background} onChange={(event) => setPreferences((value) => ({ ...value, background: event.target.value }))} /></label>}</fieldset>
+          <label>专注模式 <input type="checkbox" checked={preferences.focus} onChange={(event) => setPreferences((value) => ({ ...value, focus: event.target.checked }))} /></label>
+          <MobileReaderMusic />
+          <footer><button type="button" onClick={() => setPreferences(defaultPreferences)}>恢复默认</button><button className="primary">完成</button></footer>
+        </form>
       </dialog>}
-    </>
+    </div>
   );
 }

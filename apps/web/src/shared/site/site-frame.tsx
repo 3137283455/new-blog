@@ -23,6 +23,7 @@ export function SiteFrame({
   const readingHub = path === '/reading';
   const bookPage = path === '/books' || path.startsWith('/books/');
   const bookReader = /^\/books\/[^/]+\/(?:read|[^/]+\/[^/]+)\/?$/.test(path);
+  const articleReader = /^\/article\/[^/]+\/?$/.test(path);
   const mangaPage = path === '/manga' || path.startsWith('/manga/') || path === '/source' || path.startsWith('/source/');
   const mangaReader = sourceReader || localReader;
   const mangaPortalPage = mangaPage && !mangaReader;
@@ -35,7 +36,6 @@ export function SiteFrame({
     path === '/albums' ||
     /^\/albums\/[^/]+\/?$/.test(path) ||
     path === '/memories' ||
-    /^\/article\/[^/]+\/?$/.test(path) ||
     /^\/page\/[^/]+\/?$/.test(path);
   const widePage =
     /^\/article\/[^/]+\/?$/.test(path) ||
@@ -43,8 +43,8 @@ export function SiteFrame({
     path === '/reading' ||
     /^\/books\/[^/]+\/?$/.test(path);
   const publicPage = !admin && !sourceReader && !localReader && !mangaPage;
-  const fullBleed = mangaReader || bookReader;
-  const showSiteNavigation = !bookReader && (publicPage || mangaPortalPage || readingHub || bookPage);
+  const fullBleed = mangaReader || bookReader || articleReader;
+  const showSiteNavigation = !bookReader && !articleReader && (publicPage || mangaPortalPage || readingHub || bookPage);
   useEffect(() => {
     const themeTypes = {
       'boke-green': 'light',
@@ -83,8 +83,8 @@ export function SiteFrame({
           </main>
         </div>
       </div>
-      {!bookReader && (publicPage || mangaPortalPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
-      {(publicPage || mangaPage || readingHub || bookPage) && <MusicPlayer tracks={tracks} />}
+      {!bookReader && !articleReader && (publicPage || mangaPortalPage || readingHub || bookPage) && <SiteFooter settings={settings} />}
+      {!articleReader && (publicPage || mangaPage || readingHub || bookPage) && <MusicPlayer tracks={tracks} />}
     </>
   );
 }

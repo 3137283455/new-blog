@@ -93,6 +93,72 @@
   .pdf-canvas-page { border-radius: 2px; box-shadow: 0 7px 20px #0002; }
   .reading-pdf-workspace .reading-heading { margin-bottom: 16px; }
 }
+
+/* Articles use the same immersive reader shell as books and manga. */
+.article-reader-workspace .article-reading-main {
+  display: grid;
+  gap: 28px;
+}
+.article-reader-workspace .article-reader-paper {
+  overflow: visible;
+  background: transparent;
+}
+.article-reader-workspace .article-content-head {
+  text-align: left;
+}
+.article-reader-workspace .article-reader-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 20px 0 8px;
+}
+.article-reader-workspace .article-reader-stats {
+  font-size: 12px;
+  opacity: .62;
+}
+.article-reader-workspace .article-restored-body {
+  width: 100%;
+  margin: 0;
+  color: var(--reading-ink);
+  font-family: var(--reading-font);
+  font-size: var(--reading-size);
+  line-height: var(--reading-line);
+}
+.article-reader-workspace .article-restored-body :is(p, div, span, li) {
+  font-size: inherit;
+  line-height: inherit;
+}
+.article-reader-workspace .article-restored-body :is(h1, h2, h3, h4, h5, h6, strong, a) {
+  color: inherit;
+}
+.article-reader-workspace .article-reader-actions svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.article-reader-workspace .article-reader-actions .is-liked,
+.article-reader-workspace .article-reader-actions .is-bookmarked {
+  border-color: #16785d;
+  color: #16785d;
+}
+.article-reader-workspace[data-focus='true'] .article-discovery {
+  display: none;
+}
+.article-reader-workspace .article-discovery {
+  padding-bottom: 28px;
+}
+@media (max-width: 760px) {
+  .article-reader-workspace .article-reader-meta {
+    margin-top: 16px;
+  }
+  .article-reader-workspace .article-series-progress {
+    margin-bottom: 22px;
+  }
+}
 .reading-workspace[data-theme='night'] {
   --reading-ink: #d7ddd8;
   color-scheme: dark;
