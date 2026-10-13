@@ -120,6 +120,16 @@ class Store:
                 else:
                     db.execute("DELETE FROM baselines WHERE node_id=? AND cycle=?", (node_id, c["baseline_cycle"]))
 
+    def delete_node(self, node_id, confirm_name):
+        with self.connect() as db:
+            row = db.execute("SELECT config FROM nodes WHERE id=?", (node_id,)).fetchone()
+            if row is None:
+                raise KeyError("节点不存在")
+            if not isinstance(confirm_name, str) or confirm_name != json.loads(row["config"])["name"]:
+                raise ValueError("请输入完整节点名称确认删除；名称可能已被修改")
+            # Foreign keys remove only this node's samples, baselines, sources and alerts.
+            db.execute("DELETE FROM nodes WHERE id=?", (node_id,))
+
     def effective_config(self, node_id, config, cycle):
         with self.connect() as db:
             row = db.execute("SELECT * FROM baselines WHERE node_id=? AND cycle=?", (node_id, cycle)).fetchone()
@@ -153,9 +163,9 @@ class Store:
     def record_ssh_poll(self, node_id, error=""):
         now = int(time.time())
         with self.connect() as db:
-            db.execute("""INSERT INTO ssh_polls VALUES (?,?,?,?) ON CONFLICT(node_id) DO UPDATE SET
+            db.execute("""INSERT INTO ssh_polls SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM nodes WHERE id=?) ON CONFLICT(node_id) DO UPDATE SET
               last_attempt=excluded.last_attempt, last_success=COALESCE(excluded.last_success,ssh_polls.last_success), error=excluded.error""",
-                       (node_id, now, None if error else now, error))
+                       (node_id, now, None if error else now, error, node_id))
 
     def _ingest(self, node_id, token, generation, buckets, now=None, agent=None, ssh_config=None):
         now = int(time.time()) if now is None else now

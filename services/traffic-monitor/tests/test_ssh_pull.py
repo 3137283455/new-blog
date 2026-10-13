@@ -136,6 +136,44 @@ class SSHTest(unittest.TestCase):
         self.assertEqual(public, self.poller.public_key())
         self.assertIn('PRIVATE KEY', self.poller.key.read_text())
 
+    def test_delete_requires_name_and_preserves_other_nodes(self):
+        other, token = self.store.create_node({'name': 'keep me'})
+        with patch('server.ssh_pull.run_bounded', side_effect=self.remote):
+            self.poller.pull(self.node)
+        with self.store.connect() as db:
+            db.execute('INSERT INTO baselines VALUES (?,?,?,?)', (self.node, '2026-10-01', 123, self.start))
+            db.execute('INSERT INTO alerts VALUES (?,?,?,?)', (self.node, '2026-10-01', 80, self.start))
+        for name in (None, '', 'wrong name'):
+            with self.assertRaises(ValueError):
+                self.store.delete_node(self.node, name)
+        self.assertEqual(len(self.store.nodes()), 2)
+        self.store.delete_node(self.node, self.config['name'])
+        self.assertEqual([n['id'] for n in self.store.nodes()], [other])
+        self.assertFalse(self.store.valid_token(self.node, self.token))
+        self.assertTrue(self.store.valid_token(other, token))
+        with self.store.connect() as db:
+            for table in ('buckets', 'sources', 'agents', 'baselines', 'alerts', 'ssh_polls'):
+                self.assertEqual(db.execute(f'SELECT count(*) FROM {table} WHERE node_id=?', (self.node,)).fetchone()[0], 0)
+        # A late poll cannot resurrect the deleted node, its status, or samples.
+        self.store.record_ssh_poll(self.node, 'late failure')
+        with self.assertRaises(PermissionError):
+            self.store.ingest_ssh(self.node, self.config, 'late', [])
+        self.assertIsNone(self.store.ssh_status(self.node)['last_attempt'])
+        with self.assertRaises(KeyError):
+            self.store.delete_node(self.node, self.config['name'])
+
+    def test_delete_during_poll_cannot_resurrect_node(self):
+        def deleted(args, **kwargs):
+            result = self.remote(args, **kwargs)
+            if args[0] == 'ssh':
+                self.store.delete_node(self.node, self.config['name'])
+            return result
+        with patch('server.ssh_pull.run_bounded', side_effect=deleted):
+            with self.assertRaises(PullError):
+                self.poller.pull(self.node)
+        self.assertEqual(self.store.nodes(), [])
+        self.assertIsNone(self.store.ssh_status(self.node)['last_attempt'])
+
 
 if __name__ == '__main__':
     unittest.main()

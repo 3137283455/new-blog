@@ -26,12 +26,13 @@
           <button data-page="history" class="nav">历史账期</button>
           <button data-page="settings" class="nav">节点设置</button>
         </nav>
-        <div class="toolbar"><label class="sr-only" for="node-select">选择节点</label><select id="node-select"></select><button id="refresh" hidden>刷新数据</button><button id="add-node" hidden>添加节点</button><button id="logout" hidden>退出登录</button></div>
+        <div class="toolbar"><label for="node-select">当前节点</label><select id="node-select"></select><button id="refresh" hidden>刷新数据</button><button id="add-node" hidden>添加节点</button><button id="logout" hidden>退出登录</button></div>
         <b id="page-label" hidden>全部节点</b>
       </header>
       <div class="content">
         <section class="page-heading"><div><h1 id="heading">全部节点</h1><p id="subtitle" class="muted">查看各台 VPS 的流量用量和采集状态。</p></div><span id="status" class="badge">正在读取</span></section>
         <section id="fleet-page">
+          <section class="panel setup-guide"><div><h2>第一次接入？先在 VPS 配置只读查询</h2><p>后台不填 SSH 密码。用你现有的密码或密钥登录 VPS，执行“VPS 部署 / 接入”里的命令，再填回指纹并测试。</p><p class="fine">VPS 端安装 vnStat、创建只读账号并授权公钥；博客端每 5 分钟通过 SSH 加密读取。不需要域名或 HTTP 上报。</p></div><button class="secondary open-help">查看完整步骤</button></section>
           <div class="metrics fleet-metrics">
             <article class="metric panel"><p>使用中的 VPS</p><h2 id="fleet-total">—</h2><span class="fine">每台独立记录与计费</span></article>
             <article class="metric panel"><p>连接正常</p><h2 id="fleet-online">—</h2><span class="fine">最近 15 分钟有更新</span></article>
@@ -44,6 +45,12 @@
         </section>
         <section id="empty" class="empty panel" hidden><h2>还没有接入的 VPS</h2><p class="muted">博客通过 SSH 加密读取流量，不需要域名或 HTTPS 上报。</p><ol class="onboarding-steps"><li><strong>添加节点</strong><span>填写 VPS IP、SSH 外部端口和套餐信息。</span></li><li><strong>执行接入命令</strong><span>在 VPS 安装 vnStat 并授权只读查询公钥。</span></li><li><strong>测试并自动拉取</strong><span>填回主机指纹，测试后每 5 分钟自动更新。</span></li></ol><div class="empty-actions"><button id="empty-add" class="primary">添加第一台 VPS</button><button class="secondary open-help">查看接入说明</button></div><p class="fine">需要能通过 SSH 管理的 Debian / Ubuntu VPS。无需填写 SSH 密码或上传私钥。</p></section>
         <div id="node-content" hidden>
+          <section class="panel node-summary">
+            <div class="section-header"><h2 id="node-summary-name"></h2><span id="node-summary-status" class="badge"></span></div>
+            <dl id="node-summary-facts" class="connection-facts"></dl>
+            <p id="node-next-step" class="notice"></p>
+            <div class="node-actions"><button id="node-quick-edit" class="secondary">编辑资料 / 套餐</button><button id="node-quick-setup" class="primary">VPS 部署 / 接入</button><button id="node-quick-pull" class="secondary">立即拉取</button><button id="node-quick-delete" class="secondary danger">删除节点</button></div>
+          </section>
           <section id="ssh-settings-tools" class="panel" hidden><h2>SSH 加密拉取</h2><p class="muted">每 5 分钟自动查询；修改连接资料后，可重新打开接入说明。</p><p id="ssh-last-error" class="error"></p><div class="dialog-actions"><button id="open-ssh-setup" class="secondary">SSH 接入说明</button><button id="pull-ssh-now" class="primary">立即拉取</button></div></section>
           <section id="overview-page">
             <div id="notice" class="notice" role="status"></div>
@@ -56,7 +63,7 @@
             <section class="panel cycle-panel"><div class="section-header"><div><h2>账期进度</h2><p id="cycle-label" class="muted"></p></div><strong id="percent"></strong></div><div class="progress" role="progressbar" aria-label="套餐使用比例" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill"></div><i class="threshold t80"></i><i class="threshold t95"></i></div><div class="progress-labels"><span id="direction-label"></span><span>80% 提醒 <span class="separator">·</span> 95% 预警</span></div></section>
             <div class="charts-grid">
               <section class="panel chart-panel"><div class="section-header"><div><h2>每日用量</h2><p class="muted">上传与下载，以 VPS 为参照</p></div><div id="range-buttons" class="segmented"><button data-days="7">7 天</button><button data-days="30" class="selected">30 天</button><button data-days="90">90 天</button></div></div><div class="legend"><span><i class="rx"></i>接收 RX</span><span><i class="tx"></i>发送 TX</span><span class="fine">悬停查看用量</span></div><div id="chart" class="chart"></div><p id="chart-note" class="fine"></p></section>
-              <section class="panel health-panel"><div class="section-header"><h2>采集状态</h2><span class="small-icon">⌁</span></div><dl id="health"></dl><div class="health-foot">采集器每 5 分钟上报一次。<br>统计覆盖 IPv4 与 IPv6。</div></section>
+              <section class="panel health-panel"><div class="section-header"><h2>采集状态</h2><span class="small-icon">⌁</span></div><dl id="health"></dl><div class="health-foot">每 5 分钟更新一次网卡统计。<br>统计覆盖 IPv4 与 IPv6。</div></section>
             </div>
             <section class="panel alerts-panel"><div class="section-header"><h2>额度提醒</h2><span class="fine">每账期每档提醒一次</span></div><div id="alerts"></div></section>
           </section>
@@ -65,7 +72,7 @@
             <h2>让统计和你的套餐保持一致</h2><p class="muted">套餐额度、计费方向、重置日及时区，应以实际订单为准。</p>
             <dl id="settings-list"></dl><button id="edit-settings" class="primary">修改节点与套餐 →</button>
             <div id="agent-settings-tools"><hr><h3>原采集器连接</h3><p class="muted">采集令牌仅能写入本节点的数据。重新生成后，需要同步更新 VPS 上的采集器配置。</p><button id="rotate" class="secondary">重新生成采集令牌</button><p class="fine">这里的令牌与代理 UUID、REALITY 密钥无关。</p></div>
-            <hr><button id="archive-node" class="secondary">归档节点</button>
+            <hr><h3>暂停与删除</h3><p class="fine">归档保留历史并暂停 SSH 拉取；删除会清除本节点及全部历史，不会卸载 VPS 上的软件。</p><button id="archive-node" class="secondary">归档节点</button> <button id="delete-node" class="secondary danger">删除节点</button>
             <div id="source-review" hidden><hr><h3>采集数据库代次变化</h3><p class="muted">检测到数据库重建或来源变动。交界处重叠的五分钟记录取较大值，可能少计。请核对缺口，必要时补录期初用量。</p><button id="ack-sources" class="secondary">已核对采集来源变化</button></div>
           </section></section>
         </div>
@@ -80,7 +87,7 @@
     <label>节点名称<input name="name" maxlength="80" placeholder="例如：日本 VPS" required></label>
     <div class="form-grid"><label>服务商<input name="provider" maxlength="80" placeholder="例如 VirNAT"></label><label>地区<input name="region" maxlength="80" placeholder="例如 日本 · 东京"></label></div>
     <div class="form-grid"><label>IP 或域名（可选）<input name="host" maxlength="253" placeholder="NAT 节点可使用共享 IP"></label><label>SSH 外部端口<input name="ssh_port" type="number" min="1" max="65535" required></label></div>
-    <div id="ssh-fields"><label>SSH 只读用户名<input name="ssh_user" maxlength="32" value="traffic-monitor" pattern="[a-z_][a-z0-9_-]{0,31}"></label><p class="fine">使用专用低权限账号，不使用 root；接入命令会自动创建并限制公钥只能查询 vnStat。私钥仅保存在博客服务器。</p></div>
+    <div id="ssh-fields"><label>SSH 只读用户名（自动创建，无需密码）<input name="ssh_user" maxlength="32" value="traffic-monitor" pattern="[a-z_][a-z0-9_-]{0,31}"></label><p class="fine">这不是你平时登录 VPS 的管理账号。接入命令会创建该只读账号、授权博客公钥；无需给它设置或输入密码。你原来的密码只在自己的 SSH 终端登录时使用。</p></div>
     <label>公网网卡<input name="interface" maxlength="40" placeholder="auto"></label><p class="fine">网卡保留 auto。NAT VPS 填分配的 SSH 外部端口，不是代理端口。保存后按说明在 VPS 执行一次接入命令。</p>
     <label>备注<input name="notes" maxlength="500" placeholder="用途、套餐名称等"></label>
     </fieldset><fieldset id="billing-fields"><legend>套餐与账期</legend>
@@ -113,12 +120,20 @@ journalctl -u traffic-agent.service -n 20</pre><p>等待约 5–10 分钟，在�
   </dialog>
   <dialog id="ssh-dialog" aria-labelledby="ssh-title">
     <div class="dialog-header"><h2 id="ssh-title">SSH 拉取接入</h2><button class="close-ssh icon-button" aria-label="关闭 SSH 接入">×</button></div>
-    <p class="muted">只需配置一次：博客主动读取 VPS 的 vnStat 数据，SSH 加密传输，不使用 HTTP 上报。</p>
-    <ol class="connect-steps"><li><strong>登录当前 VPS，执行以下命令</strong><p>用你现有的 SSH 管理账号登录后执行。会安装 vnStat、创建专用查询账号，不重启 SSH、代理或防火墙。</p><pre id="ssh-commands"></pre><button id="copy-ssh-commands" class="secondary">复制接入命令</button></li><li><strong>填回命令最后输出的主机指纹</strong><p>只复制 SHA256: 开头的部分，用于确认连到的确实是你的 VPS；不要从不可信提示里随意替换指纹。</p><label>SHA256 主机指纹<input id="ssh-fingerprint" placeholder="SHA256:…" autocomplete="off"></label></li><li><strong>测试并开始拉取</strong><p>测试通过即已接入；之后每 5 分钟自动拉取。刚安装时可能需要约 5–10 分钟生成首批完整流量记录。</p></li></ol>
+    <p id="ssh-target" class="muted"></p>
+    <div class="notice"><strong>密码在哪里输入？</strong><p>只在你自己的 SSH 终端登录 VPS 时输入原有密码；本后台不收集密码。后续自动拉取使用专用公钥认证，查询账号无需密码。</p></div>
+    <ol class="connect-steps"><li><strong>先用管理账号登录这台 VPS</strong><p>在 Windows 终端 / PowerShell 中执行下面的登录命令，或使用你已有的 SSH 客户端。如果管理账号不是 root，请替换 root。</p><pre id="ssh-login"></pre><p>出现 password 提示时在终端输入服务商提供的 VPS 密码（输入时不显示字符）；已有密钥登录则无需密码。</p></li><li><strong>在已登录的 VPS 终端执行接入命令</strong><p>这一步会安装 vnStat（网卡流量记录服务）、创建只读查询账号并授权博客公钥。无需 Docker、无需部署网页，不重启 SSH、代理或防火墙。</p><pre id="ssh-commands"></pre><button id="copy-ssh-commands" class="secondary">复制 VPS 接入命令</button></li><li><strong>填回命令最后输出的主机指纹</strong><p>只复制 SHA256: 开头的部分，用于确认连到的确实是你的 VPS；不要从不可信提示里随意替换指纹。</p><label>SHA256 主机指纹<input id="ssh-fingerprint" placeholder="SHA256:…" autocomplete="off"></label></li><li><strong>测试并开始拉取</strong><p>测试通过即已接入；之后每 5 分钟自动拉取。刚安装时可能需要约 5–10 分钟生成首批完整流量记录。</p></li></ol>
     <p class="fine">博客服务器必须能连接 VPS 的 SSH 外部端口。这里仅显示公钥，私钥不会发到浏览器。修改地址、网卡或查询账号后，请重新执行接入命令。</p>
     <p id="ssh-error" class="error" role="status"></p>
     <div class="dialog-actions"><button id="ssh-test" class="primary">保存指纹并测试拉取</button><button class="secondary close-ssh">稍后接入</button></div>
   </dialog>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><form id="delete-form">
+    <div class="dialog-header"><h2 id="delete-title">删除节点</h2><button type="button" class="close-delete icon-button" aria-label="关闭删除确认">×</button></div>
+    <p id="delete-target" class="muted"></p><p class="notice">将永久删除此节点的资料、流量记录、账期补录和提醒，不能在页面中恢复。其他节点不受影响。仅暂停请用“归档”。</p>
+    <p class="fine">删除后博客停止拉取，旧上报令牌失效；不会远程卸载 VPS 上的 vnStat 或移除只读账号与授权。</p>
+    <label>输入完整节点名称确认<input id="delete-confirm-name" autocomplete="off" required></label><p id="delete-error" class="error" role="alert"></p>
+    <div class="dialog-actions"><button type="button" class="secondary close-delete">取消</button><button id="confirm-delete" type="submit" class="primary danger" disabled>永久删除</button></div>
+  </form></dialog>
   <dialog id="help-dialog" aria-labelledby="help-title">
     <div class="dialog-header"><h2 id="help-title">如何添加我的节点</h2><button class="close-help icon-button" aria-label="关闭接入说明">×</button></div>
     <p class="muted">工作方式：VPS 用 vnStat 记录网卡流量 → 博客每 5 分钟通过 SSH 加密读取 → 在这里查看账期、图表和提醒。不需要购买域名或配置 HTTPS 上报。</p>
@@ -126,7 +141,7 @@ journalctl -u traffic-agent.service -n 20</pre><p>等待约 5–10 分钟，在�
       <li><strong>准备自己的 VPS</strong><p>需要能通过 SSH 登录、有 sudo / root 权限的 Debian / Ubuntu 服务器。机场订阅或只有代理连接参数的节点，无法安装采集器。</p></li>
       <li><strong>添加服务器资料</strong><p>点击页面顶部“添加节点”。名称自定义，填写 VPS 的 IP、SSH 端口，网卡保留 auto。NAT VPS 填共享 IP 与分配给你的 SSH 外部端口。</p></li>
       <li><strong>填写套餐</strong><p>按服务商订单填写额度、重置日和计费方式。不确定时选择“套餐暂未确认”，以后可以补全。</p></li>
-      <li><strong>配置 SSH 查询</strong><p>采集方式保留“SSH 加密拉取”。保存后在 VPS 执行弹窗中的接入命令，再将最后输出的 SHA256 主机指纹填回页面。</p></li>
+      <li><strong>登录 VPS 并安装查询组件</strong><p>密码只在你自己的 SSH 客户端 / 终端登录 VPS 时输入，后台不收集密码。点击节点上的“VPS 部署 / 接入”，在已登录的 VPS 执行接入命令。它会安装 vnStat、创建只读账号并授权公钥；不需要另部署网页或 Docker。</p></li>
       <li><strong>测试并查看结果</strong><p>点击“保存指纹并测试拉取”。连通后每 5 分钟自动读取；新安装 vnStat 需要等约 5–10 分钟才有首批流量。</p></li>
     </ol>
     <p class="notice">SSH 拉取与博客网页使用 HTTP / HTTPS 无关，私钥保留在博客服务器本地。网页本身使用 HTTP 的登录风险仍然存在。原有 HTTPS 上报节点继续兼容，也可在“节点设置”修改采集方式后改用 SSH。</p>

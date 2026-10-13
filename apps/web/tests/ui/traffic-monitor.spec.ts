@@ -42,11 +42,14 @@ async function mockTraffic(context: BrowserContext, https = true) {
         },
       });
     if (path === '/api/traffic/api/fleet') return route.fulfill({ json: { nodes } });
-    if (path === `/api/traffic/api/nodes/${nodeId}`)
+    const match = path.match(/^\/api\/traffic\/api\/nodes\/([a-f0-9]{16})(?:\/([\w-]+))?$/);
+    const current = match ? nodes.find((n) => n.id === match[1]) : undefined;
+    if (match && !current) return route.fulfill({ status: 404, json: { error: '节点不存在' } });
+    if (match && !match[2])
       return route.fulfill({
-        json: { ...nodes[0], daily: [], months: [], sources: [], alerts: [], ssh: {} },
+        json: { ...current, daily: [], months: [], sources: [], alerts: [], ssh: {} },
       });
-    if (path === `/api/traffic/api/nodes/${nodeId}/ssh-setup`)
+    if (match?.[2] === 'ssh-setup')
       return route.fulfill({
         json: {
           public_key: 'ssh-ed25519 fixture-public-only',
@@ -55,31 +58,48 @@ async function mockTraffic(context: BrowserContext, https = true) {
           fingerprint: '',
         },
       });
-    if (path === `/api/traffic/api/nodes/${nodeId}/ssh-fingerprint`)
+    if (match?.[2] === 'settings') {
+      current.config = req.postDataJSON();
       return route.fulfill({ json: { ok: true } });
-    if (path === `/api/traffic/api/nodes/${nodeId}/ssh-pull`)
+    }
+    if (match?.[2] === 'delete') {
+      if (req.postDataJSON().confirm_name !== current.config.name)
+        return route.fulfill({ status: 400, json: { error: '节点名称不匹配' } });
+      nodes.splice(nodes.indexOf(current), 1);
+      return route.fulfill({ json: { ok: true } });
+    }
+    if (match?.[2] === 'ssh-fingerprint') return route.fulfill({ json: { ok: true } });
+    if (match?.[2] === 'ssh-pull')
       return route.fulfill({ json: { ok: true, samples: 0, interface: 'eth0' } });
     if (path === '/api/traffic/api/nodes' && req.method() === 'POST') {
       const config = req.postDataJSON();
       created.push(config);
+      const id = created.length === 1 ? nodeId : 'bbbbbbbbbbbbbbbb';
       const now = Math.floor(Date.now() / 1000);
       nodes.push({
-        id: nodeId,
+        id,
         config,
         agent: {},
         connection: 'waiting',
         summary: {
           start: now - 86400,
           end: now + 86400 * 29,
-          quota_known: true,
+          quota_known: config.quota_mode === 'limited',
           recorded_buckets: 0,
           baseline_applied: 0,
           reliable: false,
           percent: 0,
           last_received: null,
+          last_sample: null,
+          rx: 0,
+          tx: 0,
+          used: 0,
+          days_left: 29,
+          missing_buckets: 0,
+          complete: false,
         },
       });
-      return route.fulfill({ status: 201, json: { node_id: nodeId, token: 'fixture-only-token' } });
+      return route.fulfill({ status: 201, json: { node_id: id, token: 'fixture-only-token' } });
     }
     if (path === `/api/traffic/api/nodes/${nodeId}/package`)
       return route.fulfill({
@@ -132,6 +152,16 @@ for (const width of [1440, 390]) {
       );
     });
     expect(sameRadius).toBe(true);
+    expect(
+      await page.evaluate(() => {
+        const doc = (document.querySelector('#traffic-frame') as HTMLIFrameElement)
+          .contentDocument!;
+        return (
+          getComputedStyle(document.querySelector('#new-article')!).backgroundColor ===
+          getComputedStyle(doc.querySelector('.primary')!).backgroundColor
+        );
+      }),
+    ).toBe(true);
     await page.locator('#traffic-help').click();
     await expect(frame.getByRole('dialog', { name: '如何添加我的节点' })).toBeVisible();
     await expect(frame.locator('#help-dialog')).toContainText('SSH');
@@ -233,7 +263,7 @@ for (const width of [1440, 390]) {
     await frame.locator('#ssh-test').click();
     await expect(frame.locator('#ssh-error')).toContainText('SSH 已连通');
     await frame.locator('#ssh-dialog .close-ssh.secondary').click();
-    await expect(frame.locator('.fleet-card')).toContainText('SSH 接入 / 测试');
+    await expect(frame.locator('.fleet-card')).toContainText('VPS 部署 / 接入');
     await frame.getByRole('button', { name: '节点设置', exact: true }).click();
     await expect(frame.locator('#ssh-settings-tools')).toBeVisible();
     await expect(frame.locator('#agent-settings-tools')).toBeHidden();
@@ -244,6 +274,73 @@ for (const width of [1440, 390]) {
 }
 
 for (const width of [1440, 390]) {
+  test(`${width} node management exposes connection info, deployment, edit and confirmed deletion`, async ({
+    browser,
+  }, info) => {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    await mockTraffic(context, false);
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('http://127.0.0.1:3111/admin');
+    await page.getByRole('button', { name: '流量监控', exact: true }).click();
+    const frame = page.frameLocator('#traffic-frame');
+    for (const name of ['日本 VPS', '保留的 VPS']) {
+      await page.locator('#traffic-add-node').click();
+      await frame.getByLabel('节点名称', { exact: true }).fill(name);
+      await frame.locator('[name="host"]').fill('203.0.113.42');
+      await frame.locator('[name="ssh_port"]').fill('3101');
+      await frame.locator('#wizard-next').click();
+      await frame.locator('#save-node').click();
+      await expect(frame.locator('#ssh-dialog')).toBeVisible();
+      await expect(frame.locator('#ssh-dialog')).toContainText('密码在哪里输入');
+      await expect(frame.locator('#ssh-dialog')).toContainText('vnStat');
+      await expect(frame.locator('#ssh-login')).toHaveText('ssh -p 3101 root@203.0.113.42');
+      if (name === '日本 VPS')
+        await frame.locator('#ssh-dialog').screenshot({ path: info.outputPath('vps-setup.png') });
+      await frame.locator('#ssh-dialog .close-ssh.secondary').click();
+    }
+    let card = frame
+      .locator('.fleet-card')
+      .filter({ has: frame.getByRole('heading', { name: '日本 VPS', exact: true }) });
+    await expect(card).toContainText('SSH 外部端口');
+    await expect(card).toContainText('3101');
+    await expect(card).toContainText('traffic-monitor');
+    await card.screenshot({ path: info.outputPath('node-management.png') });
+    await card.getByRole('button', { name: '编辑资料 / 套餐' }).click();
+    await frame.getByLabel('节点名称', { exact: true }).fill('改名的 VPS');
+    await frame.locator('#save-node').click();
+    await frame.locator('#ssh-dialog .close-ssh.secondary').click();
+    card = frame
+      .locator('.fleet-card')
+      .filter({ has: frame.getByRole('heading', { name: '改名的 VPS', exact: true }) });
+    await card.getByRole('button', { name: '用量详情' }).click();
+    await expect(frame.locator('#node-summary-facts')).toContainText('203.0.113.42');
+    await expect(frame.locator('#node-next-step')).toContainText('尚未接入');
+    await frame.locator('#node-quick-delete').click();
+    await expect(frame.getByRole('dialog', { name: '删除节点', exact: true })).toBeVisible();
+    await expect(frame.locator('#confirm-delete')).toBeDisabled();
+    await frame.locator('#delete-confirm-name').fill('wrong');
+    await expect(frame.locator('#confirm-delete')).toBeDisabled();
+    await frame
+      .locator('#delete-dialog')
+      .getByRole('button', { name: '取消', exact: true })
+      .click();
+    await frame.getByRole('button', { name: '全部节点', exact: true }).click();
+    await card.getByRole('button', { name: '删除', exact: true }).click();
+    await frame.locator('#delete-confirm-name').fill('改名的 VPS');
+    await frame.locator('#confirm-delete').click();
+    await expect(frame.locator('.fleet-card')).toHaveCount(1);
+    await expect(frame.locator('.fleet-card')).toContainText('保留的 VPS');
+    await frame.locator('.fleet-card').getByRole('button', { name: '删除', exact: true }).click();
+    await frame.locator('#delete-confirm-name').fill('保留的 VPS');
+    await frame.locator('#confirm-delete').click();
+    await expect(frame.getByRole('heading', { name: '还没有接入的 VPS' })).toBeVisible();
+    expect(errors).toEqual([]);
+    await page.screenshot({ path: info.outputPath('node-management-empty.png'), fullPage: true });
+    await context.close();
+  });
+
   test(`${width} traffic content can scroll to the bottom and recover after a dialog`, async ({
     browser,
   }) => {

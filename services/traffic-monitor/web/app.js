@@ -5,6 +5,7 @@ let nodes = [], selected = '', days = 30, page = 'fleet', editing = null, creden
 let timer, toastTimer, wizardStep=1, detailVersion=0;
 let ingestUrl = new URL('./api/ingest', location.href).href;
 let sshSetupId = '';
+let deleting = null;
 function notifyParent(type) {
   if (window.parent !== window) window.parent.postMessage({type}, location.origin);
 }
@@ -21,7 +22,8 @@ function matchAdminAppearance() {
     const parent = window.parent, root = document.documentElement;
     const shell = parent.document.querySelector('.admin-shell');
     const card = parent.document.querySelector('#dashboard-panel .ryu-card, .admin-shell .ryu-card');
-    const button = parent.document.querySelector('#traffic-add-node');
+    // The outer add button is disabled during bootstrap; do not inherit its greyed-out styling.
+    const button = parent.document.querySelector('.admin-shell .ryu-btn-primary:not(:disabled)');
     if (shell) root.style.setProperty('--admin-font', parent.getComputedStyle(shell).fontFamily);
     if (card) {
       const style = parent.getComputedStyle(card);
@@ -77,8 +79,8 @@ async function refresh() {
   $('refresh').disabled=true;
   try {
     const data=await api('fleet'); nodes=data.nodes;
-    if(page!=='fleet'&&selected)await loadDetail(selected);
     if(!nodes.some(n=>n.id===selected))selected=nodes.find(n=>!n.config.archived)?.id||nodes[0]?.id||'';
+    if(page!=='fleet'&&selected)await loadDetail(selected);
     $('node-select').replaceChildren(...nodes.map(n=>{const o=element('option',n.config.name);o.value=n.id;return o;}));
     $('node-select').value=selected; $('node-select').hidden=!nodes.length;
     render();
@@ -86,6 +88,41 @@ async function refresh() {
   finally { $('refresh').disabled=false; }
 }
 function activeNode(){return nodes.find(n=>n.id===selected);}
+async function editNode(id){
+  selected=id;$('node-select').value=id;
+  try{await loadDetail(id);openSettings(false);}catch(e){toast(e.message);}
+}
+function openDelete(id){
+  const node=nodes.find(n=>n.id===id);if(!node)return;
+  deleting={id,name:node.config.name};
+  setText('delete-target',`准备删除：${deleting.name}（${node.config.host||'地址未填写'}）`);
+  $('delete-confirm-name').value='';$('confirm-delete').disabled=true;setText('delete-error','');
+  openDialog($('delete-dialog'));
+}
+function actionButton(label,action,className='secondary'){
+  const button=element('button',label,className);button.type='button';
+  button.onclick=async()=>{button.disabled=true;try{await action();}catch(e){toast(e.message);}finally{button.disabled=false;}};
+  return button;
+}
+function renderNodeSummary(n){
+  const c=n.config,ssh=c.collection_mode==='ssh';
+  setText('node-summary-name',c.name);
+  setText('node-summary-status',c.archived?'已归档':n.ssh?.error&&ssh?'拉取失败':connectionNames[n.connection]);
+  $('node-summary-status').classList.toggle('warning',attention(n)||n.connection==='waiting');
+  dl('node-summary-facts',[
+    ['IP / 域名',c.host||'未填写'],['SSH 外部端口',String(c.ssh_port)],
+    ['采集方式',ssh?'SSH 加密拉取':'HTTPS 上报'],['查询账号',ssh?c.ssh_user:'采集器令牌'],
+    ['公网网卡',n.agent.interface||c.interface],['最近更新',date(n.summary.last_received,c.timezone,true)],
+  ]);
+  const step=c.archived?'节点已归档，SSH 拉取已暂停。恢复使用请前往节点设置。':
+    ssh?n.ssh?.error?'拉取失败：'+n.ssh.error:!c.ssh_fingerprint?'尚未接入：点击“VPS 部署 / 接入”，在 VPS 执行命令，再填回指纹并测试。':
+      !n.summary.last_received?'已保存指纹：点击“立即拉取”测试连接；若未配置查询公钥，请先完成 VPS 部署。':
+        '已接入：博客每 5 分钟自动拉取；新安装 vnStat 需约 5–10 分钟生成首批流量。':
+    '使用原采集器上报。修改方式请点“编辑资料 / 套餐”；重新下载采集器请前往节点设置。';
+  setText('node-next-step',step);
+  $('node-quick-setup').hidden=$('node-quick-pull').hidden=!ssh;
+  $('node-quick-pull').disabled=c.archived;
+}
 function dl(target, rows) { $(target).replaceChildren(...rows.map(([key,val])=>{const row=element('div');row.append(element('dt',key),element('dd',val));return row;})); }
 async function navigate(next){page=next;const title={fleet:'全部节点',overview:'用量概览',history:'历史账期',settings:'节点设置'}[page];setText('heading',title);setText('page-label',title);document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('fleet-page').hidden=page!=='fleet';for(const name of ['overview','history','settings'])$(name+'-page').hidden=name!==page;try{if(page!=='fleet'&&selected)await loadDetail(selected);render();}catch(e){toast(e.message);}}
 function render() {
@@ -94,6 +131,7 @@ function render() {
   const n=activeNode(); $('empty').hidden=!!n; $('node-content').hidden=!n;
   if(!n){setText('status','等待添加节点');setText('subtitle','添加 VPS 后，开始记录你的第一份流量账本。');return;}
   if(!n.daily)return;
+  renderNodeSummary(n);
   const {config:c,summary:s}=n, zone=c.timezone, hasData=s.recorded_buckets>0||s.baseline_applied>0;
   const ssh = c.collection_mode === 'ssh';
   $('ssh-settings-tools').hidden=page!=='settings'||!ssh;
@@ -152,7 +190,7 @@ function openSettings(create=false){
   updateSSHFields();
   f.elements.baseline_amount.value=c.baseline_bytes/(c.unit==='GiB'?2**30:1e9);
   const cut=new Date((c.baseline_cutover||Math.floor(Date.now()/300000)*300)*1000);cut.setMinutes(cut.getMinutes()-cut.getTimezoneOffset());f.elements.baseline_cutover.value=cut.toISOString().slice(0,16);
-  $('baseline-details').hidden=create;$('baseline-details').open=false;setText('dialog-title',create?'添加节点':'套餐设置');setText('settings-error','');wizardStep=1;updateWizard();openDialog($('settings-dialog'));
+  $('baseline-details').hidden=create;$('baseline-details').open=false;setText('dialog-title',create?'添加节点':'编辑节点与套餐');setText('settings-error','');wizardStep=1;updateWizard();openDialog($('settings-dialog'));
 }
 function updateSSHFields(){
   const f=$('settings-form'),ssh=f.elements.collection_mode.value==='ssh';
@@ -164,6 +202,10 @@ function updateSSHFields(){
 async function showSSHSetup(id){
   try{
     const data=await api(`nodes/${id}/ssh-setup`);
+    const c=nodes.find(n=>n.id===id)?.config;
+    if(!c)throw new Error('节点不存在，请刷新列表');
+    setText('ssh-target',`${c.name} · ${c.host} · SSH 外部端口 ${c.ssh_port} · 只读账号 ${c.ssh_user}`);
+    setText('ssh-login',`ssh -p ${c.ssh_port} root@${c.host}`);
     sshSetupId=id;setText('ssh-commands',data.commands);$('ssh-fingerprint').value=data.fingerprint||'';setText('ssh-error','');
     openDialog($('ssh-dialog'));
   }catch(e){toast(e.message);}
@@ -209,17 +251,24 @@ function renderFleet(){
     const amount=element('div',undefined,'fleet-amount');amount.append(element('strong',known?bytes(s.used,c.unit):'—'),element('span',s.quota_known?` / ${c.quota} ${c.unit}`:c.quota_mode==='unlimited'?' / 不限流量':' / 套餐待确认'));card.append(amount);
     const bar=element('div',undefined,'progress'),fill=element('div');fill.style.width=Math.min(100,s.percent||0)+'%';if((s.percent||0)>=80)fill.style.background='#b56e48';bar.append(fill);card.append(bar);
     const facts=element('dl');for(const [label,value]of [
+      ['IP / 域名',c.host||'未填写'],['SSH 外部端口',String(c.ssh_port)],
+      ['采集方式',c.collection_mode==='ssh'?'SSH 加密拉取':'HTTPS 上报'],
+      ...(c.collection_mode==='ssh'?[['查询账号',c.ssh_user||'traffic-monitor']]:[]),
       ['本账期',`${date(s.start,c.timezone)} — ${date(s.end,c.timezone)}`],
+      ['重置规则',`每月 ${c.reset_day} 日 · ${c.timezone}`],
       ['剩余额度',c.quota_mode==='unlimited'?'不限流量':!s.quota_known?'待确认':s.reliable?bytes(s.remaining,c.unit):'待校准'],
       ['最新更新',date(s.last_received,c.timezone,true)],['记录状态',!known?'等待首批数据':s.reliable?'完整':!c.confirmed?'套餐待核实':'记录有缺口']]){
         const row=element('div');row.append(element('dt',label),element('dd',value));facts.append(row);
     }card.append(facts);
-    const foot=element('div',undefined,'fleet-card-foot'),button=element('button','查看与管理 →','secondary');button.onclick=async()=>{selected=n.id;$('node-select').value=selected;await navigate('overview');};
-    foot.append(element('span',c.host||n.agent.hostname||'地址未填写','fine'),button);card.append(foot);
+    const actions=element('div',undefined,'node-actions');
+    actions.append(actionButton('用量详情',async()=>{selected=n.id;$('node-select').value=selected;await navigate('overview');}),
+      actionButton('编辑资料 / 套餐',()=>editNode(n.id)));
     if(c.collection_mode==='ssh'){
-      const setup=element('button','SSH 接入 / 测试','secondary');setup.onclick=()=>showSSHSetup(n.id);card.append(setup);
+      actions.append(actionButton('VPS 部署 / 接入',()=>showSSHSetup(n.id),'primary'));
+      const pull=actionButton('立即拉取',async()=>{toast(await pullSSH(n.id));});pull.disabled=c.archived;actions.append(pull);
       if(n.ssh?.error)card.append(element('p',n.ssh.error,'error'));
     }
+    actions.append(actionButton('删除',()=>openDelete(n.id),'secondary danger'));card.append(actions);
     return card;
   }));
 }
@@ -239,6 +288,21 @@ $('wizard-back').onclick=()=>{wizardStep=1;updateWizard();};
 $('settings-form').elements.quota_mode.onchange=updateWizard;
 $('settings-form').elements.collection_mode.onchange=()=>{updateSSHFields();updateWizard();};
 $('open-ssh-setup').onclick=()=>showSSHSetup(selected);
+$('node-quick-edit').onclick=()=>editNode(selected);
+$('node-quick-setup').onclick=()=>showSSHSetup(selected);
+$('node-quick-delete').onclick=$('delete-node').onclick=()=>openDelete(selected);
+document.querySelectorAll('.close-delete').forEach(b=>b.onclick=()=>$('delete-dialog').close());
+$('delete-confirm-name').oninput=()=>{$('confirm-delete').disabled=!deleting||$('delete-confirm-name').value!==deleting.name;};
+$('delete-form').addEventListener('submit',async e=>{
+  e.preventDefault();if(!deleting)return;
+  const target=deleting,b=$('confirm-delete');b.disabled=true;setText('delete-error','');
+  try{
+    await api(`nodes/${target.id}/delete`,{confirm_name:$('delete-confirm-name').value});
+    detailVersion++;nodes=nodes.filter(n=>n.id!==target.id);if(selected===target.id)selected='';
+    deleting=null;$('delete-dialog').close();await navigate('fleet');await refresh();
+    toast('节点及其历史记录已删除；未卸载 VPS 软件，未修改其他节点');
+  }catch(e){setText('delete-error',e.message);}finally{b.disabled=!deleting||$('delete-confirm-name').value!==deleting.name;}
+});
 document.querySelectorAll('.close-ssh').forEach(b=>b.onclick=()=>$('ssh-dialog').close());
 $('copy-ssh-commands').onclick=async()=>{
   try{await navigator.clipboard.writeText($('ssh-commands').textContent);toast('已复制，请在对应 VPS 的 SSH 终端执行');}
@@ -253,10 +317,11 @@ $('ssh-test').onclick=async()=>{
     setText('ssh-error',await pullSSH(sshSetupId));
   }catch(e){setText('ssh-error',e.message);await refresh();}finally{b.disabled=false;}
 };
-$('pull-ssh-now').onclick=async()=>{
-  const b=$('pull-ssh-now');b.disabled=true;
+$('pull-ssh-now').onclick=async e=>{
+  const b=e.currentTarget;b.disabled=true;
   try{toast(await pullSSH(selected));}catch(e){toast(e.message);await refresh();}finally{b.disabled=false;}
 };
+$('node-quick-pull').onclick=$('pull-ssh-now').onclick;
 $('fleet-search').oninput=$('fleet-filter').onchange=renderFleet;
 $('archive-node').onclick=async()=>{
   const n=activeNode();if(!n)return;
@@ -272,7 +337,7 @@ $('download-package').onclick=async()=>{
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,b=f.querySelector('button');b.disabled=true;setText('login-error','');try{await api('login',{user:f.elements.user.value,password:f.elements.password.value});f.elements.password.value='';await showDashboard();}catch(err){setText('login-error',err.message);}finally{b.disabled=false;}});
 $('logout').hidden=true; // Authentication is owned by the surrounding blog admin.
 $('logout').onclick=async()=>{try{await api('logout',{});showLogin();}catch(e){toast(e.message);}};
-$('refresh').onclick=refresh;$('node-select').onchange=async e=>{selected=e.target.value;await navigate('overview');};
+$('refresh').onclick=refresh;$('node-select').onchange=async e=>{selected=e.target.value;await navigate(page==='fleet'?'overview':page);};
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));
 document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{days=Number(b.dataset.days);document.querySelectorAll('[data-days]').forEach(x=>x.classList.toggle('selected',x===b));render();});
 $('add-node').onclick=$('empty-add').onclick=()=>openSettings(true);$('edit-settings').onclick=()=>openSettings(false);
@@ -298,10 +363,10 @@ $('settings-form').addEventListener('submit',async e=>{
     if(editing&&(c.host!==editing.config.host||c.ssh_port!==editing.config.ssh_port))c.ssh_fingerprint='';
     if(!c.baseline_known){c.baseline_cutover=0;c.baseline_bytes=0;}
     if(editing){
-      await api(`nodes/${editing.id}/settings`,c);$('settings-dialog').close();toast('设置已保存');
+      await api(`nodes/${editing.id}/settings`,c);$('settings-dialog').close();await refresh();toast('设置已保存');
       if(c.collection_mode==='ssh')await showSSHSetup(editing.id);
     }else{
-      const result=await api('nodes',c);selected=result.node_id;$('settings-dialog').close();page='fleet';await navigate('fleet');
+      const result=await api('nodes',c);selected=result.node_id;$('settings-dialog').close();page='fleet';await refresh();await navigate('fleet');
       if(c.collection_mode==='ssh')await showSSHSetup(result.node_id);else showToken(result.node_id,result.token);
     }
     await refresh();

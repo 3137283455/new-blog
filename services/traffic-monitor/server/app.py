@@ -362,6 +362,9 @@ def handler_for(app):
             elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/settings", path):
                 app.store.update_node(path.split("/")[3], data)
                 self.send(200, {"ok": True})
+            elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/delete", path):
+                app.store.delete_node(path.split('/')[3], data.get("confirm_name"))
+                self.send(200, {"ok": True})
             elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/ssh-pull", path):
                 self.send(200, app.ssh.pull(path.split('/')[3]))
             elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/ssh-fingerprint", path):
