@@ -18,21 +18,19 @@
     </form>
   </section>
   <div id="dashboard" class="shell" hidden>
-    <aside class="sidebar">
-      <a class="brand" href="./"><span class="brand-mark">↗</span><span>流量账本<small>TRAFFIC MONITOR</small></span></a>
-      <div class="nav-label">工作空间</div>
-      <nav aria-label="页面导航">
-        <button data-page="fleet" class="nav active"><span>▦</span>全部 VPS</button>
-        <button data-page="overview" class="nav"><span>◫</span>用量概览</button>
-        <button data-page="history" class="nav"><span>▤</span>历史账本</button>
-        <button data-page="settings" class="nav"><span>⚙</span>套餐设置</button>
-      </nav>
-      <div class="sidebar-bottom"><span class="live-dot"></span> 只记录流量，不记录内容<p>为每个账期留一份记录</p><button id="logout" class="text-button">退出登录 ↗</button></div>
-    </aside>
     <main>
-      <header class="topbar"><span class="breadcrumb">工作空间 <span>/</span> <b id="page-label">全部 VPS</b></span><div class="toolbar"><label class="sr-only" for="node-select">选择节点</label><select id="node-select"></select><button id="refresh" class="icon-button" title="刷新数据" aria-label="刷新数据">↻</button><button id="add-node" class="secondary">＋ 添加节点</button></div></header>
+      <header class="topbar">
+        <nav class="workspace-tabs" aria-label="流量监控页面">
+          <button data-page="fleet" class="nav active">全部节点</button>
+          <button data-page="overview" class="nav">用量概览</button>
+          <button data-page="history" class="nav">历史账期</button>
+          <button data-page="settings" class="nav">节点设置</button>
+        </nav>
+        <div class="toolbar"><label class="sr-only" for="node-select">选择节点</label><select id="node-select"></select><button id="refresh" hidden>刷新数据</button><button id="add-node" hidden>添加节点</button><button id="logout" hidden>退出登录</button></div>
+        <b id="page-label" hidden>全部节点</b>
+      </header>
       <div class="content">
-        <section class="page-heading"><div><p class="eyebrow">YOUR TRAFFIC, ACCOUNTED FOR</p><h1 id="heading">全部 VPS</h1><p id="subtitle" class="muted">每一笔流量，都有记录。</p></div><span id="status" class="badge">正在读取</span></section>
+        <section class="page-heading"><div><h1 id="heading">全部节点</h1><p id="subtitle" class="muted">查看各台 VPS 的流量用量和采集状态。</p></div><span id="status" class="badge">正在读取</span></section>
         <section id="fleet-page">
           <div class="metrics fleet-metrics">
             <article class="metric panel"><p>使用中的 VPS</p><h2 id="fleet-total">—</h2><span class="fine">每台独立记录与计费</span></article>
@@ -44,7 +42,7 @@
           <div id="fleet-cards" class="fleet-grid"></div><p id="fleet-none" class="panel empty" hidden>没有符合条件的 VPS。</p>
           <p class="fine fleet-note">按每台 VPS 自己的账期计算。缺失记录会保留提示，剩余额度不会把未知用量当作零。</p>
         </section>
-        <section id="empty" class="empty panel" hidden><div class="empty-icon">↗</div><h2>从第一台 VPS 开始</h2><p class="muted">添加节点，安装采集器。电脑关机后，服务器仍会持续记账。</p><button id="empty-add" class="primary">添加你的节点 →</button><p class="fine">安装前的未知用量会明确标注，不能自动恢复。</p></section>
+        <section id="empty" class="empty panel" hidden><h2>还没有接入的 VPS</h2><p class="muted">先添加服务器资料，再在这台 VPS 上安装采集器。</p><ol class="onboarding-steps"><li><strong>添加节点</strong><span>填写名称、IP、SSH 端口和套餐信息。</span></li><li><strong>安装采集器</strong><span>下载专属安装包，通过 SSH 上传并安装。</span></li><li><strong>等待上报</strong><span>约 5–10 分钟后显示网卡流量。</span></li></ol><div class="empty-actions"><button id="empty-add" class="primary">添加第一台 VPS</button><button class="secondary open-help">查看接入说明</button></div><p class="fine">需要能通过 SSH 管理的 Debian / Ubuntu VPS。填写 IP 本身不会自动采集流量。</p></section>
         <div id="node-content" hidden>
           <section id="overview-page">
             <div id="notice" class="notice" role="status"></div>
@@ -64,17 +62,17 @@
           <section id="history-page" hidden><section class="panel"><div class="section-header"><div><h2>历史账期</h2><p class="muted">按当前计费规则计算，已保存的期初补录随账期保留</p></div><button id="export" class="secondary">↓ 导出每日 CSV</button></div><div class="table-wrap"><table><thead><tr><th>账期开始</th><th>接收 RX</th><th>发送 TX</th><th>计算用量</th><th>记录状态</th></tr></thead><tbody id="history-body"></tbody></table></div></section></section>
           <section id="settings-page" hidden><section class="panel settings-summary"><h2>让统计和你的套餐保持一致</h2><p class="muted">套餐额度、计费方向、重置日及时区，应以实际订单为准。</p><dl id="settings-list"></dl><button id="edit-settings" class="primary">修改套餐设置 →</button><hr><h3>采集器连接</h3><p class="muted">采集令牌仅能写入本节点的数据。重新生成后，需要同步更新 VPS 上的采集器配置。</p><button id="archive-node" class="secondary">归档节点</button> <button id="rotate" class="secondary">重新生成采集令牌</button><p class="fine">这里的令牌与代理 UUID、REALITY 密钥无关。</p><div id="source-review" hidden><hr><h3>采集数据库代次变化</h3><p class="muted">检测到数据库重建或来源变动。交界处重叠的五分钟记录取较大值，可能少计。请核对缺口，必要时补录期初用量。</p><button id="ack-sources" class="secondary">已核对采集来源变化</button></div></section></section>
         </div>
-        <footer>TRAFFIC MONITOR <span>网卡统计用于估算 · 商家账单为最终依据</span></footer>
+        <footer>每 5 分钟采集一次<span>网卡统计用于估算 · 最终计费以服务商账单为准</span></footer>
       </div>
     </main>
   </div>
-  <dialog id="settings-dialog"><form id="settings-form"><div class="dialog-header"><div><p class="eyebrow">NODE CONFIGURATION</p><h2 id="dialog-title">添加节点</h2></div><button type="button" class="close-dialog icon-button" aria-label="关闭">×</button></div>
+  <dialog id="settings-dialog" aria-labelledby="dialog-title"><form id="settings-form"><div class="dialog-header"><div><h2 id="dialog-title">添加节点</h2></div><button type="button" class="close-dialog icon-button" aria-label="关闭">×</button></div>
     <p id="wizard-label" class="muted">1 / 3 · 服务器资料</p>
     <fieldset id="server-fields"><legend>服务器资料</legend>
-    <label>节点名称<input name="name" maxlength="80" required></label>
+    <label>节点名称<input name="name" maxlength="80" placeholder="例如：日本 VPS" required></label>
     <div class="form-grid"><label>服务商<input name="provider" maxlength="80" placeholder="例如 VirNAT"></label><label>地区<input name="region" maxlength="80" placeholder="例如 日本 · 东京"></label></div>
     <div class="form-grid"><label>IP 或域名（可选）<input name="host" maxlength="253" placeholder="NAT 节点可使用共享 IP"></label><label>SSH 外部端口<input name="ssh_port" type="number" min="1" max="65535" required></label></div>
-    <label>公网网卡<input name="interface" maxlength="40" placeholder="auto"></label><p class="fine">auto 会在 Debian / Ubuntu VPS 上根据默认路由识别网卡。SSH 地址仅用于资料展示。</p>
+    <label>公网网卡<input name="interface" maxlength="40" placeholder="auto"></label><p class="fine">网卡保留 auto 即可自动识别。IP 与 SSH 端口用于记录服务器资料，保存后仍需登录这台 VPS 安装采集器，无需填写 SSH 密码。</p>
     <label>备注<input name="notes" maxlength="500" placeholder="用途、套餐名称等"></label>
     </fieldset><fieldset id="billing-fields"><legend>套餐与账期</legend>
     <label>额度类型<select name="quota_mode"><option value="unknown">套餐暂未确认</option><option value="limited">已知额度</option><option value="unlimited">不限流量</option></select></label>
@@ -87,5 +85,34 @@
     </fieldset>
     <p id="settings-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" class="secondary close-dialog">取消</button><button type="button" id="wizard-back" class="secondary" hidden>上一步</button><button type="button" id="wizard-next" class="primary">下一步：套餐 →</button><button id="save-node" type="submit" class="primary">保存设置</button></div>
   </form></dialog>
-  <dialog id="token-dialog"><div class="dialog-header"><h2>连接采集器</h2><button class="close-token icon-button" aria-label="关闭">×</button></div><p class="muted">3 / 3 · 下载本节点安装包，上传到这台 VPS 后解压并安装。首次上报会自动出现在总览。令牌关闭后不再显示。</p><label>节点 ID<input id="token-node" readonly></label><label>采集令牌<input id="token-value" readonly type="password" autocomplete="off"></label><p class="fine">安装包包含本节点的采集令牌，请保存在你自己的设备或私有仓库。</p><ol class="connect-steps"><li>下载安装包并上传到当前 VPS。</li><li>解压后，在该目录依次执行：<pre id="install-commands"></pre></li><li>等待 5–10 分钟，在“全部 VPS”查看连接和首批记录。</li></ol><p class="fine">支持 Debian / Ubuntu + systemd。只安装流量采集器，不修改代理或 SSH 配置。</p><div class="dialog-actions"><button id="download-package" class="primary">↓ 下载节点安装包</button><button id="download-agent" class="secondary">↓ 下载采集器配置</button><button class="secondary close-token">已保存，关闭</button></div></dialog>
+  <dialog id="token-dialog" aria-labelledby="token-title">
+    <div class="dialog-header"><h2 id="token-title">连接采集器</h2><button class="close-token icon-button" aria-label="关闭">×</button></div>
+    <p class="muted">3 / 3 · 节点已保存。接下来在这台 VPS 上安装采集器，才能开始统计。</p>
+    <div id="token-endpoint-note" class="notice" role="status" hidden></div>
+    <label>上报地址<span id="token-endpoint"></span></label>
+    <label>节点 ID<input id="token-node" readonly></label>
+    <label>采集令牌<input id="token-value" readonly type="password" autocomplete="off"></label>
+    <ol class="connect-steps">
+      <li><strong>下载并上传安装包</strong><p>点击下方“下载节点安装包”，用 SFTP / SCP 上传到当前 VPS 的任意工作目录。</p></li>
+      <li><strong>在 VPS 的 SSH 终端执行</strong><pre id="install-commands"></pre></li>
+      <li><strong>检查采集器</strong><pre>systemctl status traffic-agent.timer
+journalctl -u traffic-agent.service -n 20</pre><p>等待约 5–10 分钟，在“全部节点”查看连接状态和首批流量。</p></li>
+    </ol>
+    <p class="fine">支持 Debian / Ubuntu + systemd，需要 sudo / root 权限。套餐、IP 和 SSH 端口只是资料，安装采集器后才会有数据。</p>
+    <p class="fine">安装包已包含本节点令牌，无需另外下载配置。关闭后令牌不再显示；需要重新下载时，在“节点设置”重新生成令牌，并更新 VPS 上的配置。</p>
+    <div class="dialog-actions"><button id="download-package" class="primary">下载节点安装包</button><button id="download-agent" class="secondary">仅下载配置</button><button class="secondary close-token">稍后接入</button></div>
+  </dialog>
+  <dialog id="help-dialog" aria-labelledby="help-title">
+    <div class="dialog-header"><h2 id="help-title">如何添加我的节点</h2><button class="close-help icon-button" aria-label="关闭接入说明">×</button></div>
+    <ol class="connect-steps">
+      <li><strong>准备自己的 VPS</strong><p>需要能通过 SSH 登录、有 sudo / root 权限的 Debian / Ubuntu 服务器。机场订阅或只有代理连接参数的节点，无法安装采集器。</p></li>
+      <li><strong>添加服务器资料</strong><p>点击页面顶部“添加节点”。名称自定义，填写 VPS 的 IP、SSH 端口，网卡保留 auto。NAT VPS 填共享 IP 与分配给你的 SSH 外部端口。</p></li>
+      <li><strong>填写套餐</strong><p>按服务商订单填写额度、重置日和计费方式。不确定时选择“套餐暂未确认”，以后可以补全。</p></li>
+      <li><strong>上传并安装采集器</strong><p>保存后下载该节点的安装包，通过 SFTP / SCP 上传到 VPS，再按弹窗里的命令解压并安装。</p></li>
+      <li><strong>查看上报结果</strong><p>约 5–10 分钟后会显示连接状态和网卡流量。已有节点可在“节点设置”生成新采集令牌并重新下载安装包。</p></li>
+    </ol>
+    <p class="notice">生产上报地址必须是可从 VPS 访问的 HTTPS 博客地址。如果当前只用 HTTP IP 访问，先给博客配置 HTTPS，或设置 TRAFFIC_PUBLIC_URL 为博客的 HTTPS 域名后重启后台。</p>
+    <p class="fine">这里统计 VPS 网卡流量，包含代理、SSH 和系统更新等用量。安装之前没有记录的流量无法自动恢复。</p>
+    <div class="dialog-actions"><button class="secondary close-help">知道了</button></div>
+  </dialog>
 </body></html>

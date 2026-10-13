@@ -1307,7 +1307,15 @@ body {
 }
 
 #traffic-panel { padding: 0; overflow: hidden; }
-#traffic-frame { width: 100%; height: max(720px, calc(100dvh - 130px)); border: 0; background: #f5f6fa; }
+#traffic-panel .traffic-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.25rem 1rem; }
+#traffic-panel .traffic-panel-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+#traffic-frame { display: block; width: 100%; height: max(720px, calc(100dvh - 170px)); border: 0; background: transparent; }
+#traffic-frame.hidden { display: none; }
+@media (max-width: 640px) {
+  #traffic-panel .traffic-panel-heading { align-items: flex-start; flex-direction: column; padding: 1rem; }
+  #traffic-panel .traffic-panel-actions { width: 100%; }
+  #traffic-panel .traffic-panel-actions #traffic-add-node { margin-left: auto; }
+}
 
 .admin-nav {
   border-radius: 0.9rem;

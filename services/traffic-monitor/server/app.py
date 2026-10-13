@@ -221,7 +221,9 @@ def handler_for(app):
             if path == "/api/health":
                 self.send(200, {"status": "ok"})
             elif path == "/api/session":
-                self.send(200, {"authenticated": self.blog_authenticated() or app.store.authenticated(self.session_token()), "user": app.user})
+                origin = self.headers.get("X-Blog-Public-Origin", app.public_url) if self.blog_authenticated() else app.public_url
+                self.send(200, {"authenticated": self.blog_authenticated() or app.store.authenticated(self.session_token()), "user": app.user,
+                                "ingest_url": origin + app.base + "/api/ingest" if origin else ""})
             elif path == "/api/nodes":
                 if self.authorized():
                     self.send(200, {"nodes": [app.view(n) for n in app.store.nodes()], "defaults": DEFAULTS, "now": int(time.time())})

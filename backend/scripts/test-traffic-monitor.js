@@ -8,6 +8,7 @@ const { gunzipSync } = require('node:zlib')
 const jwt = require('jsonwebtoken')
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'boke-traffic-'))
 const origin = 'http://127.0.0.1:31978'
+const publicIngestOrigin = process.env.TRAFFIC_TEST_PUBLIC_URL || origin
 const secret = 'traffic-integration-test-secret-not-production'
 let backend
 let output = ''
@@ -17,7 +18,7 @@ async function start() {
   backend = spawn(process.execPath, ['dist/app.js'], { cwd: path.resolve(__dirname, '..'), windowsHide: true,
     env: { ...process.env, PORT: '31978', TRAFFIC_PORT: '31979', NODE_ENV: 'test', BACKEND_HOST: '127.0.0.1',
       DB_PATH: path.join(temp, 'blog.db'), UPLOAD_DIR: path.join(temp, 'uploads'),
-      JWT_SECRET: secret, ADMIN_PASSWORD: 'test-password', TRAFFIC_PUBLIC_URL: origin }, stdio: ['ignore', 'pipe', 'pipe'] })
+      JWT_SECRET: secret, ADMIN_PASSWORD: 'test-password', TRAFFIC_PUBLIC_URL: publicIngestOrigin }, stdio: ['ignore', 'pipe', 'pipe'] })
   backend.stdout.on('data', chunk => { output += chunk })
   backend.stderr.on('data', chunk => { output += chunk })
   for (let count = 0; count < 100; count++) {
@@ -45,6 +46,7 @@ async function session() {
   const set = response.headers.get('set-cookie')
   assert.match(set, /HttpOnly/i)
   assert.match(set, /SameSite=Strict/i)
+  assert.doesNotMatch(set, /; Secure/i) // The admin test origin is HTTP, even if ingest is HTTPS.
   cookie = set.split(';')[0]
 }
 async function post(url, data, headers = {}) {
@@ -64,10 +66,12 @@ async function main() {
     assert.equal(view.status, 200)
     assert.match(view.headers.get('content-security-policy'), /frame-ancestors 'self'/)
     assert.equal(view.headers.get('cache-control'), 'no-store')
-    assert.match(await view.text(), /全部 VPS/)
+    assert.match(await view.text(), /全部节点/)
     assert.equal((await request('/app.js')).status, 200)
     assert.equal((await request('/style.css')).status, 200)
-    assert.equal((await (await request('/api/session')).json()).authenticated, true)
+    const monitorSession = await (await request('/api/session')).json()
+    assert.equal(monitorSession.authenticated, true)
+    assert.equal(monitorSession.ingest_url, `${publicIngestOrigin}/api/traffic/api/ingest`)
     assert.equal((await (await request('/api/fleet')).json()).nodes.length, 0)
     assert.equal((await request('/api/nodes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 403)
     assert.equal((await post('/api/nodes', {}, { Origin: 'https://untrusted.example' })).status, 403)
@@ -88,7 +92,7 @@ async function main() {
     const archive = await post(`/api/nodes/${node.node_id}/package`, { token: node.token })
     assert.equal(archive.status, 200)
     const raw = gunzipSync(Buffer.from(await archive.arrayBuffer())).toString('utf8')
-    assert.ok(raw.includes(`INGEST_URL=${origin}/api/traffic/api/ingest`))
+    assert.ok(raw.includes(`INGEST_URL=${publicIngestOrigin}/api/traffic/api/ingest`))
     assert.ok(raw.includes('agent/collector.py'))
     const csv = await request(`/api/nodes/${node.node_id}/export`)
     assert.equal(csv.status, 200)

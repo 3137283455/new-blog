@@ -12,6 +12,32 @@
 
 节点管理、套餐、图表、CSV、期初补录、提醒和采集器安装包均保留。首次打开没有虚构节点或流量；添加 VPS 后下载其安装包，在对应 VPS 安装采集器。真实采集器要求博客有 HTTPS，裸 HTTP 地址可查看和管理面板，但不能作为生产上报地址。
 
+## 添加自己的节点
+
+1. 后台 → 流量监控 → 页面顶部「添加节点」。这里管理的是能 SSH 登录并安装软件的 VPS；只有机场订阅／代理链接、没有服务器管理权限的节点无法接入。
+2. 填名称、VPS IP、SSH 端口（NAT VPS 填外部映射端口），网卡保留 `auto`。不需要填写 SSH 密码，填写地址不会自动安装软件。
+3. 按订单填写额度、计费方向、重置日和时区；不确定时选择「套餐暂未确认」。
+4. 保存后，在「连接采集器」下载专属安装包，通过 SFTP / SCP 上传到该 VPS。在 VPS 的 SSH 终端执行弹窗中生成的命令：
+
+```bash
+tar -xzf traffic-agent-节点ID.tar.gz
+sudo install -m 600 traffic-agent.env /etc/traffic-agent.env
+sudo bash deploy/install-agent.sh
+```
+
+5. 等待约 5–10 分钟，在「全部节点」查看连接状态。可用下面的命令检查采集器：
+
+```bash
+systemctl status traffic-agent.timer
+journalctl -u traffic-agent.service -n 20
+```
+
+需要 Debian / Ubuntu + systemd 和 sudo / root 权限。安装包已经包含专属令牌，不需要另外下载配置。已有节点要重新安装时，在「节点设置」重新生成令牌并下载新包；同时更新原 VPS 的配置。
+
+下载前会显示真正的上报地址。HTTP 地址下可先保存节点资料，安装包下载会提示先配置 HTTPS；如设置了 `TRAFFIC_PUBLIC_URL`，安装包和单独配置文件都使用该 HTTPS 地址。
+
+页面顶部「接入说明」随时可查看以上步骤。监控页采用后台卡片、字体与按钮样式，使用页内标签切换，不再显示第二套侧栏。
+
 离开监控页会停止内嵌页面的刷新；服务端和 VPS 采集继续运行。博客离线缓存不缓存监控页面、接口或登录状态。
 
 ## 可选环境变量

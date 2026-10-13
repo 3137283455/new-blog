@@ -3,6 +3,54 @@ const $ = id => document.getElementById(id);
 const directions = {rx:'仅接收 RX',tx:'仅发送 TX',sum:'双向相加 RX + TX',max:'双向取大 max(RX, TX)'};
 let nodes = [], selected = '', days = 30, page = 'fleet', editing = null, credential = null;
 let timer, toastTimer, wizardStep=1, detailVersion=0;
+let ingestUrl = new URL('./api/ingest', location.href).href;
+function notifyParent(type) {
+  if (window.parent !== window) window.parent.postMessage({type}, location.origin);
+}
+function openDialog(dialog) {
+  if (window.parent !== window) window.parent.postMessage({type:'boke-traffic-dialog',open:true},location.origin);
+  dialog.showModal();
+}
+document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('close', () => {
+  if (window.parent !== window) window.parent.postMessage({type:'boke-traffic-dialog',open:!!document.querySelector('dialog[open]')},location.origin);
+}));
+function matchAdminAppearance() {
+  if (window.parent === window) return;
+  try {
+    const parent = window.parent, root = document.documentElement;
+    const shell = parent.document.querySelector('.admin-shell');
+    const card = parent.document.querySelector('#dashboard-panel .ryu-card, .admin-shell .ryu-card');
+    const button = parent.document.querySelector('#traffic-add-node');
+    if (shell) root.style.setProperty('--admin-font', parent.getComputedStyle(shell).fontFamily);
+    if (card) {
+      const style = parent.getComputedStyle(card);
+      root.style.setProperty('--admin-card-background', style.background);
+      root.style.setProperty('--admin-card-radius', style.borderRadius);
+      root.style.setProperty('--admin-card-shadow', style.boxShadow);
+      root.style.setProperty('--line', style.borderTopColor);
+      root.style.setProperty('--ink', style.color);
+    }
+    if (button) {
+      const style = parent.getComputedStyle(button);
+      root.style.setProperty('--admin-primary-background', style.background);
+      root.style.setProperty('--admin-primary-color', style.color);
+    }
+  } catch { /* Standalone preview retains the matching fallback styles. */ }
+}
+matchAdminAppearance();
+let sizeFrame = 0;
+new ResizeObserver(() => {
+  cancelAnimationFrame(sizeFrame);
+  sizeFrame = requestAnimationFrame(() => {
+    if (window.parent !== window) window.parent.postMessage({type:'boke-traffic-size',height:Math.ceil(document.body.getBoundingClientRect().height)},location.origin);
+  });
+}).observe(document.body);
+window.addEventListener('message', event => {
+  if (event.origin !== location.origin || event.source !== window.parent) return;
+  if (event.data?.type === 'boke-traffic-add-node') openSettings(true);
+  if (event.data?.type === 'boke-traffic-help') openDialog($('help-dialog'));
+  if (event.data?.type === 'boke-traffic-refresh') refresh();
+});
 const connectionNames={waiting:'等待接入',collecting:'已连接 · 待采样',online:'连接正常',delayed:'采样延迟',offline:'离线'};
 const setText = (id, value) => { $(id).textContent = value; };
 function toast(message) { setText('toast',message); $('toast').hidden=false; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').hidden=true,5000); }
@@ -23,7 +71,7 @@ function date(value, zone, withTime=false) {
 }
 function metric(id, value, unit) { $(id).replaceChildren(element('span',value),element('small',unit)); }
 function showLogin() { $('login').hidden=false; $('dashboard').hidden=true; clearInterval(timer); }
-async function showDashboard() { $('login').hidden=true; $('dashboard').hidden=false; await refresh(); clearInterval(timer); timer=setInterval(()=>refresh().catch(e=>toast(e.message)),60000); }
+async function showDashboard() { $('login').hidden=true; $('dashboard').hidden=false; await refresh(); notifyParent('boke-traffic-ready'); clearInterval(timer); timer=setInterval(()=>refresh().catch(e=>toast(e.message)),60000); }
 async function refresh() {
   $('refresh').disabled=true;
   try {
@@ -38,7 +86,7 @@ async function refresh() {
 }
 function activeNode(){return nodes.find(n=>n.id===selected);}
 function dl(target, rows) { $(target).replaceChildren(...rows.map(([key,val])=>{const row=element('div');row.append(element('dt',key),element('dd',val));return row;})); }
-async function navigate(next){page=next;const title={fleet:'全部 VPS',overview:'用量概览',history:'历史账本',settings:'套餐设置'}[page];setText('heading',title);setText('page-label',title);document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('fleet-page').hidden=page!=='fleet';for(const name of ['overview','history','settings'])$(name+'-page').hidden=name!==page;try{if(page!=='fleet'&&selected)await loadDetail(selected);render();}catch(e){toast(e.message);}}
+async function navigate(next){page=next;const title={fleet:'全部节点',overview:'用量概览',history:'历史账期',settings:'节点设置'}[page];setText('heading',title);setText('page-label',title);document.querySelectorAll('[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));$('fleet-page').hidden=page!=='fleet';for(const name of ['overview','history','settings'])$(name+'-page').hidden=name!==page;try{if(page!=='fleet'&&selected)await loadDetail(selected);render();}catch(e){toast(e.message);}}
 function render() {
   renderFleet();
   if(page==='fleet'){$('node-content').hidden=true;$('empty').hidden=nodes.length>0;setText('subtitle','集中查看每台 VPS 的账期用量与连接情况。');setText('status','每 5 分钟采集');$('status').classList.remove('warning');return;}
@@ -85,9 +133,18 @@ function openSettings(create=false){
   const f=$('settings-form'); for(const k of ['name','provider','region','host','ssh_port','interface','notes','quota_mode','quota','unit','direction','reset_day','timezone'])f.elements[k].value=c[k];for(const k of ['confirmed','baseline_known'])f.elements[k].checked=c[k];
   f.elements.baseline_amount.value=c.baseline_bytes/(c.unit==='GiB'?2**30:1e9);
   const cut=new Date((c.baseline_cutover||Math.floor(Date.now()/300000)*300)*1000);cut.setMinutes(cut.getMinutes()-cut.getTimezoneOffset());f.elements.baseline_cutover.value=cut.toISOString().slice(0,16);
-  $('baseline-details').hidden=create;$('baseline-details').open=false;setText('dialog-title',create?'添加节点':'套餐设置');setText('settings-error','');wizardStep=1;updateWizard();$('settings-dialog').showModal();
+  $('baseline-details').hidden=create;$('baseline-details').open=false;setText('dialog-title',create?'添加节点':'套餐设置');setText('settings-error','');wizardStep=1;updateWizard();openDialog($('settings-dialog'));
 }
-function showToken(id,token){credential={id,token};$('token-node').value=id;$('token-value').value=token;setText('install-commands',`tar -xzf traffic-agent-${id}.tar.gz\nsudo install -m 600 traffic-agent.env /etc/traffic-agent.env\nsudo bash deploy/install-agent.sh`);$('token-dialog').showModal();}
+function showToken(id,token){
+  credential={id,token};$('token-node').value=id;$('token-value').value=token;
+  setText('token-endpoint',ingestUrl);
+  const https=ingestUrl.startsWith('https:');
+  $('token-endpoint-note').hidden=https;
+  setText('token-endpoint-note','节点资料已保存，但当前上报地址是 HTTP，采集器无法上报。请先配置博客 HTTPS，或设置 TRAFFIC_PUBLIC_URL 为博客的 HTTPS 地址，重启后台后重新生成采集令牌并下载安装包。');
+  $('download-package').disabled=$('download-agent').disabled=!https;
+  setText('install-commands',`tar -xzf traffic-agent-${id}.tar.gz\nsudo install -m 600 traffic-agent.env /etc/traffic-agent.env\nsudo bash deploy/install-agent.sh`);
+  openDialog($('token-dialog'));
+}
 function closeToken(){credential=null;$('token-value').value='';$('token-dialog').close();}
 async function loadDetail(id){
   const version=++detailVersion, detail=await api(`nodes/${id}`);
@@ -124,6 +181,7 @@ function renderFleet(){
   }));
 }
 function updateWizard(){
+  setText('save-node',editing?'保存设置':'保存并连接采集器');
   $('server-fields').hidden=!editing&&wizardStep!==1;$('billing-fields').hidden=!editing&&wizardStep!==2;
   $('wizard-label').hidden=!!editing;setText('wizard-label',wizardStep===1?'1 / 3 · 服务器资料':'2 / 3 · 套餐与账期');
   $('wizard-next').hidden=!!editing||wizardStep!==1;$('wizard-back').hidden=!!editing||wizardStep!==2;$('save-node').hidden=!editing&&wizardStep!==2;
@@ -156,9 +214,11 @@ document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navigate(b.dat
 document.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{days=Number(b.dataset.days);document.querySelectorAll('[data-days]').forEach(x=>x.classList.toggle('selected',x===b));render();});
 $('add-node').onclick=$('empty-add').onclick=()=>openSettings(true);$('edit-settings').onclick=()=>openSettings(false);
 document.querySelectorAll('.close-dialog').forEach(b=>b.onclick=()=>$('settings-dialog').close());document.querySelectorAll('.close-token').forEach(b=>b.onclick=closeToken);$('token-dialog').addEventListener('cancel',closeToken);
+document.querySelectorAll('.open-help').forEach(b=>b.onclick=()=>openDialog($('help-dialog')));
+document.querySelectorAll('.close-help').forEach(b=>b.onclick=()=>$('help-dialog').close());
 $('settings-form').addEventListener('submit',async e=>{e.preventDefault();if(!editing&&wizardStep===1){$('wizard-next').click();return;}const f=e.currentTarget,b=f.querySelector('[type=submit]');b.disabled=true;setText('settings-error','');try{const c={name:f.elements.name.value,provider:f.elements.provider.value,region:f.elements.region.value,host:f.elements.host.value,ssh_port:Number(f.elements.ssh_port.value),interface:f.elements.interface.value||'auto',notes:f.elements.notes.value,archived:editing?.config.archived||false,quota_mode:f.elements.quota_mode.value,quota:Number(f.elements.quota.value),unit:f.elements.unit.value,direction:f.elements.direction.value,reset_day:Number(f.elements.reset_day.value),timezone:f.elements.timezone.value,confirmed:f.elements.confirmed.checked,baseline_known:!!editing&&f.elements.baseline_known.checked,baseline_bytes:Math.round(Number(f.elements.baseline_amount.value)*(f.elements.unit.value==='GiB'?2**30:1e9)),baseline_cutover:Math.floor(new Date(f.elements.baseline_cutover.value).getTime()/300000)*300,baseline_cycle:editing?.summary.cycle||''};if(editing&&(c.reset_day!==editing.config.reset_day||c.timezone!==editing.config.timezone)&&c.baseline_known)throw new Error('修改重置日或时区时，请先关闭期初补录；保存后再按新账期补录。');if(!c.baseline_known){c.baseline_cutover=0;c.baseline_bytes=0;}if(editing){await api(`nodes/${editing.id}/settings`,c);$('settings-dialog').close();toast('套餐设置已保存');}else{const result=await api('nodes',c);selected=result.node_id;$('settings-dialog').close();page='fleet';await navigate('fleet');showToken(result.node_id,result.token);}await refresh();}catch(err){setText('settings-error',err.message);}finally{b.disabled=false;}});
 $('rotate').onclick=async()=>{if(!window.confirm('重新生成会使旧采集令牌立即失效。生成后请更新 VPS 配置，继续吗？'))return;try{const r=await api(`nodes/${selected}/rotate`,{});showToken(selected,r.token);}catch(e){toast(e.message);}};
 $('ack-sources').onclick=async()=>{try{await api(`nodes/${selected}/ack-sources`,{});await refresh();toast('来源变化已核对；实际采集缺口仍会保留');}catch(e){toast(e.message);}};
 $('export').onclick=()=>{window.location.href=`./api/nodes/${selected}/export`;};
-$('download-agent').onclick=()=>{if(!credential)return;const content=`# Store at /etc/traffic-agent.env with mode 600\nINGEST_URL=${new URL('./api/ingest', location.href).href}\nNODE_ID=${credential.id}\nINGEST_TOKEN=${credential.token}\n# Set to the VPS public interface (check: ip route get 1.1.1.1)\nINTERFACE=${nodes.find(n=>n.id===credential.id)?.config.interface||'auto'}\nSTATE_DIR=/var/lib/traffic-agent\n`;const url=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));const a=element('a');a.href=url;a.download='traffic-agent.env';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('配置已下载，auto 会在安装时识别网卡');};
-(async()=>{try{const s=await api('session');$('login-form').elements.user.value=s.user;if(s.authenticated)await showDashboard();else showLogin();}catch(e){showLogin();setText('login-error','服务暂时无法访问：'+e.message);}})();
+$('download-agent').onclick=()=>{if(!credential)return;const content=`# Store at /etc/traffic-agent.env with mode 600\nINGEST_URL=${ingestUrl}\nNODE_ID=${credential.id}\nINGEST_TOKEN=${credential.token}\n# Set to the VPS public interface (check: ip route get 1.1.1.1)\nINTERFACE=${nodes.find(n=>n.id===credential.id)?.config.interface||'auto'}\nSTATE_DIR=/var/lib/traffic-agent\n`;const url=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));const a=element('a');a.href=url;a.download='traffic-agent.env';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('配置已下载，auto 会在安装时识别网卡');};
+(async()=>{try{const s=await api('session');ingestUrl=s.ingest_url||ingestUrl;$('login-form').elements.user.value=s.user;if(s.authenticated)await showDashboard();else showLogin();}catch(e){showLogin();setText('login-error','服务暂时无法访问：'+e.message);}})();

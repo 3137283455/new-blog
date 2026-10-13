@@ -29,7 +29,9 @@ function scheduleRestart() {
 }
 
 function publicUrl(req: Request) {
-  const configured = process.env.TRAFFIC_PUBLIC_URL || req.get('origin') || `${req.protocol}://${req.get('host')}`
+  // Browser authentication follows the actual admin origin. The collector's public
+  // HTTPS endpoint can be different (e.g. admin accessed by an HTTP IP address).
+  const configured = req.get('origin') || `${req.protocol}://${req.get('host')}`
   const url = new URL(configured)
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('监控站点地址无效')
   return url.origin
