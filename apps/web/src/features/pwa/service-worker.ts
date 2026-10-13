@@ -1,5 +1,5 @@
 export const serviceWorker = String.raw`
-const CACHE_NAME = 'boke-shell-v3';
+const CACHE_NAME = 'boke-shell-v4';
 const READING_CACHE = 'boke-reading-v1';
 const PDF_CACHE = 'boke-pdf-v1';
 const pdfJobs = new Map();
@@ -112,6 +112,8 @@ self.addEventListener('fetch', (event) => {
   if (request.headers.get('RSC') === '1') return;
   const url = new URL(request.url);
   if (url.origin !== location.origin || url.pathname.startsWith('/admin')) return;
+  // The independent traffic monitor has its own login and live data.
+  if (url.pathname === '/traffic' || url.pathname.startsWith('/traffic/')) return;
   if (/^\/api\/books\/[^/]+\/document\/file$/.test(url.pathname) && url.searchParams.get('download') !== '1') {
     const response = cachedPdfResponse(request);
     event.respondWith(response);

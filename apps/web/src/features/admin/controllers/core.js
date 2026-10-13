@@ -7,6 +7,7 @@ import { register as register5 } from './core-comments';
 import { register as register6 } from './core-music';
 import { register as register7 } from './core-backup';
 import { register as registerUI } from './ui-workspace';
+import { register as registerTraffic } from './traffic-monitor';
 export function mount(scope) {
   const context = { scope };
   register0(context);
@@ -18,6 +19,7 @@ export function mount(scope) {
   register6(context);
   register7(context);
   registerUI(context);
+  registerTraffic(context);
   context.root = context.scope.query('.admin-shell');
   context.API_BASE = context.root?.dataset.apiBase || '/api';
   context.tokenKey = 'boke_admin_token';
@@ -127,6 +129,7 @@ export function mount(scope) {
     storage: '存储空间',
     logs: '日志与诊断',
     dashboard: '概览',
+    traffic: '流量监控',
     'content-center': '个人内容中枢',
     articles: '文章管理',
     series: '专题管理',

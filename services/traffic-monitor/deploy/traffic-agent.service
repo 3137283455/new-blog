@@ -1,0 +1,30 @@
+[Unit]
+Description=VPS traffic collection and delivery
+After=network-online.target vnstat.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=traffic-agent
+Group=traffic-agent
+SupplementaryGroups=vnstat
+EnvironmentFile=/etc/traffic-agent.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/traffic-agent/collector.py
+StateDirectory=traffic-agent
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/var/lib/traffic-agent
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+TimeoutStartSec=180
+MemoryMax=96M
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target

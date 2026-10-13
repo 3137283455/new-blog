@@ -1306,6 +1306,9 @@ body {
   color: oklch(var(--er));
 }
 
+#traffic-panel { padding: 0; overflow: hidden; }
+#traffic-frame { width: 100%; height: max(720px, calc(100dvh - 130px)); border: 0; background: #f5f6fa; }
+
 .admin-nav {
   border-radius: 0.9rem;
   padding: 0.8rem 0.95rem;
@@ -6397,6 +6400,7 @@ select {
   .admin-sidebar .admin-nav[data-panel='dashboard']::before { content: '▦'; }
   .admin-sidebar .admin-nav[data-panel='articles']::before { content: '▤'; }
   .admin-sidebar .admin-nav[data-panel='media']::before { content: '▣'; }
+  .admin-sidebar .admin-nav[data-panel='traffic']::before { content: '⇅'; }
   .admin-sidebar .admin-nav[data-panel='settings']::before { content: '⚙'; }
   .admin-sidebar .admin-nav:hover { background: #182742; color: #fff; transform: none; }
   .admin-sidebar .admin-nav.is-active { background: #2868ef; color: #fff; box-shadow: none; transform: none; }

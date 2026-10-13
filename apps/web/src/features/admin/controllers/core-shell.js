@@ -58,6 +58,8 @@ export function register(context) {
     context.syncPanelTabs(panel);
     const pageTitle = context.$('#admin-page-title');
     if (pageTitle) pageTitle.textContent = context.panelTitles[panel] || '后台管理';
+    if (panel === 'traffic') context.openTraffic?.();
+    else context.closeTraffic?.();
     if (panel === 'search-sources')
       window.dispatchEvent(new CustomEvent('content-search-sources-request'));
     if (

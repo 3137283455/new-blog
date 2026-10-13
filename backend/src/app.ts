@@ -9,6 +9,7 @@ import { logger } from './utils/logger'
 import routes from './routes'
 import visitorLogger from './middleware/visitor'
 import crypto from 'node:crypto'
+import trafficMonitor, { startTrafficMonitor } from './routes/traffic-monitor'
 
 const app = express()
 
@@ -64,6 +65,7 @@ app.use('/uploads', express.static(config.uploadDir, {
   maxAge: '30d',
   immutable: true,
 }))
+app.use('/api/traffic', trafficMonitor)
 app.use('/api', routes)
 
 app.use(notFoundHandler)
@@ -71,6 +73,7 @@ app.use(errorHandler)
 
 migrate()
 seed()
+if (config.nodeEnv !== 'test') startTrafficMonitor()
 
 app.listen(config.port, config.host, () => {
   logger.info(`博客后端已启动: http://localhost:${config.port}`)

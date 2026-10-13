@@ -35,6 +35,7 @@ import { MusicPlaylistDialog } from './music-playlist-dialog';
 import { MusicTracksDialog } from './music-tracks-dialog';
 import { MusicTrackDialog } from './music-track-dialog';
 import { MediaPickerDialog } from './media-picker-dialog';
+import { TrafficPanel } from './traffic-panel';
 export function AdminView() {
   return (
     <>
@@ -56,6 +57,9 @@ export function AdminView() {
             </button>
             <button className="admin-nav" data-panel="media">
               媒体库
+            </button>
+            <button className="admin-nav" data-panel="traffic" aria-label="流量监控" type="button">
+              流量监控
             </button>
             <button className="admin-nav" data-panel="settings">
               设置
@@ -148,7 +152,12 @@ export function AdminView() {
               </details>
             </div>
           </div>
-          <section id="admin-search-results" className="admin-search-results hidden" aria-label="后台搜索结果" aria-live="polite"></section>
+          <section
+            id="admin-search-results"
+            className="admin-search-results hidden"
+            aria-label="后台搜索结果"
+            aria-live="polite"
+          ></section>
           <LoginPanel />
 
           <DashboardPanel />
@@ -162,6 +171,7 @@ export function AdminView() {
           <EditorPanel />
 
           <MediaPanel />
+          <TrafficPanel />
           <FontsPanel />
 
           <BackupPanel />

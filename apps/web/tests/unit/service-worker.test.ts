@@ -123,6 +123,10 @@ test('offline media uses explicit reading cache and private API/Flight requests 
   for (const [path, headers] of [
     ['/api/private/reading-center', {}],
     ['/admin', {}],
+    ['/traffic', {}],
+    ['/traffic/', {}],
+    ['/traffic/api/nodes', {}],
+    ['/traffic/app.js', {}],
     ['/manga', { RSC: '1' }],
   ] as const) {
     let intercepted = false;
@@ -138,7 +142,7 @@ test('offline media uses explicit reading cache and private API/Flight requests 
 
 test('activation retains reading and unrelated application caches', async () => {
   const h = harness();
-  for (const name of ['boke-reading-v1', 'boke-pdf-v1', 'boke-shell-v3', 'boke-shell-v2', 'another-app'])
+  for (const name of ['boke-reading-v1', 'boke-pdf-v1', 'boke-shell-v4', 'boke-shell-v3', 'another-app'])
     await h.caches.open(name);
   let job: Promise<void> | undefined;
   h.handlers.get('activate')!({
@@ -147,7 +151,7 @@ test('activation retains reading and unrelated application caches', async () => 
     },
   });
   await job;
-  assert.deepEqual([...h.stores.keys()], ['boke-reading-v1', 'boke-pdf-v1', 'boke-shell-v3', 'another-app']);
+  assert.deepEqual([...h.stores.keys()], ['boke-reading-v1', 'boke-pdf-v1', 'boke-shell-v4', 'another-app']);
 });
 
 test('PDF cache serves later byte ranges without another network request', async () => {

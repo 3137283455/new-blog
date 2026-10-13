@@ -1,0 +1,12 @@
+[Unit]
+Description=Upload traffic every five minutes
+
+[Timer]
+OnBootSec=60
+OnCalendar=*-*-* *:00/5:30
+RandomizedDelaySec=15
+Persistent=true
+Unit=traffic-agent.service
+
+[Install]
+WantedBy=timers.target

@@ -58,6 +58,42 @@ async function mockAdmin(context: BrowserContext) {
   });
 }
 for (const width of [1440, 390])
+  test(`${width} traffic monitor embeds inside the admin and stops when leaving`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ viewport: { width, height: 1000 } });
+    await mockAdmin(context);
+    let connections = 0;
+    await context.route('**/api/traffic/session', (route) => {
+      connections++;
+      return route.fulfill({ json: { success: true, data: { ready: true } } });
+    });
+    await context.route('**/api/traffic/view', (route) =>
+      route.fulfill({
+        contentType: 'text/html; charset=utf-8',
+        body: '<!doctype html><html lang="zh-CN"><title>流量账本</title><h1>流量监控</h1></html>',
+      }),
+    );
+    const page = await context.newPage();
+    await page.goto('http://127.0.0.1:3111/admin');
+    await expect(page.locator('.admin-shell')).toHaveAttribute('data-status', '已连接后端 API');
+    const button = page.getByRole('button', { name: '流量监控', exact: true });
+    await button.click();
+    await expect(page.locator('#traffic-panel')).toBeVisible();
+    await expect(page.locator('#admin-page-title')).toHaveText('流量监控');
+    await expect(
+      page.frameLocator('#traffic-frame').getByRole('heading', { name: '流量监控' }),
+    ).toBeVisible();
+    await expect(page).toHaveURL('http://127.0.0.1:3111/admin');
+    expect(context.pages().length).toBe(1);
+    expect(connections).toBe(1);
+    await page.locator('button[data-panel="dashboard"]').click();
+    await expect(page.locator('#dashboard-panel')).toBeVisible();
+    await expect(page.locator('#traffic-frame')).not.toHaveAttribute('src');
+    await expect(page.locator('[data-panel="dashboard"]')).toHaveClass(/is-active/);
+    await context.close();
+  });
+for (const width of [1440, 390])
   test(`${width} admin authenticated domains retain UI and navigation`, async ({
     browser,
   }, info) => {

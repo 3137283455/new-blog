@@ -63,7 +63,7 @@ elif command -v python3 >/dev/null 2>&1; then
   python3 -m venv "$BACKEND_DIR/.venv"
   WEB_PYTHON="$BACKEND_DIR/.venv/bin/python"
 else
-  echo "[deploy] Python 3.9+ is required to install Trafilatura"
+  echo "[deploy] Python 3.11+ is required for webpage extraction and traffic monitoring"
   exit 1
 fi
 
@@ -73,6 +73,8 @@ if ! "$WEB_PYTHON" -m pip install "${PIP_ARGS[@]}" -r "$BACKEND_DIR/requirements
   "$WEB_PYTHON" -m pip install "${PIP_ARGS[@]}" --index-url https://pypi.tuna.tsinghua.edu.cn/simple -r "$BACKEND_DIR/requirements-web-import.txt"
 fi
 "$WEB_PYTHON" -c "import trafilatura; print('[deploy] Trafilatura', getattr(trafilatura, '__version__', 'installed'))"
+"$WEB_PYTHON" -c "import sys; assert sys.version_info >= (3, 11), 'Traffic monitoring requires Python 3.11+'; from zoneinfo import ZoneInfo; ZoneInfo('Asia/Shanghai')"
+export TRAFFIC_PYTHON="${TRAFFIC_PYTHON:-$WEB_PYTHON}"
 
 echo "[deploy] building backend"
 npm run build --prefix "$BACKEND_DIR"
@@ -97,8 +99,9 @@ pm2 save
 for attempt in {1..20}; do
   if curl --fail --silent http://127.0.0.1:3001/api/health >/dev/null \
     && curl --fail --silent http://127.0.0.1:3002/api/health >/dev/null \
+    && curl --fail --silent "http://127.0.0.1:${TRAFFIC_PORT:-8098}/api/traffic/api/health" >/dev/null \
     && curl --fail --silent http://127.0.0.1:3002/manga >/dev/null; then
-    echo "[deploy] success: Next frontend + API are healthy"
+    echo "[deploy] success: Next frontend + API + traffic monitor are healthy"
     exit 0
   fi
   sleep 1
