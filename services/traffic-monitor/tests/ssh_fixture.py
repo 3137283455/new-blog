@@ -17,6 +17,7 @@ class SSHFixture:
         self.public_key = public_key.split()[1]
         self.handshake_delay, self.query_delay = handshake_delay, query_delay
         self.fail_auth = False
+        self.auth_delay, self.session_delay = 0, 0
         self.exit_code, self.stdout, self.stderr = 0, None, b''
         self.commands, self.sessions = [], []
         self.stop = threading.Event()
@@ -36,10 +37,14 @@ class SSHFixture:
                 return 'publickey'
 
             def check_auth_publickey(self, username, key):
+                if fixture.stop.wait(fixture.auth_delay):
+                    return paramiko.AUTH_FAILED
                 valid = not fixture.fail_auth and username == 'traffic-monitor' and key.get_base64() == fixture.public_key
                 return paramiko.AUTH_SUCCESSFUL if valid else paramiko.AUTH_FAILED
 
             def check_channel_request(self, kind, chanid):
+                if fixture.stop.wait(fixture.session_delay):
+                    return paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
                 return paramiko.OPEN_SUCCEEDED if kind == 'session' else paramiko.OPEN_FAILED_ADMINISTRATIVELY_PROHIBITED
 
             def check_channel_exec_request(self, channel, command):

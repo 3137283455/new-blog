@@ -11,6 +11,37 @@ import time
 from pathlib import Path
 from agent.collector import parse_vnstat
 
+SSH_QUERY_TIMEOUT = 20
+
+
+def ssh_timeout_progress(stderr):
+    """Translate client milestones, never return raw debug lines, banners or paths."""
+    stage, detail = "SSH 建连", "尚未建立 SSH 连接"
+    milestones = (
+        ("connection established", "SSH 协议握手", "TCP 已连接，等待 SSH 服务端响应"),
+        ("remote protocol version", "SSH 密钥协商", "已收到 SSH 服务端版本，等待加密协商"),
+        ("ssh2_msg_newkeys received", "公钥认证", "加密协商已完成，等待公钥认证结果"),
+        ("offering public key:", "公钥认证", "已提交查询公钥，等待服务端确认"),
+        ("server accepts key:", "公钥认证", "服务端已认可查询公钥，等待签名认证完成"),
+        ("authenticated to ", "SSH 会话建立", "公钥登录已成功，等待远端创建查询会话"),
+        ("authentication succeeded (publickey)", "SSH 会话建立", "公钥登录已成功，等待远端创建查询会话"),
+        ("channel 0: new session", "SSH 会话建立", "公钥登录已成功，等待远端创建查询会话"),
+        ("channel 0: send open", "SSH 会话建立", "公钥登录已成功，等待远端创建查询会话"),
+        ("sending command:", "SSH 查询启动", "公钥登录已成功，已发送查询请求，等待远端确认执行"),
+        ("exec request accepted on channel", "远端 vnStat 查询", "远端已接受查询请求，等待 vnStat 返回并结束"),
+        ("rtype exit-status", "SSH 查询收尾", "远端查询已退出，等待 SSH 关闭输出通道"),
+    )
+    for line in stderr.decode("utf-8", errors="replace").splitlines():
+        # Remote banners/command output cannot be used as local protocol evidence.
+        if not line.startswith(("debug1: ", "debug2: ", "debug3: ")):
+            continue
+        message = line.lower()
+        for marker, next_stage, next_detail in milestones:
+            if marker in message:
+                stage, detail = next_stage, next_detail
+                break
+    return stage, detail
+
 
 class PullError(ValueError):
     def __init__(self, message, stage="SSH 拉取", code="pull_failed", detail="", exit_code=None):
@@ -38,7 +69,9 @@ def safe_error_detail(stderr, stdout=b""):
                "unprotected private key", "invalid format", "error in libcrypto", "no such file",
                "command not found", "failed to open database", "unable to open database", "not found",
                "bad ssh2", "bad port", "unsupported option", "unknown option", "bad permissions")
-    lines = [line.strip() for line in text.splitlines() if any(m in line.lower() for m in markers)]
+    lines = [line.strip() for line in text.splitlines()
+             if not line.startswith(("debug1: ", "debug2: ", "debug3: "))
+             and any(m in line.lower() for m in markers)]
     detail = " / ".join(lines[:2])
     detail = re.sub(r"(?i)\b(token|password|secret|passphrase)\s*[=:]\s*\S+", r"\1=[已隐藏]", detail)
     return detail[:400]
@@ -56,7 +89,16 @@ def run_bounded(args, timeout=8, limit=2_000_000, stage="本地命令"):
             deadline = time.monotonic() + timeout
             while proc.poll() is None:
                 if time.monotonic() > deadline:
-                    raise PullError(f"操作超时：等待超过 {timeout:g} 秒，已停止本次操作", stage, "timeout")
+                    # Stop first, then inspect bounded local SSH diagnostics. The old
+                    # path discarded stderr precisely when it was needed most.
+                    proc.kill()
+                    proc.wait()
+                    err.seek(0)
+                    error = err.read(limit)
+                    failure_stage, detail = (ssh_timeout_progress(error) if args[0] == "ssh"
+                                             else (stage, safe_error_detail(error)))
+                    raise PullError(f"操作超时：等待超过 {timeout:g} 秒，已停止本次操作",
+                                    failure_stage, "timeout", detail)
                 if os.fstat(out.fileno()).st_size > limit or os.fstat(err.fileno()).st_size > limit:
                     raise PullError("SSH 输出过大，已停止读取", stage, "output_limit")
                 time.sleep(.05)
@@ -74,7 +116,9 @@ def run_bounded(args, timeout=8, limit=2_000_000, stage="本地命令"):
                         raise PullError("公钥认证被拒绝，请核对本节点接入授权", "公钥认证", "authentication_failed", detail, proc.returncode)
                     if b"REMOTE HOST IDENTIFICATION" in error or b"Host key verification failed" in error:
                         raise PullError("SSH 主机密钥校验失败，未放行连接", "主机指纹校验", "host_key_failed", detail, proc.returncode)
-                    raise PullError("SSH 客户端连接或协商失败", stage, "ssh_connection_failed", detail, proc.returncode)
+                    failure_stage, progress = ssh_timeout_progress(error)
+                    raise PullError("SSH 客户端连接、会话或协商失败", failure_stage, "ssh_connection_failed",
+                                    progress + ("；" + detail if detail else ""), proc.returncode)
                 if args[0] == "ssh":
                     raise PullError("远端查询命令执行失败", "远端 vnStat 查询", "remote_command_failed", detail, proc.returncode)
                 raise PullError("命令执行失败", stage, "command_failed", detail, proc.returncode)
@@ -166,15 +210,21 @@ class SSHPoller:
                 if not self.key.exists():
                     raise PullError("请先打开 SSH 接入说明，生成查询公钥并配置 VPS", "本地密钥检查", "key_missing")
                 known = self._known_host(node)
-                command = ["ssh", "-F", os.devnull, "-T", "-i", str(self.key), "-p", str(c["ssh_port"])]
+                # Debug output stays local and is translated to a fixed allowlist of
+                # milestones on failure; no raw trace or key paths enter the UI.
+                command = ["ssh", "-vv", "-F", os.devnull, "-T", "-i", str(self.key), "-p", str(c["ssh_port"])]
                 for option in ("BatchMode=yes", "IdentitiesOnly=yes", "IdentityAgent=none", "PasswordAuthentication=no",
+                               "PreferredAuthentications=publickey", "KbdInteractiveAuthentication=no", "GSSAPIAuthentication=no",
+                               # Some NAT paths mishandle the CS1 marking OpenSSH uses
+                               # for non-interactive sessions. No cryptography is changed.
+                               "IPQoS=none", "ServerAliveInterval=5", "ServerAliveCountMax=2",
                                "StrictHostKeyChecking=yes", "CheckHostIP=no", "ConnectTimeout=10", "ConnectionAttempts=1",
                                "ClearAllForwardings=yes", "ForwardAgent=no", "HostKeyAlgorithms=ssh-ed25519",
                                f"HostKeyAlias=traffic-{node_id}", f'UserKnownHostsFile="{known.as_posix()}"', f"GlobalKnownHostsFile={os.devnull}"):
                     command.extend(["-o", option])
                 # The VPS authorized_keys additionally forces the exact interface-bound command.
                 command.extend([f"{c['ssh_user']}@{c['host']}", "vnstat --json f --limit 0"])
-                output = run_bounded(command, timeout=20, stage="SSH 登录与查询")
+                output = run_bounded(command, timeout=SSH_QUERY_TIMEOUT, stage="SSH 登录与查询")
                 try:
                     raw = json.loads(output)
                 except (ValueError, TypeError):

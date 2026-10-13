@@ -14,6 +14,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.storage import Store
@@ -23,6 +24,33 @@ from ssh_fixture import SSHFixture
 
 @unittest.skipUnless(importlib.util.find_spec('paramiko'), 'optional: install paramiko for real SSH transport test')
 class TransportTest(unittest.TestCase):
+    def test_real_ssh_stalls_reveal_auth_session_or_query_stage(self):
+        with tempfile.TemporaryDirectory(prefix='traffic-ssh-stalls-') as directory:
+            store = Store(directory)
+            poller = SSHPoller(store)
+            public = poller.public_key()
+            for stalled_field, expected_stage in (('handshake_delay', 'SSH 协议握手'),
+                                                  ('auth_delay', '公钥认证'),
+                                                  ('session_delay', 'SSH 会话建立'),
+                                                  ('query_delay', '远端 vnStat 查询')):
+                with self.subTest(stall=stalled_field), SSHFixture(public) as fixture:
+                    node, _ = store.create_node({'name': stalled_field, 'collection_mode': 'ssh', 'host': '127.0.0.1',
+                                                'ssh_port': fixture.port, 'ssh_fingerprint': fixture.fingerprint})
+                    # Scan before introducing a stall: key scanning does not authenticate.
+                    poller._known_host(next(n for n in store.nodes() if n['id'] == node))
+                    setattr(fixture, stalled_field, 10)
+                    with patch('server.ssh_pull.SSH_QUERY_TIMEOUT', 2):
+                        with self.assertRaises(PullError) as failure:
+                            poller.pull(node)
+                    self.assertEqual(failure.exception.code, 'timeout')
+                    self.assertEqual(failure.exception.stage, expected_stage)
+                    self.assertEqual(store.buckets(node), [])
+                    self.assertIn(expected_stage, store.ssh_status(node)['error'])
+                    self.assertNotIn(str(poller.key), str(failure.exception))
+                    # Same pin/key work after the server recovers, with no reinstallation.
+                    setattr(fixture, stalled_field, 0)
+                    self.assertEqual(poller.pull(node)['samples'], 1)
+
     def test_slow_real_handshake_and_stage_specific_failures(self):
         with tempfile.TemporaryDirectory(prefix='traffic-ssh-slow-') as directory:
             store = Store(directory)

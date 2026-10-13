@@ -13,7 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.accounting import validate_config
 from server.storage import Store
-from server.ssh_pull import SSHPoller, PullError, run_bounded, safe_error_detail
+from server.ssh_pull import SSHPoller, PullError, run_bounded, safe_error_detail, ssh_timeout_progress
 
 
 class SSHTest(unittest.TestCase):
@@ -52,6 +52,13 @@ class SSHTest(unittest.TestCase):
         self.assertIn('StrictHostKeyChecking=yes', command)
         self.assertIn('BatchMode=yes', command)
         self.assertIn('IdentityAgent=none', command)
+        self.assertIn('IPQoS=none', command)
+        self.assertIn('PreferredAuthentications=publickey', command)
+        self.assertIn('KbdInteractiveAuthentication=no', command)
+        self.assertIn('GSSAPIAuthentication=no', command)
+        self.assertIn('ServerAliveInterval=5', command)
+        self.assertIn('-vv', command)
+        self.assertNotIn('KexAlgorithms=curve25519-sha256', command)  # Do not silently downgrade PQ KEX.
         self.assertIn('traffic-monitor@203.0.113.42', command)
         self.assertEqual(command[-1], 'vnstat --json f --limit 0')
         self.assertTrue(self.store.ssh_status(self.node)['last_success'])
@@ -104,6 +111,45 @@ class SSHTest(unittest.TestCase):
         self.assertNotIn('secret-data', safe_error_detail(b'-----BEGIN OPENSSH PRIVATE KEY-----\nsecret-data'))
         self.assertNotIn('sensitive', safe_error_detail(b'Permission denied; token=sensitive'))
         self.assertIn('Failed to open database', safe_error_detail(b'', b'Error: Failed to open database vnstat.db'))
+        self.assertNotIn('local/key/path', safe_error_detail(b'debug1: local/key/path: No such file\nPermission denied (publickey).'))
+
+    def test_timeout_progress_is_specific_and_never_contains_raw_trace(self):
+        trace = []
+        for message, expected in (
+            ('Connection established.', 'SSH 协议握手'),
+            ('Remote protocol version 2.0, remote software version OpenSSH_10.0p2', 'SSH 密钥协商'),
+            ('SSH2_MSG_NEWKEYS received', '公钥认证'),
+            ('Offering public key: /secret/local/path ED25519 SHA256:sensitive', '公钥认证'),
+            ('Server accepts key: /secret/local/path ED25519 SHA256:sensitive', '公钥认证'),
+            ('Authenticated to private.example ([127.0.0.1]:3101) using "publickey".', 'SSH 会话建立'),
+            ('Sending command: vnstat --json f --limit 0', 'SSH 查询启动'),
+            ('exec request accepted on channel 0', '远端 vnStat 查询'),
+            ('client_input_channel_req: channel 0 rtype exit-status reply 0', 'SSH 查询收尾'),
+        ):
+            trace.append('debug1: ' + message)
+            stage, detail = ssh_timeout_progress('\n'.join(trace).encode())
+            self.assertEqual(stage, expected)
+            self.assertNotIn('secret', detail)
+            self.assertNotIn('private.example', detail)
+        self.assertEqual(ssh_timeout_progress(b'Authenticated to spoofed-banner')[0], 'SSH 建连')
+
+    def test_timeout_keeps_stderr_and_stops_the_actual_process(self):
+        import subprocess
+        popen = subprocess.Popen
+        processes = []
+        def stalled_ssh(args, **kwargs):
+            proc = popen([sys.executable, '-c',
+                          "import sys,time; print('debug1: Authenticated to hidden using publickey.', file=sys.stderr, flush=True); time.sleep(10)"], **kwargs)
+            processes.append(proc)
+            return proc
+        with patch('server.ssh_pull.subprocess.Popen', side_effect=stalled_ssh):
+            with self.assertRaises(PullError) as failure:
+                run_bounded(['ssh'], timeout=1)
+        self.assertEqual(failure.exception.code, 'timeout')
+        self.assertEqual(failure.exception.stage, 'SSH 会话建立')
+        self.assertIn('公钥登录已成功', failure.exception.detail)
+        self.assertNotIn('hidden', str(failure.exception))
+        self.assertIsNotNone(processes[0].poll())
 
     def test_non_json_has_parse_stage(self):
         def non_json(args, **kwargs):

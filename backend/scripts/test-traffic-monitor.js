@@ -15,10 +15,10 @@ let output = ''
 let cookie = ''
 let token = ''
 let sshFixture
-async function startSSHFixture(publicKeyFile) {
+async function startSSHFixture(publicKeyFile, handshakeDelay = 4, queryDelay = 8) {
   let logs = ''
   sshFixture = spawn(process.env.TRAFFIC_PYTHON || 'python3', [path.resolve(__dirname, '../../services/traffic-monitor/tests/ssh_fixture.py'),
-    '--public-key', publicKeyFile, '--handshake-delay', '4', '--query-delay', '8'], {
+    '--public-key', publicKeyFile, '--handshake-delay', String(handshakeDelay), '--query-delay', String(queryDelay)], {
     windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, ...(process.env.TRAFFIC_SSH_TEST_LIB ? { PYTHONPATH: process.env.TRAFFIC_SSH_TEST_LIB } : {}) },
   })
@@ -36,6 +36,13 @@ async function startSSHFixture(publicKeyFile) {
       }
     })
   })
+}
+async function stopSSHFixture() {
+  if (sshFixture && sshFixture.exitCode === null) {
+    const closed = new Promise(resolve => sshFixture.once('exit', resolve))
+    sshFixture.kill()
+    await closed
+  }
 }
 async function start() {
   backend = spawn(process.execPath, ['dist/app.js'], { cwd: path.resolve(__dirname, '..'), windowsHide: true,
@@ -162,8 +169,23 @@ async function main() {
       assert.equal(deniedResult.error_code, 'authentication_failed')
       assert.equal(deniedResult.exit_code, 255)
       assert.ok(!JSON.stringify(deniedResult).includes('PRIVATE KEY'))
+      await stopSSHFixture()
+      const stalled = await startSSHFixture(path.join(temp, 'traffic-monitor/ssh/id_ed25519.pub'), 0, 25)
+      assert.equal((await post(`/api/nodes/${sshNode.node_id}/settings`, { ...sampled.config,
+        host: '127.0.0.1', ssh_port: stalled.port, ssh_fingerprint: stalled.fingerprint })).status, 200)
+      const timedOut = await post(`/api/nodes/${sshNode.node_id}/ssh-pull`, {})
+      const timedOutResult = await timedOut.json()
+      assert.equal(timedOut.status, 400, JSON.stringify(timedOutResult))
+      assert.equal(timedOutResult.error_code, 'timeout')
+      assert.equal(timedOutResult.stage, '远端 vnStat 查询')
+      assert.match(timedOutResult.detail, /远端已接受查询请求/)
+      assert.ok(!JSON.stringify(timedOutResult).includes('debug1:'))
+      assert.ok(!JSON.stringify(timedOutResult).includes('id_ed25519'))
+      const afterTimeout = await (await request(`/api/nodes/${sshNode.node_id}`)).json()
+      assert.equal(afterTimeout.summary.tx, 888)
+      assert.match(afterTimeout.ssh.error, /远端 vnStat 查询/)
       assert.equal((await post(`/api/nodes/${sshNode.node_id}/settings`, currentSSH.config)).status, 200)
-      console.log('Slow encrypted SSH API pull passed (>15s, actual OpenSSH client, isolated loopback server).')
+      console.log('Encrypted SSH API tests passed: slow success, authentication denial and stalled remote query (>20s).')
     }
     await stop()
     await start()
@@ -194,11 +216,7 @@ async function main() {
     assert.equal((await request('/api/fleet')).status, 401)
     console.log('Traffic monitor integration passed: embedded assets, shared admin login, authorization, CSRF, ingestion, deduplication, package, CSV and restart persistence.')
   } finally {
-    if (sshFixture && sshFixture.exitCode === null) {
-      const closed = new Promise(resolve => sshFixture.once('exit', resolve))
-      sshFixture.kill()
-      await closed
-    }
+    await stopSSHFixture()
     await stop()
     assert.equal(path.dirname(temp), path.resolve(os.tmpdir()))
     assert.ok(path.basename(temp).startsWith('boke-traffic-'))
