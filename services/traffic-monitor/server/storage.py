@@ -22,6 +22,10 @@ CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS agents (
  node_id TEXT PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE, info TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS ssh_polls (
+ node_id TEXT PRIMARY KEY REFERENCES nodes(id) ON DELETE CASCADE,
+ last_attempt INTEGER NOT NULL, last_success INTEGER, error TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS baselines (
  node_id TEXT NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
  cycle TEXT NOT NULL, bytes INTEGER NOT NULL, cutover INTEGER NOT NULL,
@@ -136,6 +140,24 @@ class Store:
         return row is not None and secrets.compare_digest(row[0], digest(token))
 
     def ingest(self, node_id, token, generation, buckets, now=None, agent=None):
+        return self._ingest(node_id, token, generation, buckets, now, agent)
+
+    def ingest_ssh(self, node_id, expected_config, generation, buckets, now=None, agent=None):
+        return self._ingest(node_id, None, generation, buckets, now, agent, expected_config)
+
+    def ssh_status(self, node_id):
+        with self.connect() as db:
+            row = db.execute("SELECT last_attempt,last_success,error FROM ssh_polls WHERE node_id=?", (node_id,)).fetchone()
+        return dict(row) if row else {"last_attempt": None, "last_success": None, "error": ""}
+
+    def record_ssh_poll(self, node_id, error=""):
+        now = int(time.time())
+        with self.connect() as db:
+            db.execute("""INSERT INTO ssh_polls VALUES (?,?,?,?) ON CONFLICT(node_id) DO UPDATE SET
+              last_attempt=excluded.last_attempt, last_success=COALESCE(excluded.last_success,ssh_polls.last_success), error=excluded.error""",
+                       (node_id, now, None if error else now, error))
+
+    def _ingest(self, node_id, token, generation, buckets, now=None, agent=None, ssh_config=None):
         now = int(time.time()) if now is None else now
         info = self.validate_agent(agent) if agent is not None else None
         if not isinstance(generation, str) or not 1 <= len(generation) <= 160:
@@ -150,8 +172,15 @@ class Store:
             if not 0 <= b["rx"] <= 10**15 or not 0 <= b["tx"] <= 10**15:
                 raise ValueError("流量数值超出范围")
         with self.connect() as db:
-            row = db.execute("SELECT token_hash FROM nodes WHERE id=?", (node_id,)).fetchone()
-            if row is None or not secrets.compare_digest(row[0], digest(token)):
+            row = db.execute("SELECT token_hash,config FROM nodes WHERE id=?", (node_id,)).fetchone()
+            if row is None:
+                raise PermissionError("节点不存在")
+            current = {**DEFAULTS, **json.loads(row["config"])}
+            if ssh_config is not None:
+                keys = ("collection_mode", "host", "ssh_port", "ssh_user", "ssh_fingerprint", "interface", "archived")
+                if current["collection_mode"] != "ssh" or current["archived"] or any(current[k] != ssh_config[k] for k in keys):
+                    raise PermissionError("SSH 节点设置已变更，请重新拉取")
+            elif current["collection_mode"] != "agent" or not secrets.compare_digest(row["token_hash"], digest(token)):
                 raise PermissionError("上报认证失败")
             if buckets:
                 has_source = bool(db.execute("SELECT 1 FROM sources WHERE node_id=? LIMIT 1", (node_id,)).fetchone())

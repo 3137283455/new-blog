@@ -4,7 +4,7 @@ export function TrafficPanel() {
       <div className="traffic-panel-heading">
         <div>
           <h2 className="text-2xl font-black">流量监控</h2>
-          <p className="text-sm text-base-content/50">管理 VPS、查看流量用量与账期。</p>
+          <p className="text-sm text-base-content/50">通过 SSH 加密读取 VPS 网卡流量，无需 HTTPS 上报。</p>
         </div>
         <div className="traffic-panel-actions">
           <button id="traffic-help" className="ryu-btn btn-sm" type="button" disabled>

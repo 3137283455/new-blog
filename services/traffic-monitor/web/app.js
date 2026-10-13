@@ -4,6 +4,7 @@ const directions = {rx:'仅接收 RX',tx:'仅发送 TX',sum:'双向相加 RX + T
 let nodes = [], selected = '', days = 30, page = 'fleet', editing = null, credential = null;
 let timer, toastTimer, wizardStep=1, detailVersion=0;
 let ingestUrl = new URL('./api/ingest', location.href).href;
+let sshSetupId = '';
 function notifyParent(type) {
   if (window.parent !== window) window.parent.postMessage({type}, location.origin);
 }
@@ -94,6 +95,11 @@ function render() {
   if(!n){setText('status','等待添加节点');setText('subtitle','添加 VPS 后，开始记录你的第一份流量账本。');return;}
   if(!n.daily)return;
   const {config:c,summary:s}=n, zone=c.timezone, hasData=s.recorded_buckets>0||s.baseline_applied>0;
+  const ssh = c.collection_mode === 'ssh';
+  $('ssh-settings-tools').hidden=page!=='settings'||!ssh;
+  $('agent-settings-tools').hidden=ssh;
+  $('rotate').hidden=ssh;
+  setText('ssh-last-error',n.ssh?.error||'');
   setText('archive-node',c.archived?'恢复使用':'归档节点');
   setText('subtitle',`${c.name} · ${date(s.start,zone)} — ${date(s.end,zone)} · ${zone}`);
   setText('status',(c.archived?'已归档 · ':'')+connectionNames[n.connection]); $('status').classList.toggle('warning',!s.reliable);
@@ -101,6 +107,7 @@ function render() {
   if(!c.confirmed)notices.push('套餐规则待确认，请按实际订单核实额度、计费方向与重置日。');
   if(!s.complete)notices.push(`本账期记录不完整，缺少约 ${(s.missing_buckets/12).toLocaleString('zh-CN',{maximumFractionDigits:1})} 小时；未知用量未计入。`);
   if(s.stale)notices.push('采集数据尚未到达，或超过 15 分钟未更新。');
+  if(ssh&&n.ssh?.error)notices.push('SSH 拉取：'+n.ssh.error);
   if(s.source_review)notices.push('检测到采集数据库代次变化，请在套餐设置中核对。');
   $('source-review').hidden=!s.source_review;
   if(s.overage>0)notices.push(`统计用量已超过当前额度 ${bytes(s.overage,c.unit)}。`);
@@ -112,12 +119,21 @@ function render() {
   setText('used-caption',directions[c.direction]+(s.baseline_applied?' · 含期初补录':''));setText('quota-caption',c.quota_mode==='unknown'?'套餐暂未确认':c.quota_mode==='unlimited'?'无额度上限':c.confirmed?'已核实套餐规则':'候选额度 · 尚未核实');setText('remaining-caption',s.reliable?'根据当前记录估算':'套餐规则或历史记录不完整');setText('reset-caption',date(s.end,zone)+' 重置');
   setText('cycle-label',date(s.start,zone)+' — '+date(s.end,zone));setText('percent',s.quota_known?s.percent.toLocaleString('zh-CN',{maximumFractionDigits:1})+'%':'—');
   $('progress-fill').style.width=Math.min(100,s.percent||0)+'%';$('progress-fill').style.background=s.percent>=95?'#b56e48':'#27a389';document.querySelector('.progress').setAttribute('aria-valuenow',Math.min(100,s.percent||0));setText('direction-label',directions[c.direction]+(!s.reliable?' · 仅含已知用量':''));
-  dl('health',[['连接状态',connectionNames[n.connection]],['采集网卡',n.agent.interface||'等待上报'],['最新采集',date(s.last_sample,zone,true)],['最新上报',date(s.last_received,zone,true)],['本账期记录',s.complete?'完整':'有缺口 / 期初未知'],['接收 RX',bytes(s.rx,c.unit)],['发送 TX',bytes(s.tx,c.unit)]]);
+  dl('health',[['采集方式',ssh?'SSH 加密拉取':'HTTPS 上报'],['连接状态',connectionNames[n.connection]],['采集网卡',n.agent.interface||'等待采集'],['最新采集',date(s.last_sample,zone,true)],['最新更新',date(s.last_received,zone,true)],['本账期记录',s.complete?'完整':'有缺口 / 期初未知'],['接收 RX',bytes(s.rx,c.unit)],['发送 TX',bytes(s.tx,c.unit)]]);
   drawChart(n.daily.slice(-days),c.unit);
   setText('chart-note','无记录日期显示为空，不能视为零用量。历史图表为原始采集数据，不包含期初补录。');
   if(!n.alerts.length){const q=element('div',undefined,'quiet');q.append(element('span','✓'),element('p',s.reliable?'目前没有额度提醒。':c.confirmed?'已知用量尚未达到提醒阈值；未记录用量可能使实际用量更高。':'核实套餐规则后，将按 80% / 90% / 95% 提醒。'));$('alerts').replaceChildren(q);}else{$('alerts').replaceChildren(...n.alerts.map(a=>{const row=element('div',undefined,'alert-row');row.append(element('span',`${a.cycle} 账期 · 已知统计用量至少达到 ${a.threshold}%`),element('span',date(a.created,zone,true),'fine'));return row;}));}
   $('history-body').replaceChildren(...n.months.map(m=>{const row=element('tr'),known=m.recorded_buckets>0||m.baseline_applied>0;[m.cycle,known?bytes(m.rx,c.unit):'—',known?bytes(m.tx,c.unit):'—',known?bytes(m.used,c.unit)+(m.baseline_applied?' *':''):'—',m.complete?'记录完整':known?'记录不完整':'尚无记录'].forEach(t=>row.append(element('td',t)));return row;}));
-  dl('settings-list',[['节点名称',c.name],['服务商 / 地区',`${c.provider||'未填写'} / ${c.region||'未填写'}`],['连接地址',c.host?`${c.host} · SSH ${c.ssh_port}`:'未填写'],['实际采集网卡',n.agent.interface||c.interface],['服务器系统',n.agent.os||'等待首次上报'],['采集器版本',n.agent.version||'等待首次上报'],['备注',c.notes||'—'],['套餐额度',s.quota_known?`${c.quota} ${c.unit} / 月`:c.quota_mode==='unlimited'?'不限流量':'待确认'],['计算方式',directions[c.direction]],['重置日',`每月 ${c.reset_day} 日（短月取月底）`],['时区',zone],['套餐规则',c.confirmed?'已核实':'待确认'],['节点 ID',n.id]]);
+  dl('settings-list',[
+    ['节点名称',c.name],['采集方式',ssh?'SSH 加密拉取':'HTTPS 采集器上报'],
+    ['服务商 / 地区',`${c.provider||'未填写'} / ${c.region||'未填写'}`],
+    ['连接地址',c.host?`${c.host} · SSH ${c.ssh_port}`:'未填写'],['实际采集网卡',n.agent.interface||c.interface],
+    ...(ssh?[['只读用户名',c.ssh_user],['最近尝试',date(n.ssh?.last_attempt,zone,true)],['主机指纹',c.ssh_fingerprint||'等待接入核实']]
+      :[['服务器系统',n.agent.os||'等待首次上报'],['采集器版本',n.agent.version||'等待首次上报']]),
+    ['备注',c.notes||'—'],['套餐额度',s.quota_known?`${c.quota} ${c.unit} / 月`:c.quota_mode==='unlimited'?'不限流量':'待确认'],
+    ['计算方式',directions[c.direction]],['重置日',`每月 ${c.reset_day} 日（短月取月底）`],['时区',zone],
+    ['套餐规则',c.confirmed?'已核实':'待确认'],['节点 ID',n.id],
+  ]);
 }
 function drawChart(rows,unit){
   const svgNS='http://www.w3.org/2000/svg',svg=document.createElementNS(svgNS,'svg');svg.setAttribute('viewBox','0 0 760 218');svg.setAttribute('role','img');svg.setAttribute('aria-label',`最近 ${days} 天每日接收和发送流量`);
@@ -131,9 +147,31 @@ function drawChart(rows,unit){
 function openSettings(create=false){
   const n=activeNode(); editing=create?null:n; const c=create?{name:'',provider:'',region:'',host:'',ssh_port:22,interface:'auto',notes:'',archived:false,quota_mode:'unknown',quota:100,unit:'GB',direction:'sum',reset_day:1,timezone:'Asia/Shanghai',confirmed:false,baseline_known:false,baseline_bytes:0,baseline_cutover:0}:n.config;
   const f=$('settings-form'); for(const k of ['name','provider','region','host','ssh_port','interface','notes','quota_mode','quota','unit','direction','reset_day','timezone'])f.elements[k].value=c[k];for(const k of ['confirmed','baseline_known'])f.elements[k].checked=c[k];
+  f.elements.collection_mode.value=create?'ssh':c.collection_mode||'agent';
+  f.elements.ssh_user.value=c.ssh_user||'traffic-monitor';
+  updateSSHFields();
   f.elements.baseline_amount.value=c.baseline_bytes/(c.unit==='GiB'?2**30:1e9);
   const cut=new Date((c.baseline_cutover||Math.floor(Date.now()/300000)*300)*1000);cut.setMinutes(cut.getMinutes()-cut.getTimezoneOffset());f.elements.baseline_cutover.value=cut.toISOString().slice(0,16);
   $('baseline-details').hidden=create;$('baseline-details').open=false;setText('dialog-title',create?'添加节点':'套餐设置');setText('settings-error','');wizardStep=1;updateWizard();openDialog($('settings-dialog'));
+}
+function updateSSHFields(){
+  const f=$('settings-form'),ssh=f.elements.collection_mode.value==='ssh';
+  $('ssh-fields').hidden=!ssh;
+  f.elements.host.required=ssh;
+  f.elements.ssh_user.required=ssh;
+  f.elements.ssh_user.disabled=!ssh;
+}
+async function showSSHSetup(id){
+  try{
+    const data=await api(`nodes/${id}/ssh-setup`);
+    sshSetupId=id;setText('ssh-commands',data.commands);$('ssh-fingerprint').value=data.fingerprint||'';setText('ssh-error','');
+    openDialog($('ssh-dialog'));
+  }catch(e){toast(e.message);}
+}
+async function pullSSH(id){
+  const result=await api(`nodes/${id}/ssh-pull`,{});
+  await refresh();
+  return result.samples?`已拉取 ${result.samples} 段记录`:'SSH 已连通，等待 vnStat 生成首批 5 分钟记录';
 }
 function showToken(id,token){
   credential={id,token};$('token-node').value=id;$('token-value').value=token;
@@ -151,7 +189,7 @@ async function loadDetail(id){
   if(version!==detailVersion)return;
   const index=nodes.findIndex(n=>n.id===id);if(index>=0)nodes[index]=detail;
 }
-function attention(n){return ['offline','delayed'].includes(n.connection)||(n.config.confirmed&&n.summary.quota_known&&n.summary.percent>=80);}
+function attention(n){return !!(n.config.collection_mode==='ssh'&&n.ssh?.error)||['offline','delayed'].includes(n.connection)||(n.config.confirmed&&n.summary.quota_known&&n.summary.percent>=80);}
 function renderFleet(){
   const active=nodes.filter(n=>!n.config.archived);
   setText('fleet-total',active.length);setText('fleet-online',active.filter(n=>['online','collecting'].includes(n.connection)).length);
@@ -173,15 +211,20 @@ function renderFleet(){
     const facts=element('dl');for(const [label,value]of [
       ['本账期',`${date(s.start,c.timezone)} — ${date(s.end,c.timezone)}`],
       ['剩余额度',c.quota_mode==='unlimited'?'不限流量':!s.quota_known?'待确认':s.reliable?bytes(s.remaining,c.unit):'待校准'],
-      ['最新上报',date(s.last_received,c.timezone,true)],['记录状态',!known?'等待首批数据':s.reliable?'完整':!c.confirmed?'套餐待核实':'记录有缺口']]){
+      ['最新更新',date(s.last_received,c.timezone,true)],['记录状态',!known?'等待首批数据':s.reliable?'完整':!c.confirmed?'套餐待核实':'记录有缺口']]){
         const row=element('div');row.append(element('dt',label),element('dd',value));facts.append(row);
     }card.append(facts);
     const foot=element('div',undefined,'fleet-card-foot'),button=element('button','查看与管理 →','secondary');button.onclick=async()=>{selected=n.id;$('node-select').value=selected;await navigate('overview');};
-    foot.append(element('span',c.host||n.agent.hostname||'地址未填写','fine'),button);card.append(foot);return card;
+    foot.append(element('span',c.host||n.agent.hostname||'地址未填写','fine'),button);card.append(foot);
+    if(c.collection_mode==='ssh'){
+      const setup=element('button','SSH 接入 / 测试','secondary');setup.onclick=()=>showSSHSetup(n.id);card.append(setup);
+      if(n.ssh?.error)card.append(element('p',n.ssh.error,'error'));
+    }
+    return card;
   }));
 }
 function updateWizard(){
-  setText('save-node',editing?'保存设置':'保存并连接采集器');
+  setText('save-node',editing?'保存设置':$('settings-form').elements.collection_mode.value==='ssh'?'保存并配置 SSH':'保存并连接采集器');
   $('server-fields').hidden=!editing&&wizardStep!==1;$('billing-fields').hidden=!editing&&wizardStep!==2;
   $('wizard-label').hidden=!!editing;setText('wizard-label',wizardStep===1?'1 / 3 · 服务器资料':'2 / 3 · 套餐与账期');
   $('wizard-next').hidden=!!editing||wizardStep!==1;$('wizard-back').hidden=!!editing||wizardStep!==2;$('save-node').hidden=!editing&&wizardStep!==2;
@@ -194,6 +237,26 @@ $('wizard-next').onclick=()=>{
 };
 $('wizard-back').onclick=()=>{wizardStep=1;updateWizard();};
 $('settings-form').elements.quota_mode.onchange=updateWizard;
+$('settings-form').elements.collection_mode.onchange=()=>{updateSSHFields();updateWizard();};
+$('open-ssh-setup').onclick=()=>showSSHSetup(selected);
+document.querySelectorAll('.close-ssh').forEach(b=>b.onclick=()=>$('ssh-dialog').close());
+$('copy-ssh-commands').onclick=async()=>{
+  try{await navigator.clipboard.writeText($('ssh-commands').textContent);toast('已复制，请在对应 VPS 的 SSH 终端执行');}
+  catch{const selection=getSelection(),range=document.createRange();range.selectNodeContents($('ssh-commands'));selection.removeAllRanges();selection.addRange(range);toast('浏览器不允许自动复制，已选中命令，请手动复制');}
+};
+$('ssh-test').onclick=async()=>{
+  const b=$('ssh-test');b.disabled=true;setText('ssh-error','正在校验主机指纹并连接…');
+  try{
+    const fingerprint=$('ssh-fingerprint').value.trim();
+    if(!/^SHA256:[A-Za-z0-9+/]{43}$/.test(fingerprint))throw new Error('请粘贴 VPS 命令输出的 SHA256 主机指纹');
+    await api(`nodes/${sshSetupId}/ssh-fingerprint`,{fingerprint});
+    setText('ssh-error',await pullSSH(sshSetupId));
+  }catch(e){setText('ssh-error',e.message);await refresh();}finally{b.disabled=false;}
+};
+$('pull-ssh-now').onclick=async()=>{
+  const b=$('pull-ssh-now');b.disabled=true;
+  try{toast(await pullSSH(selected));}catch(e){toast(e.message);await refresh();}finally{b.disabled=false;}
+};
 $('fleet-search').oninput=$('fleet-filter').onchange=renderFleet;
 $('archive-node').onclick=async()=>{
   const n=activeNode();if(!n)return;
@@ -216,7 +279,34 @@ $('add-node').onclick=$('empty-add').onclick=()=>openSettings(true);$('edit-sett
 document.querySelectorAll('.close-dialog').forEach(b=>b.onclick=()=>$('settings-dialog').close());document.querySelectorAll('.close-token').forEach(b=>b.onclick=closeToken);$('token-dialog').addEventListener('cancel',closeToken);
 document.querySelectorAll('.open-help').forEach(b=>b.onclick=()=>openDialog($('help-dialog')));
 document.querySelectorAll('.close-help').forEach(b=>b.onclick=()=>$('help-dialog').close());
-$('settings-form').addEventListener('submit',async e=>{e.preventDefault();if(!editing&&wizardStep===1){$('wizard-next').click();return;}const f=e.currentTarget,b=f.querySelector('[type=submit]');b.disabled=true;setText('settings-error','');try{const c={name:f.elements.name.value,provider:f.elements.provider.value,region:f.elements.region.value,host:f.elements.host.value,ssh_port:Number(f.elements.ssh_port.value),interface:f.elements.interface.value||'auto',notes:f.elements.notes.value,archived:editing?.config.archived||false,quota_mode:f.elements.quota_mode.value,quota:Number(f.elements.quota.value),unit:f.elements.unit.value,direction:f.elements.direction.value,reset_day:Number(f.elements.reset_day.value),timezone:f.elements.timezone.value,confirmed:f.elements.confirmed.checked,baseline_known:!!editing&&f.elements.baseline_known.checked,baseline_bytes:Math.round(Number(f.elements.baseline_amount.value)*(f.elements.unit.value==='GiB'?2**30:1e9)),baseline_cutover:Math.floor(new Date(f.elements.baseline_cutover.value).getTime()/300000)*300,baseline_cycle:editing?.summary.cycle||''};if(editing&&(c.reset_day!==editing.config.reset_day||c.timezone!==editing.config.timezone)&&c.baseline_known)throw new Error('修改重置日或时区时，请先关闭期初补录；保存后再按新账期补录。');if(!c.baseline_known){c.baseline_cutover=0;c.baseline_bytes=0;}if(editing){await api(`nodes/${editing.id}/settings`,c);$('settings-dialog').close();toast('套餐设置已保存');}else{const result=await api('nodes',c);selected=result.node_id;$('settings-dialog').close();page='fleet';await navigate('fleet');showToken(result.node_id,result.token);}await refresh();}catch(err){setText('settings-error',err.message);}finally{b.disabled=false;}});
+$('settings-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!editing&&wizardStep===1){$('wizard-next').click();return;}
+  const f=e.currentTarget,b=f.querySelector('[type=submit]');b.disabled=true;setText('settings-error','');
+  try{
+    const c={name:f.elements.name.value,provider:f.elements.provider.value,region:f.elements.region.value,
+      host:f.elements.host.value,ssh_port:Number(f.elements.ssh_port.value),interface:f.elements.interface.value||'auto',
+      collection_mode:f.elements.collection_mode.value,ssh_user:f.elements.ssh_user.value||'traffic-monitor',
+      ssh_fingerprint:editing?.config.ssh_fingerprint||'',notes:f.elements.notes.value,archived:editing?.config.archived||false,
+      quota_mode:f.elements.quota_mode.value,quota:Number(f.elements.quota.value),unit:f.elements.unit.value,
+      direction:f.elements.direction.value,reset_day:Number(f.elements.reset_day.value),timezone:f.elements.timezone.value,
+      confirmed:f.elements.confirmed.checked,baseline_known:!!editing&&f.elements.baseline_known.checked,
+      baseline_bytes:Math.round(Number(f.elements.baseline_amount.value)*(f.elements.unit.value==='GiB'?2**30:1e9)),
+      baseline_cutover:Math.floor(new Date(f.elements.baseline_cutover.value).getTime()/300000)*300,baseline_cycle:editing?.summary.cycle||''};
+    if(editing&&(c.reset_day!==editing.config.reset_day||c.timezone!==editing.config.timezone)&&c.baseline_known)
+      throw new Error('修改重置日或时区时，请先关闭期初补录；保存后再按新账期补录。');
+    if(editing&&(c.host!==editing.config.host||c.ssh_port!==editing.config.ssh_port))c.ssh_fingerprint='';
+    if(!c.baseline_known){c.baseline_cutover=0;c.baseline_bytes=0;}
+    if(editing){
+      await api(`nodes/${editing.id}/settings`,c);$('settings-dialog').close();toast('设置已保存');
+      if(c.collection_mode==='ssh')await showSSHSetup(editing.id);
+    }else{
+      const result=await api('nodes',c);selected=result.node_id;$('settings-dialog').close();page='fleet';await navigate('fleet');
+      if(c.collection_mode==='ssh')await showSSHSetup(result.node_id);else showToken(result.node_id,result.token);
+    }
+    await refresh();
+  }catch(err){setText('settings-error',err.message);}finally{b.disabled=false;}
+});
 $('rotate').onclick=async()=>{if(!window.confirm('重新生成会使旧采集令牌立即失效。生成后请更新 VPS 配置，继续吗？'))return;try{const r=await api(`nodes/${selected}/rotate`,{});showToken(selected,r.token);}catch(e){toast(e.message);}};
 $('ack-sources').onclick=async()=>{try{await api(`nodes/${selected}/ack-sources`,{});await refresh();toast('来源变化已核对；实际采集缺口仍会保留');}catch(e){toast(e.message);}};
 $('export').onclick=()=>{window.location.href=`./api/nodes/${selected}/export`;};

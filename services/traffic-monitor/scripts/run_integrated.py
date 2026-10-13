@@ -13,7 +13,9 @@ app = Application(os.environ["TRAFFIC_DATA_DIR"], key, user="博客管理员", b
                   public_url=os.environ["TRAFFIC_PUBLIC_URL"], secure=True)
 server = BoundedHTTPServer(("127.0.0.1", int(os.environ.get("TRAFFIC_PORT", "8098"))), handler_for(app))
 print("Integrated traffic monitor ready", flush=True)
+app.ssh.start()
 try:
     server.serve_forever()
 finally:
+    app.ssh.stop.set()
     server.server_close()

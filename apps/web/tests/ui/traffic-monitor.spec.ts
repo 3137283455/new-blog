@@ -42,6 +42,23 @@ async function mockTraffic(context: BrowserContext, https = true) {
         },
       });
     if (path === '/api/traffic/api/fleet') return route.fulfill({ json: { nodes } });
+    if (path === `/api/traffic/api/nodes/${nodeId}`)
+      return route.fulfill({
+        json: { ...nodes[0], daily: [], months: [], sources: [], alerts: [], ssh: {} },
+      });
+    if (path === `/api/traffic/api/nodes/${nodeId}/ssh-setup`)
+      return route.fulfill({
+        json: {
+          public_key: 'ssh-ed25519 fixture-public-only',
+          commands:
+            "sudo bash -s <<'BLOG_TRAFFIC_SETUP'\n# fixture: install vnStat and restricted query key\nBLOG_TRAFFIC_SETUP",
+          fingerprint: '',
+        },
+      });
+    if (path === `/api/traffic/api/nodes/${nodeId}/ssh-fingerprint`)
+      return route.fulfill({ json: { ok: true } });
+    if (path === `/api/traffic/api/nodes/${nodeId}/ssh-pull`)
+      return route.fulfill({ json: { ok: true, samples: 0, interface: 'eth0' } });
     if (path === '/api/traffic/api/nodes' && req.method() === 'POST') {
       const config = req.postDataJSON();
       created.push(config);
@@ -121,6 +138,7 @@ for (const width of [1440, 390]) {
     await frame.getByRole('button', { name: '知道了' }).click();
     await page.locator('#traffic-add-node').click();
     await expect(frame.getByRole('dialog', { name: '添加节点', exact: true })).toBeVisible();
+    await frame.locator('[name="collection_mode"]').selectOption('agent');
     await frame.getByLabel('节点名称', { exact: true }).fill('我的日本 VPS');
     await frame.locator('[name="host"]').fill('203.0.113.42');
     await frame.locator('[name="ssh_port"]').fill('3101');
@@ -172,6 +190,7 @@ test('HTTP setup explains HTTPS prerequisite instead of producing an unusable co
   await page.getByRole('button', { name: '流量监控', exact: true }).click();
   await page.locator('#traffic-add-node').click();
   const frame = page.frameLocator('#traffic-frame');
+  await frame.locator('[name="collection_mode"]').selectOption('agent');
   await frame.getByLabel('节点名称', { exact: true }).fill('待接入 VPS');
   await frame.locator('#wizard-next').click();
   await frame.locator('#save-node').click();
@@ -180,3 +199,92 @@ test('HTTP setup explains HTTPS prerequisite instead of producing an unusable co
   await expect(frame.locator('#download-package')).toBeDisabled();
   await context.close();
 });
+
+for (const width of [1440, 390]) {
+  test(`${width} HTTP admin can set up SSH without upload tokens or private keys`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ viewport: { width, height: 850 } });
+    const created = await mockTraffic(context, false);
+    const page = await context.newPage();
+    await page.goto('http://127.0.0.1:3111/admin');
+    await page.getByRole('button', { name: '流量监控', exact: true }).click();
+    await page.locator('#traffic-add-node').click();
+    const frame = page.frameLocator('#traffic-frame');
+    await expect(frame.locator('[name="collection_mode"]')).toHaveValue('ssh');
+    await frame.getByLabel('节点名称', { exact: true }).fill('VirNAT SSH 节点');
+    await frame.locator('[name="host"]').fill('203.0.113.42');
+    await frame.locator('[name="ssh_port"]').fill('3101');
+    await frame.locator('#wizard-next').click();
+    await frame.locator('#save-node').click();
+    await expect(frame.getByRole('dialog', { name: 'SSH 拉取接入' })).toBeVisible();
+    expect(created[0]).toMatchObject({
+      collection_mode: 'ssh',
+      ssh_user: 'traffic-monitor',
+      host: '203.0.113.42',
+      ssh_port: 3101,
+    });
+    await expect(frame.locator('#ssh-commands')).toContainText('sudo bash');
+    await expect(frame.locator('#ssh-commands')).not.toContainText('PRIVATE KEY');
+    await expect(frame.locator('#token-dialog')).not.toBeVisible();
+    await frame.locator('#ssh-test').click();
+    await expect(frame.locator('#ssh-error')).toContainText('SHA256');
+    await frame.locator('#ssh-fingerprint').fill('SHA256:' + 'A'.repeat(43));
+    await frame.locator('#ssh-test').click();
+    await expect(frame.locator('#ssh-error')).toContainText('SSH 已连通');
+    await frame.locator('#ssh-dialog .close-ssh.secondary').click();
+    await expect(frame.locator('.fleet-card')).toContainText('SSH 接入 / 测试');
+    await frame.getByRole('button', { name: '节点设置', exact: true }).click();
+    await expect(frame.locator('#ssh-settings-tools')).toBeVisible();
+    await expect(frame.locator('#agent-settings-tools')).toBeHidden();
+    await frame.locator('#pull-ssh-now').click();
+    await expect(frame.locator('#toast')).toContainText('SSH 已连通');
+    await context.close();
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`${width} traffic content can scroll to the bottom and recover after a dialog`, async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ viewport: { width, height: 720 } });
+    await mockTraffic(context);
+    const page = await context.newPage();
+    await page.goto('http://127.0.0.1:3111/admin');
+    await page.getByRole('button', { name: '流量监控', exact: true }).click();
+    await expect(page.locator('#traffic-help')).toBeEnabled();
+    const frame = page.frameLocator('#traffic-frame');
+    // Long node lists resize the embedded document beyond the admin grid row.
+    await frame.locator('#fleet-page').evaluate((element) => {
+      const list = document.createElement('div');
+      list.style.height = '2400px';
+      const end = document.createElement('p');
+      end.id = 'scroll-end';
+      end.textContent = '流量列表底部';
+      element.append(list, end);
+    });
+    await expect
+      .poll(() => page.locator('#traffic-frame').evaluate((el) => el.clientHeight))
+      .toBeGreaterThan(2400);
+    const wheelToBottom = async () => {
+      await page.mouse.move(width - 60, 500);
+      await page.mouse.wheel(0, 6000);
+      await expect
+        .poll(() =>
+          frame.locator('#scroll-end').evaluate((el) => {
+            const rect = el.getBoundingClientRect();
+            const parentRect = window.frameElement!.getBoundingClientRect();
+            const top = parentRect.top + rect.top;
+            return top >= 0 && top + rect.height <= window.parent.innerHeight;
+          }),
+        )
+        .toBe(true);
+    };
+    await wheelToBottom();
+    // Opening a modal must not leave a fixed-height or clipped panel behind.
+    await page.locator('#traffic-help').click();
+    await frame.getByRole('button', { name: '知道了' }).click();
+    await wheelToBottom();
+    await context.close();
+  });
+}

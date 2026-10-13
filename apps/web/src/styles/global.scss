@@ -1306,7 +1306,8 @@ body {
   color: oklch(var(--er));
 }
 
-#traffic-panel { padding: 0; overflow: hidden; }
+// The iframe grows with its document; do not clip it to the admin grid's viewport row.
+#traffic-panel { padding: 0; min-width: 0; align-self: start; overflow: visible; }
 #traffic-panel .traffic-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.25rem 1rem; }
 #traffic-panel .traffic-panel-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 #traffic-frame { display: block; width: 100%; height: max(720px, calc(100dvh - 170px)); border: 0; background: transparent; }

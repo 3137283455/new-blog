@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from .accounting import summarize, history, period, DEFAULTS
 from .storage import Store
+from .ssh_pull import SSHPoller
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -73,6 +74,7 @@ class Application:
             identity = {"salt": self.salt.hex(), "hash": self.password_hash.hex(), "user": user}
             db.execute("INSERT INTO metadata VALUES ('admin_auth',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (json.dumps(identity),))
         self.attempts, self.ingest_hits, self.lock = {}, {}, threading.Lock()
+        self.ssh = SSHPoller(self.store)
 
     def ingest_allowed(self, node_id):
         with self.lock:
@@ -115,7 +117,7 @@ class Application:
                       "collecting" if summary["last_sample"] is None else
                       "delayed" if summary["stale"] else "online")
         result = {**node, "config": config, "summary": summary, "connection": connection,
-                  "agent": self.store.agent_info(node["id"])}
+                  "agent": self.store.agent_info(node["id"]), "ssh": self.store.ssh_status(node["id"])}
         if not details:
             return result
         months = []
@@ -248,6 +250,21 @@ def handler_for(app):
                 for r in app.view(node)["daily"]:
                     writer.writerow([r[k] for k in ("date", "rx", "tx", "used", "samples")])
                 self.send(200, "\ufeff" + stream.getvalue(), "text/csv; charset=utf-8", {"Content-Disposition": 'attachment; filename="traffic-daily.csv"'})
+            elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/ssh-setup", path):
+                if not self.authorized():
+                    return
+                node = next((n for n in app.store.nodes() if n["id"] == path.split('/')[3]), None)
+                if not node:
+                    self.send(404, {"error": "节点不存在"})
+                    return
+                if node["config"]["collection_mode"] != "ssh":
+                    self.send(400, {"error": "请先将采集方式改为 SSH 拉取并保存"})
+                    return
+                try:
+                    self.send(200, {"public_key": app.ssh.public_key(), "commands": app.ssh.setup(node["config"]),
+                                    "fingerprint": node["config"]["ssh_fingerprint"]})
+                except ValueError as exc:
+                    self.send(400, {"error": str(exc)})
             elif path in ("/", "/app.js", "/style.css"):
                 file = ROOT / "web" / ({"/": "index.html"}.get(path, path[1:]))
                 self.send(200, file.read_bytes(), mimetypes.guess_type(file.name)[0] + "; charset=utf-8")
@@ -320,13 +337,15 @@ def handler_for(app):
                 self.send(200, {"ok": True}, headers={"Set-Cookie": self.cookie("", 0)})
             elif path == "/api/nodes":
                 node_id, token = app.store.create_node(data)
-                self.send(201, {"node_id": node_id, "token": token})
+                self.send(201, {"node_id": node_id} if data.get("collection_mode") == "ssh" else {"node_id": node_id, "token": token})
             elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/package", path):
                 node_id = path.split("/")[3]
                 token = data.get("token", "")
                 if not isinstance(token, str) or not app.store.valid_token(node_id, token):
                     raise PermissionError()
                 node = next(n for n in app.store.nodes() if n["id"] == node_id)
+                if node["config"]["collection_mode"] == "ssh":
+                    raise ValueError("SSH 节点无需采集器安装包，请打开 SSH 接入说明")
                 origin = self.headers.get("X-Blog-Public-Origin", app.public_url) if self.blog_authenticated() else app.public_url
                 origin = origin or ("http://" + self.headers.get("Host", ""))
                 config = (f"INGEST_URL={origin}{app.base}/api/ingest\nNODE_ID={node_id}\nINGEST_TOKEN={token}\n"
@@ -342,6 +361,13 @@ def handler_for(app):
                 self.send(200, buf.getvalue(), "application/gzip", {"Content-Disposition": f'attachment; filename="traffic-agent-{node_id}.tar.gz"'})
             elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/settings", path):
                 app.store.update_node(path.split("/")[3], data)
+                self.send(200, {"ok": True})
+            elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/ssh-pull", path):
+                self.send(200, app.ssh.pull(path.split('/')[3]))
+            elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/ssh-fingerprint", path):
+                node_id = path.split('/')[3]
+                node = next(n for n in app.store.nodes() if n["id"] == node_id)
+                app.store.update_node(node_id, {**node["config"], "ssh_fingerprint": data.get("fingerprint", "")})
                 self.send(200, {"ok": True})
             elif re.fullmatch(r"/api/nodes/[a-f0-9]{16}/rotate", path):
                 self.send(200, {"token": app.store.rotate(path.split("/")[3])})
@@ -364,12 +390,14 @@ def main():
     host, port = os.environ.get("LISTEN_HOST", "127.0.0.1"), int(os.environ.get("PORT", "8098"))
     httpd = BoundedHTTPServer((host, port), handler_for(app))
     httpd.daemon_threads = True
+    app.ssh.start()
     print(f"Traffic Monitor listening on http://{host}:{port}{app.base}/", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        app.ssh.stop.set()
         httpd.server_close()
 
 

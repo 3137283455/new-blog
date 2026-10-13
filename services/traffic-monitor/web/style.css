@@ -158,6 +158,9 @@ pre { margin: 10px 0; padding: 12px; border-radius: 6px; background: #f3f6f2; co
 #token-dialog > .muted, #token-dialog > .fine { margin-top: 14px; }
 #token-endpoint { font-size: 12px; overflow-wrap: anywhere; }
 #token-endpoint-note { margin-top: 14px; }
+#ssh-dialog > .muted { margin-top: 14px; }
+#ssh-commands { max-height: 260px; overflow: auto; }
+#ssh-settings-tools { margin-bottom: 16px; }
 #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 6px; background: var(--ink); color: #fff; box-shadow: 0 8px 25px #18372820; font-size: 13px; z-index: 1000; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
 @media (max-width: 1050px) {

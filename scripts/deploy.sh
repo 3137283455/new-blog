@@ -9,6 +9,15 @@ ENV_FILE="$BACKEND_DIR/.env"
 command -v node >/dev/null 2>&1 || { echo "[deploy] Node.js 20+ is required"; exit 1; }
 command -v npm >/dev/null 2>&1 || { echo "[deploy] npm is required"; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "[deploy] curl is required"; exit 1; }
+if ! command -v ssh >/dev/null || ! command -v ssh-keyscan >/dev/null || ! command -v ssh-keygen >/dev/null; then
+  if command -v apt-get >/dev/null && [[ "$EUID" == 0 ]]; then
+    apt-get update
+    apt-get install -y openssh-client
+  else
+    echo "[deploy] SSH traffic reads require openssh-client; install it then run deploy again"
+    exit 1
+  fi
+fi
 
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
 if (( NODE_MAJOR < 22 )); then

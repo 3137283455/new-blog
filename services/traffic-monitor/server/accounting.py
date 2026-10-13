@@ -9,6 +9,8 @@ DEFAULTS = {
     "baseline_bytes": 0, "baseline_cycle": "", "baseline_known": False, "baseline_cutover": 0,
     "provider": "", "region": "", "host": "", "ssh_port": 22, "interface": "auto",
     "notes": "", "archived": False, "quota_mode": "limited",
+    # Existing nodes keep their push collector; new UI nodes select SSH explicitly.
+    "collection_mode": "agent", "ssh_user": "traffic-monitor", "ssh_fingerprint": "",
 }
 
 
@@ -26,6 +28,19 @@ def validate_config(data):
         raise ValueError("地址请填写 IP 或域名，不包含密码、协议或路径")
     if type(c["ssh_port"]) is not int or not 1 <= c["ssh_port"] <= 65535:
         raise ValueError("SSH 端口必须为 1–65535")
+    if c["collection_mode"] not in ("ssh", "agent"):
+        raise ValueError("采集方式无效")
+    if not isinstance(c["ssh_user"], str) or c["ssh_user"] == "root" or not re.fullmatch(r"[a-z_][a-z0-9_-]{0,31}", c["ssh_user"]):
+        raise ValueError("SSH 查询用户名无效")
+    if not isinstance(c["ssh_fingerprint"], str) or (c["ssh_fingerprint"] and not re.fullmatch(r"SHA256:[A-Za-z0-9+/]{43}", c["ssh_fingerprint"])):
+        raise ValueError("请填写 SHA256 格式的 SSH 主机指纹")
+    if c["collection_mode"] == "ssh":
+        import ipaddress
+        try:
+            ipaddress.ip_address(c["host"])
+        except ValueError:
+            if not c["host"] or any(not re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label) for label in c["host"].rstrip('.').split('.')):
+                raise ValueError("SSH 拉取需要有效的 VPS IP 或域名")
     if not isinstance(c["interface"], str) or not re.fullmatch(r"[a-zA-Z0-9_.:-]{1,40}", c["interface"]):
         raise ValueError("网卡名称无效")
     if type(c["archived"]) is not bool or c["quota_mode"] not in ("limited", "unknown", "unlimited"):
