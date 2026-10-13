@@ -259,7 +259,25 @@ for (const width of [1440, 390]) {
     await expect(frame.locator('#token-dialog')).not.toBeVisible();
     await frame.locator('#ssh-test').click();
     await expect(frame.locator('#ssh-error')).toContainText('SHA256');
+    let failedOnce = false;
+    await page.route('**/api/traffic/api/nodes/*/ssh-pull', async (route) => {
+      if (failedOnce) return route.fallback();
+      failedOnce = true;
+      return route.fulfill({
+        status: 400,
+        json: {
+          error: '[主机密钥扫描] 未能取得主机密钥；退出码 1；Connection closed by remote host',
+          stage: '主机密钥扫描',
+          error_code: 'keyscan_failed',
+          exit_code: 1,
+        },
+      });
+    });
     await frame.locator('#ssh-fingerprint').fill('SHA256:' + 'A'.repeat(43));
+    await frame.locator('#ssh-test').click();
+    await expect(frame.locator('#ssh-error')).toContainText('主机密钥扫描');
+    await expect(frame.locator('#ssh-error')).toContainText('Connection closed');
+    await expect(frame.locator('#ssh-test')).toBeEnabled();
     await frame.locator('#ssh-test').click();
     await expect(frame.locator('#ssh-error')).toContainText('SSH 已连通');
     await frame.locator('#ssh-dialog .close-ssh.secondary').click();

@@ -309,7 +309,7 @@ $('copy-ssh-commands').onclick=async()=>{
   catch{const selection=getSelection(),range=document.createRange();range.selectNodeContents($('ssh-commands'));selection.removeAllRanges();selection.addRange(range);toast('浏览器不允许自动复制，已选中命令，请手动复制');}
 };
 $('ssh-test').onclick=async()=>{
-  const b=$('ssh-test');b.disabled=true;setText('ssh-error','正在校验主机指纹并连接…');
+  const b=$('ssh-test');b.disabled=true;setText('ssh-error','正在校验主机指纹并连接，首次测试可能需要约 30 秒，请勿重复点击…');
   try{
     const fingerprint=$('ssh-fingerprint').value.trim();
     if(!/^SHA256:[A-Za-z0-9+/]{43}$/.test(fingerprint))throw new Error('请粘贴 VPS 命令输出的 SHA256 主机指纹');

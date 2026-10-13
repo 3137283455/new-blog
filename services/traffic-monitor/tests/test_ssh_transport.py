@@ -18,10 +18,40 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.storage import Store
 from server.ssh_pull import SSHPoller, PullError, run_bounded
+from ssh_fixture import SSHFixture
 
 
 @unittest.skipUnless(importlib.util.find_spec('paramiko'), 'optional: install paramiko for real SSH transport test')
 class TransportTest(unittest.TestCase):
+    def test_slow_real_handshake_and_stage_specific_failures(self):
+        with tempfile.TemporaryDirectory(prefix='traffic-ssh-slow-') as directory:
+            store = Store(directory)
+            poller = SSHPoller(store)
+            public = poller.public_key()
+            with SSHFixture(public, handshake_delay=3.5) as fixture:
+                node, _ = store.create_node({'name': 'slow handshake', 'collection_mode': 'ssh', 'host': '127.0.0.1',
+                                            'ssh_port': fixture.port, 'ssh_fingerprint': fixture.fingerprint})
+                self.assertEqual(poller.pull(node)['samples'], 1)
+                fixture.handshake_delay = 0
+                fixture.fail_auth = True
+                with self.assertRaises(PullError) as rejected:
+                    poller.pull(node)
+                self.assertEqual(rejected.exception.code, 'authentication_failed')
+                fixture.fail_auth = False
+                fixture.exit_code = 1
+                fixture.stdout = b'Error: Failed to open database vnstat.db in read-only mode.'
+                with self.assertRaises(PullError) as remote:
+                    poller.pull(node)
+                self.assertEqual(remote.exception.stage, '远端 vnStat 查询')
+                self.assertEqual(remote.exception.code, 'remote_command_failed')
+                self.assertEqual(remote.exception.exit_code, 1)
+                self.assertIn('Failed to open database', remote.exception.detail)
+                fixture.exit_code = 0
+                fixture.stdout = b'invalid JSON banner'
+                with self.assertRaises(PullError) as invalid:
+                    poller.pull(node)
+                self.assertEqual(invalid.exception.code, 'invalid_json')
+
     def test_real_encrypted_pull_and_host_mismatch(self):
         import paramiko
         logging.getLogger('paramiko').setLevel(logging.CRITICAL)

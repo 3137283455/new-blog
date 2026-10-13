@@ -13,7 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from server.accounting import validate_config
 from server.storage import Store
-from server.ssh_pull import SSHPoller, PullError, run_bounded
+from server.ssh_pull import SSHPoller, PullError, run_bounded, safe_error_detail
 
 
 class SSHTest(unittest.TestCase):
@@ -63,6 +63,55 @@ class SSHTest(unittest.TestCase):
         self.assertEqual(run.call_count, 1)
         self.assertEqual(self.store.buckets(self.node), [])
         self.assertIn('指纹不匹配', self.store.ssh_status(self.node)['error'])
+
+    def test_validated_cache_skips_second_scan_but_keeps_strict_checking(self):
+        with patch('server.ssh_pull.run_bounded', side_effect=self.remote):
+            self.poller.pull(self.node)
+            self.poller.pull(self.node)
+        scans = [call for call in self.calls if call[0] == 'ssh-keyscan']
+        self.assertEqual(len(scans), 1)
+        self.assertIn('10', scans[0])
+        self.assertIn('StrictHostKeyChecking=yes', self.calls[-1])
+
+    def test_empty_scan_is_not_fingerprint_mismatch(self):
+        with patch('server.ssh_pull.run_bounded', return_value=''):
+            with self.assertRaises(PullError) as error:
+                self.poller.pull(self.node)
+        self.assertEqual(error.exception.code, 'keyscan_empty')
+        self.assertEqual(error.exception.stage, '主机密钥扫描')
+
+    def test_changed_saved_fingerprint_invalidates_cache(self):
+        with patch('server.ssh_pull.run_bounded', side_effect=self.remote):
+            self.poller.pull(self.node)
+            self.store.update_node(self.node, {**self.config, 'ssh_fingerprint': 'SHA256:' + 'A' * 43})
+            with self.assertRaises(PullError) as error:
+                self.poller.pull(self.node)
+        self.assertEqual(error.exception.code, 'fingerprint_mismatch')
+        self.assertEqual(len([call for call in self.calls if call[0] == 'ssh']), 1)
+
+    def test_stage_and_exit_code_survive_status_and_response(self):
+        failure = PullError('扫描失败', '主机密钥扫描', 'keyscan_failed', 'Connection closed by remote host', 1)
+        with patch('server.ssh_pull.run_bounded', side_effect=failure):
+            with self.assertRaises(PullError) as error:
+                self.poller.pull(self.node)
+        self.assertIs(error.exception, failure)
+        self.assertEqual(error.exception.response()['error_code'], 'keyscan_failed')
+        self.assertEqual(error.exception.response()['exit_code'], 1)
+        self.assertIn('主机密钥扫描', self.store.ssh_status(self.node)['error'])
+
+    def test_error_detail_does_not_dump_secrets_or_arbitrary_output(self):
+        self.assertEqual(safe_error_detail(b'', b'arbitrary-private-token'), '')
+        self.assertNotIn('secret-data', safe_error_detail(b'-----BEGIN OPENSSH PRIVATE KEY-----\nsecret-data'))
+        self.assertNotIn('sensitive', safe_error_detail(b'Permission denied; token=sensitive'))
+        self.assertIn('Failed to open database', safe_error_detail(b'', b'Error: Failed to open database vnstat.db'))
+
+    def test_non_json_has_parse_stage(self):
+        def non_json(args, **kwargs):
+            return self.remote(args, **kwargs) if args[0] == 'ssh-keyscan' else 'login banner, not JSON'
+        with patch('server.ssh_pull.run_bounded', side_effect=non_json):
+            with self.assertRaises(PullError) as error:
+                self.poller.pull(self.node)
+        self.assertEqual(error.exception.code, 'invalid_json')
 
     def test_missing_fingerprint_requires_setup(self):
         self.store.update_node(self.node, {**self.config, 'ssh_fingerprint': ''})

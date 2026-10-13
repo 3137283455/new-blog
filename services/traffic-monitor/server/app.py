@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, parse_qs
 from .accounting import summarize, history, period, DEFAULTS
 from .storage import Store
-from .ssh_pull import SSHPoller
+from .ssh_pull import SSHPoller, PullError
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -274,6 +274,8 @@ def handler_for(app):
         def do_POST(self):
             try:
                 self.post()
+            except PullError as exc:
+                self.send(400, exc.response())
             except PermissionError:
                 self.send(401, {"error": "上报认证失败"})
             except KeyError:

@@ -143,7 +143,10 @@ router.use(async (req: Request, res: Response) => {
       if (req.get('origin') !== site) return res.status(403).json({ error: '请求来源无效' })
       headers.Origin = site
     }
-    const response = await fetch(target, { method: req.method, headers, body, redirect: 'manual', signal: AbortSignal.timeout(15000) })
+    // A first SSH read can spend 12s scanning + 20s connecting/querying; do not
+    // abort the proxy before the monitor can return its stage-specific result.
+    const timeout = /^\/api\/nodes\/[a-f0-9]{16}\/ssh-pull$/.test(req.path) ? 45000 : 15000
+    const response = await fetch(target, { method: req.method, headers, body, redirect: 'manual', signal: AbortSignal.timeout(timeout) })
     for (const name of ['Content-Type', 'Content-Disposition', 'Content-Security-Policy', 'X-Content-Type-Options']) {
       const value = response.headers.get(name)
       if (value) res.setHeader(name, value)

@@ -14,6 +14,29 @@ let backend
 let output = ''
 let cookie = ''
 let token = ''
+let sshFixture
+async function startSSHFixture(publicKeyFile) {
+  let logs = ''
+  sshFixture = spawn(process.env.TRAFFIC_PYTHON || 'python3', [path.resolve(__dirname, '../../services/traffic-monitor/tests/ssh_fixture.py'),
+    '--public-key', publicKeyFile, '--handshake-delay', '4', '--query-delay', '8'], {
+    windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, ...(process.env.TRAFFIC_SSH_TEST_LIB ? { PYTHONPATH: process.env.TRAFFIC_SSH_TEST_LIB } : {}) },
+  })
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('SSH fixture did not start: ' + logs)), 15000)
+    sshFixture.on('error', error => { clearTimeout(timer); reject(error) })
+    sshFixture.on('exit', () => { clearTimeout(timer); reject(new Error('SSH fixture stopped: ' + logs)) })
+    sshFixture.stderr.on('data', chunk => { logs += chunk })
+    let buffer = ''
+    sshFixture.stdout.on('data', chunk => {
+      buffer += chunk
+      if (buffer.includes('\n')) {
+        clearTimeout(timer)
+        try { resolve(JSON.parse(buffer.split('\n')[0])) } catch (error) { reject(error) }
+      }
+    })
+  })
+}
 async function start() {
   backend = spawn(process.execPath, ['dist/app.js'], { cwd: path.resolve(__dirname, '..'), windowsHide: true,
     env: { ...process.env, PORT: '31978', TRAFFIC_PORT: '31979', NODE_ENV: 'test', BACKEND_HOST: '127.0.0.1',
@@ -110,10 +133,38 @@ async function main() {
     assert.ok(!JSON.stringify(sshSetup).includes('PRIVATE KEY'))
     const noPin = await post(`/api/nodes/${sshNode.node_id}/ssh-pull`, {})
     assert.equal(noPin.status, 400)
-    assert.match((await noPin.json()).error, /主机指纹/)
+    const noPinError = await noPin.json()
+    assert.match(noPinError.error, /主机指纹/)
+    assert.equal(noPinError.error_code, 'fingerprint_missing')
+    assert.equal(noPinError.stage, '接入配置检查')
     assert.equal((await post(`/api/nodes/${sshNode.node_id}/ssh-fingerprint`, { fingerprint: 'bad' })).status, 400)
     assert.equal((await post(`/api/nodes/${sshNode.node_id}/ssh-fingerprint`, { fingerprint: 'SHA256:' + 'A'.repeat(43) })).status, 200)
     assert.equal((await post('/api/ingest', { ...payload, node_id: sshNode.node_id }, { Authorization: `Bearer ${sshNode.token}` })).status, 401)
+    if (process.env.TRAFFIC_SSH_TEST === '1') {
+      const currentSSH = await (await request(`/api/nodes/${sshNode.node_id}`)).json()
+      const fixture = await startSSHFixture(path.join(temp, 'traffic-monitor/ssh/id_ed25519.pub'))
+      assert.equal((await post(`/api/nodes/${sshNode.node_id}/settings`, { ...currentSSH.config,
+        host: '127.0.0.1', ssh_port: fixture.port, ssh_fingerprint: fixture.fingerprint })).status, 200)
+      const began = Date.now()
+      const slowPull = await post(`/api/nodes/${sshNode.node_id}/ssh-pull`, {})
+      const slowResult = await slowPull.json()
+      assert.equal(slowPull.status, 200, JSON.stringify(slowResult))
+      assert.ok(Date.now() - began >= 15000, 'Fixture must exercise the former 15-second proxy timeout')
+      assert.equal(slowResult.samples, 1)
+      const sampled = await (await request(`/api/nodes/${sshNode.node_id}`)).json()
+      assert.equal(sampled.summary.tx, 888)
+      assert.equal(sampled.ssh.error, '')
+      assert.equal((await post(`/api/nodes/${sshNode.node_id}/settings`, { ...sampled.config, ssh_user: 'not-authorized' })).status, 200)
+      const denied = await post(`/api/nodes/${sshNode.node_id}/ssh-pull`, {})
+      const deniedResult = await denied.json()
+      assert.equal(denied.status, 400, JSON.stringify(deniedResult))
+      assert.equal(deniedResult.stage, '公钥认证')
+      assert.equal(deniedResult.error_code, 'authentication_failed')
+      assert.equal(deniedResult.exit_code, 255)
+      assert.ok(!JSON.stringify(deniedResult).includes('PRIVATE KEY'))
+      assert.equal((await post(`/api/nodes/${sshNode.node_id}/settings`, currentSSH.config)).status, 200)
+      console.log('Slow encrypted SSH API pull passed (>15s, actual OpenSSH client, isolated loopback server).')
+    }
     await stop()
     await start()
     cookie = ''
@@ -143,6 +194,11 @@ async function main() {
     assert.equal((await request('/api/fleet')).status, 401)
     console.log('Traffic monitor integration passed: embedded assets, shared admin login, authorization, CSRF, ingestion, deduplication, package, CSV and restart persistence.')
   } finally {
+    if (sshFixture && sshFixture.exitCode === null) {
+      const closed = new Promise(resolve => sshFixture.once('exit', resolve))
+      sshFixture.kill()
+      await closed
+    }
     await stop()
     assert.equal(path.dirname(temp), path.resolve(os.tmpdir()))
     assert.ok(path.basename(temp).startsWith('boke-traffic-'))
